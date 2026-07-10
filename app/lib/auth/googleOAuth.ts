@@ -57,13 +57,20 @@ function encodeState(data: Record<string, string>): string {
   return btoa(JSON.stringify(data));
 }
 
+function replaceHashRoute(nextHashRoute: string) {
+  const previousUrl = window.location.href;
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search || ''}#${nextHashRoute}`);
+  window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: window.location.href }));
+}
+
 function consumeGoogleRedirectIdToken(): string | null {
-  const hash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
-  const params = new URLSearchParams(hash.startsWith('/') ? '' : hash);
+  const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+  const hash = rawHash.startsWith('/') ? rawHash.slice(1) : rawHash;
+  const params = new URLSearchParams(hash);
   const idToken = params.get('id_token');
 
   if (idToken) {
-    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search || ''}#/login`);
+    replaceHashRoute('/');
   }
 
   return idToken;

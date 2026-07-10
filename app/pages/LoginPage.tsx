@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,7 +19,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 function LoginPage() {
-  const { login, googleSignInError } = useAuth();
+  const { user, isLoading, login, googleSignInError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +30,14 @@ function LoginPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const requestedFrom = (location.state as { from?: string } | null)?.from ?? '/';
+  const from = requestedFrom === '/login' || requestedFrom === '/signup' ? '/' : requestedFrom;
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate(from, { replace: true });
+    }
+  }, [from, isLoading, navigate, user]);
 
   const handleSubmit = async (values: FormValues) => {
     setFormError(null);

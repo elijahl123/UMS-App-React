@@ -1,8 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="180" height="140" viewBox="0 0 180 140" fill="none">
-  <ellipse cx="91" cy="111" rx="36" ry="6" fill="#E7E7E7"/>
-  <rect x="61" y="36" width="48" height="60" rx="8" fill="#FFFDFB" stroke="#F8AD9D" stroke-width="4"/>
-  <path d="M73 51H97" stroke="#F8AD9D" stroke-width="5" stroke-linecap="round"/>
-  <path d="M73 64H94M73 77H88M73 90H96" stroke="#D8D8DD" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="109" cy="81" r="15" fill="#CFE8DA"/>
-  <path d="M101 82L107 88L119 74" stroke="#24553D" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 72 83">
+  <!-- Generator: Adobe Illustrator 30.6.0, SVG Export Plug-In . SVG Version: 2.1.4 Build 109)  -->
+  <defs>
+    <style>
+      .st0 {
+        stroke: #24553d;
+        stroke-linejoin: round;
+      }
+
+      .st0, .st1, .st2 {
+        stroke-width: 4px;
+      }
+
+      .st0, .st1, .st3 {
+        fill: none;
+        stroke-linecap: round;
+      }
+
+      .st1 {
+        stroke: #d8d8dd;
+      }
+
+      .st4 {
+        fill: #cfe8da;
+      }
+
+      .st5 {
+        fill: #e7e7e7;
+      }
+
+      .st2 {
+        fill: #fffdfb;
+      }
+
+      .st2, .st3 {
+        stroke: #f8ad9d;
+      }
+
+      .st3 {
+        stroke-width: 5px;
+      }
+    </style>
+  </defs>
+  <ellipse class="st5" cx="36" cy="77" rx="36" ry="6"/>
+  <rect class="st2" x="3.5" y="2" width="48" height="60" rx="8" ry="8"/>
+  <path class="st3" d="M15.5,16h24"/>
+  <path class="st1" d="M15.5,29h21M15.5,40h15M15.5,50h23"/>
+  <circle class="st4" cx="52.5" cy="46" r="16"/>
+  <path class="st0" d="M43.5,48l6,6,12-14"/>
 </svg>

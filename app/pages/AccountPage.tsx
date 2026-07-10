@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning } from 'lucide-react';
+import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -116,7 +117,7 @@ function AccountPage() {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
-        <p className="text-sm text-muted-foreground">Manage your profile and password.</p>
+        <p className="text-sm text-muted-foreground">Manage your profile, subscription, and password.</p>
       </div>
 
       {!user.emailVerified && (
@@ -147,6 +148,24 @@ function AccountPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            <CardTitle>Subscription</CardTitle>
+          </div>
+          <CardDescription>Update your plan, resume access, or cancel at the end of your billing period.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild className="w-full gap-2 sm:w-auto">
+            <Link to="/billing">
+              <CreditCard className="h-4 w-4" />
+              Manage Subscription
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,8 +1,10 @@
 import { createApp } from './app';
+import { ensureBillingTables } from './billing';
 import { config } from './config';
 
-const app = createApp();
+await ensureBillingTables();
 
+const app = createApp();
 const server = app.listen(config.port, () => {
   console.log(`UMS API listening on http://localhost:${config.port}`);
 });

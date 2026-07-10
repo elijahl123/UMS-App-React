@@ -120,14 +120,17 @@ function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: result.emailVerified ?? true,
       };
       persistSession(result.idToken, nextUser);
+      console.log('[Auth] Google id_token exchanged for Firebase session');
       return { success: true };
     } catch (err) {
+      console.error('[Auth] Google id_token exchange failed:', err);
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
     }
   };
 
   useEffect(() => {
     (async () => {
+      const authStartedAt = performance.now();
       console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
       const googleIdToken = consumeGoogleRedirectIdToken();
 
@@ -137,6 +140,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
         const result = await loginWithGoogle(googleIdToken);
         if (!result.success) {
           setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
+          console.error('[Auth] Google redirect sign-in failed:', result.error);
+        }
+        if (result.success) {
+          console.log('[Auth] Google redirect sign-in completed');
         }
         setIsProcessingGoogleRedirect(false);
         setIsLoading(false);
@@ -158,7 +165,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
             console.log('[Auth] Successfully logged in user:', freshUser.email);
             persistSession(sessionToken, mapFirebaseUser(freshUser));
             // Clean URL
-            window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+            const previousUrl = window.location.href;
+            window.history.replaceState(null, '', `${window.location.pathname}#/`);
+            window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: window.location.href }));
             setIsLoading(false);
             return;
           }
@@ -187,6 +196,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       setIsLoading(false);
+      console.log(`[Auth] Bootstrap completed in ${Math.round(performance.now() - authStartedAt)}ms`);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
