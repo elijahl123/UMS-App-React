@@ -26,8 +26,8 @@ function numberEnv(name: string, fallback: number): number {
 
 export const config = {
   port: numberEnv('PORT', 3001),
-  viteOrigin: process.env.VITE_DEV_ORIGIN ?? 'http://localhost:5173',
-  appBaseUrl: process.env.APP_BASE_URL ?? process.env.VITE_DEV_ORIGIN ?? 'http://127.0.0.1:5173',
+  appOrigin: process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://localhost:5173',
+  appBaseUrl: process.env.APP_BASE_URL ?? process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://127.0.0.1:5173',
   databaseUrl: requiredEnv('DATABASE_URL'),
   sendgridApiKey: process.env.SENDGRID_API_KEY,
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,

@@ -10,7 +10,7 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: config.viteOrigin,
+      origin: config.appOrigin,
     })
   );
   app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), billingWebhookRouter);
