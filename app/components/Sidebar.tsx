@@ -11,7 +11,7 @@ import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex items-center gap-3 rounded-lg px-4 py-2.5 text-base font-semibold text-primary transition-colors duration-150 hover:bg-primary/15',
+    'flex items-center gap-3 rounded-lg px-4 py-2.5 text-base font-semibold text-primary transition-colors duration-150 hover:bg-primary hover:text-primary-foreground',
     isActive ? 'bg-primary/25' : 'bg-primary/10'
   );
 
@@ -105,11 +105,11 @@ function Sidebar({ onClose }: Props) {
 
         <div className="my-2 border-t border-[var(--border-light)]" />
 
-        <div className="flex items-center gap-1 rounded-lg bg-primary/10 pr-2 transition-colors hover:bg-primary/15">
+        <div className="group flex items-center gap-1 rounded-lg bg-primary/10 pr-2 transition-colors hover:bg-primary">
           <NavLink
             to="/courses"
             onClick={handleNavClick}
-            className="flex flex-1 items-center gap-3 px-4 py-2.5 font-semibold text-primary"
+            className="flex flex-1 items-center gap-3 px-4 py-2.5 font-semibold text-primary transition-colors group-hover:text-primary-foreground"
           >
             <GraduationCap className="h-5 w-5 shrink-0" />
             <span>Courses</span>
@@ -117,7 +117,7 @@ function Sidebar({ onClose }: Props) {
           <button
             type="button"
             onClick={() => setCoursesOpen((v) => !v)}
-            className="shrink-0 rounded-md p-1 text-primary hover:bg-primary/15"
+            className="shrink-0 rounded-md p-1 text-primary transition-colors hover:bg-primary-foreground/20 group-hover:text-primary-foreground"
             title="Toggle course list"
           >
             <ChevronDown className={cn('h-4 w-4 transition-transform', coursesOpen && 'rotate-180')} />
@@ -131,7 +131,7 @@ function Sidebar({ onClose }: Props) {
                 <NavLink
                   key={course.id}
                   to={`/courses/${course.id}`}
-                  className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
                   onClick={handleNavClick}
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}` }} />
@@ -149,17 +149,17 @@ function Sidebar({ onClose }: Props) {
           <NavLink
             to="/account"
             onClick={handleNavClick}
-            className="mb-3 flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2.5 transition-colors hover:bg-primary/15"
+            className="group mb-3 flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2.5 transition-colors hover:bg-primary"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary transition-colors group-hover:bg-primary-foreground/20 group-hover:text-primary-foreground">
               {user.firstName.charAt(0)}
               {user.lastName.charAt(0)}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">
+              <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-foreground">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{user.email}</p>
             </div>
           </NavLink>
         )}
