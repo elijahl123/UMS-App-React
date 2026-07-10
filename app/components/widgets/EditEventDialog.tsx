@@ -1,0 +1,140 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import type { CalendarEvent } from '@/app/data/types';
+
+const schema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  date: z.string().min(1, 'Date is required'),
+  time: z.string().optional(),
+  description: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof schema>;
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  event: (CalendarEvent & { id: string }) | null;
+  onSubmit: (event: CalendarEvent & { id: string }) => void;
+  onDelete?: (eventId: string) => void;
+}
+
+function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Props) {
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { title: '', date: '', time: '', description: '' },
+  });
+
+  useEffect(() => {
+    if (event) {
+      form.reset({
+        title: event.title,
+        date: event.date,
+        time: event.time ?? '',
+        description: event.description ?? '',
+      });
+    }
+  }, [event, form]);
+
+  const handleSubmit = (values: FormValues) => {
+    if (event) {
+      onSubmit({
+        ...values,
+        id: event.id,
+        time: values.time || undefined,
+        description: values.description || undefined,
+      });
+      form.reset();
+      onOpenChange(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (event && onDelete && confirm('Are you sure you want to delete this event?')) {
+      onDelete(event.id);
+      form.reset();
+      onOpenChange(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Event</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-4">
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Event Title</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. Study Group" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Time (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Details about the event" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter className="flex items-center justify-between">
+              <Button type="button" variant="destructive" onClick={handleDelete}>
+                Delete
+              </Button>
+              <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default EditEventDialog;

@@ -1,0 +1,8 @@
+Applied migrations:
+1783548985_create_core_tables at 2026-07-08T22:19:40.810Z
+1783549266_seed_events at 2026-07-08T22:28:25.690Z
+1783550820_create_notes_table at 2026-07-08T23:20:51.633Z
+1783600000_create_course_links_table at 2026-07-09T00:05:37.832Z
+1783610000_create_users_table at 2026-07-09T00:15:21.198Z
+1783700000_add_user_scoping at 2026-07-09T05:59:49.012Z
+1783710000_convert_class_sessions_time_to_time_type at 2026-07-09T06:06:36.127Z

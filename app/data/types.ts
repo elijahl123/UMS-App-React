@@ -1,0 +1,59 @@
+export type AssignmentStatus = 'upcoming' | 'late' | 'completed';
+
+export interface Course {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+}
+
+export interface CourseLink {
+  id: string;
+  courseId: string;
+  label: string;
+  url: string;
+  createdAt: string;
+}
+
+export interface Assignment {
+  id: string;
+  name: string;
+  courseId: string;
+  dueDate: string; // ISO date
+  status: AssignmentStatus;
+  description?: string;
+}
+
+export interface ClassSession {
+  id: string;
+  courseId: string;
+  day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+  startTime: string; // HH:MM format (24-hour)
+  endTime: string; // HH:MM format (24-hour)
+}
+
+export interface Note {
+  id: string;
+  courseId?: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string; // ISO date
+  time?: string;
+  description?: string;
+}
+
+export interface AppUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
+  emailVerified: boolean;
+}
