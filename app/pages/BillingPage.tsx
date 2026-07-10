@@ -10,7 +10,6 @@ import {
   cancelSubscription,
   createSubscription,
   getBillingConfig,
-  getBillingStatus,
   refreshBillingStatus,
   resumeSubscription,
   updateSubscriptionPlan,
