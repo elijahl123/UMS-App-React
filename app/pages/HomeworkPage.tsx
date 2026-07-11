@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,16 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
 import { mapCourse, mapAssignment } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
+import { formatAssignmentDue, formatDueTime, formatTimeZoneLabel } from '@/app/data/assignmentDates';
 import type { Assignment, Course } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
-
-function todayIso(): string {
-  return new Date().toISOString().split('T')[0];
-}
-
-function formatDueDate(dueDate: string): string {
-  return new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 interface Group {
   key: string;
@@ -42,6 +35,7 @@ function HomeworkPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
 
   const courses = (courseRows ?? []).map(mapCourse);
   const assignments = (assignmentRows ?? []).map(mapAssignment);
@@ -52,14 +46,13 @@ function HomeworkPage() {
     return assignments
       .filter((a) => courseFilter === 'all' || a.courseId === courseFilter)
       .filter((a) => statusFilter === 'all' || a.status === statusFilter)
-      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      .sort((a, b) => `${a.dueDate} ${a.dueTime ?? ''}`.localeCompare(`${b.dueDate} ${b.dueTime ?? ''}`));
   }, [assignments, courseFilter, statusFilter]);
 
   const groups: Group[] = useMemo(() => {
-    const today = todayIso();
     const late = filtered.filter((a) => a.status === 'late');
-    const dueToday = filtered.filter((a) => a.status === 'upcoming' && a.dueDate === today);
-    const upcoming = filtered.filter((a) => a.status === 'upcoming' && a.dueDate !== today);
+    const dueToday = filtered.filter((a) => a.status === 'due_today');
+    const upcoming = filtered.filter((a) => a.status === 'upcoming');
     const completed = filtered.filter((a) => a.status === 'completed');
     return [
       { key: 'late', label: 'Late', icon: AlertTriangle, headerClass: 'text-[#B3261E]', items: late },
@@ -86,6 +79,8 @@ function HomeworkPage() {
         courseId: values.courseId,
         name: values.name,
         dueDate: values.dueDate,
+        dueTime: values.dueTime ?? null,
+        dueTimeZone: values.dueTimeZone,
         status: values.status,
         description: values.description ?? null,
         userId: user?.id,
@@ -95,6 +90,8 @@ function HomeworkPage() {
         courseId: values.courseId,
         name: values.name,
         dueDate: values.dueDate,
+        dueTime: values.dueTime ?? null,
+        dueTimeZone: values.dueTimeZone,
         description: values.description ?? null,
         userId: user?.id,
       });
@@ -113,11 +110,40 @@ function HomeworkPage() {
       courseId: assignment.courseId,
       name: assignment.name,
       dueDate: assignment.dueDate,
+      dueTime: assignment.dueTime ?? null,
+      dueTimeZone: assignment.dueTimeZone,
       status: 'completed',
       description: assignment.description ?? null,
       userId: user?.id,
     });
     refreshAssignments();
+  };
+
+  const handleMarkIncomplete = async (assignment: Assignment) => {
+    await editAssignment({
+      id: assignment.id,
+      courseId: assignment.courseId,
+      name: assignment.name,
+      dueDate: assignment.dueDate,
+      dueTime: assignment.dueTime ?? null,
+      dueTimeZone: assignment.dueTimeZone,
+      status: 'upcoming',
+      description: assignment.description ?? null,
+      userId: user?.id,
+    });
+    refreshAssignments();
+  };
+
+  const toggleGroupCollapsed = (key: string) => {
+    setCollapsedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
   };
 
   const isLoading = coursesLoading || assignmentsLoading;
@@ -130,6 +156,8 @@ function HomeworkPage() {
     const colors = getCourseColor(course?.color);
     const leftBorder =
       emphasis === 'late' ? '#e35c5f' : emphasis === 'today' ? '#e0c874' : colors.border;
+    const dueTimeLabel = formatDueTime(a.dueTime);
+    const dueTodayLabel = dueTimeLabel ? `Today at ${dueTimeLabel} ${formatTimeZoneLabel(a.dueTimeZone, a.dueDate)}` : 'Today';
     return (
       <div
         key={a.id}
@@ -152,10 +180,14 @@ function HomeworkPage() {
               emphasis === 'late' ? 'text-[#B3261E]' : emphasis === 'today' ? 'text-[#8a6d1a]' : 'text-muted-foreground'
             }`}
           >
-            {emphasis === 'today' ? 'Today' : formatDueDate(a.dueDate)}
+            {emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
           <div className="flex shrink-0 items-center gap-1 sm:gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-            {a.status !== 'completed' && (
+            {a.status === 'completed' ? (
+              <Button variant="ghost" size="icon" className="h-7 w-7" title="Mark incomplete" onClick={() => handleMarkIncomplete(a)}>
+                <RotateCcw className="h-4 w-4 text-[#24553D]" />
+              </Button>
+            ) : (
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Mark complete" onClick={() => handleMarkComplete(a)}>
                 <CheckCircle2 className="h-4 w-4 text-primary" />
               </Button>
@@ -215,6 +247,7 @@ function HomeworkPage() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="due_today">Due Today</SelectItem>
                 <SelectItem value="late">Late</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
@@ -235,16 +268,24 @@ function HomeworkPage() {
             <div className="flex flex-col gap-6">
               {groups.map((group) => (
                 <div key={group.key} className="flex flex-col gap-2">
-                  <div className={`flex items-center gap-2 text-sm font-bold ${group.headerClass}`}>
+                  <button
+                    type="button"
+                    className={`flex w-full items-center gap-2 text-left text-sm font-bold ${group.headerClass}`}
+                    onClick={() => toggleGroupCollapsed(group.key)}
+                    aria-expanded={!collapsedGroups.has(group.key)}
+                  >
+                    <ChevronRight className={`h-4 w-4 transition-transform ${collapsedGroups.has(group.key) ? '' : 'rotate-90'}`} />
                     <group.icon className="h-4 w-4" />
                     <span>{group.label}</span>
                     <span className="text-xs font-medium text-muted-foreground">({group.items.length})</span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {group.items.map((a) =>
-                      renderRow(a, getCourse(a.courseId), group.key === 'late' ? 'late' : group.key === 'today' ? 'today' : undefined)
-                    )}
-                  </div>
+                  </button>
+                  {!collapsedGroups.has(group.key) && (
+                    <div className="flex flex-col gap-2">
+                      {group.items.map((a) =>
+                        renderRow(a, getCourse(a.courseId), group.key === 'late' ? 'late' : group.key === 'today' ? 'today' : undefined)
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

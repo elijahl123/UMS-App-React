@@ -8,10 +8,10 @@ export const courses: Course[] = [
 ];
 
 export const assignments: Assignment[] = [
-  { id: 'a1', name: 'Additional Class Time', courseId: 'comp30870', dueDate: '2026-03-20', status: 'late' },
-  { id: 'a2', name: 'Additional Class Time', courseId: 'comp30770', dueDate: '2026-03-21', status: 'late' },
-  { id: 'a3', name: 'Resit Exam', courseId: 'comp31020', dueDate: '2026-03-28', status: 'late' },
-  { id: 'a4', name: 'Resit Exam', courseId: 'comp30940', dueDate: '2026-04-21', status: 'late' },
+  { id: 'a1', name: 'Additional Class Time', courseId: 'comp30870', dueDate: '2026-03-20', dueTimeZone: 'UTC', status: 'late' },
+  { id: 'a2', name: 'Additional Class Time', courseId: 'comp30770', dueDate: '2026-03-21', dueTimeZone: 'UTC', status: 'late' },
+  { id: 'a3', name: 'Resit Exam', courseId: 'comp31020', dueDate: '2026-03-28', dueTimeZone: 'UTC', status: 'late' },
+  { id: 'a4', name: 'Resit Exam', courseId: 'comp30940', dueDate: '2026-04-21', dueTimeZone: 'UTC', status: 'late' },
 ];
 
 const todayIso = new Date().toISOString().slice(0, 10);

@@ -46,6 +46,15 @@ describe('page rendering', () => {
     expect(screen.getByText(/limits worksheet/i)).toBeInTheDocument();
   });
 
+  it('collapses completed assignments by default', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    expect(screen.queryByText(/reading response/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /completed/i }));
+    expect(screen.getByText(/reading response/i)).toBeInTheDocument();
+  });
+
   it('renders the class schedule grid and legend', () => {
     renderWithRouter(<ClassSchedulePage />);
 

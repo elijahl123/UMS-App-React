@@ -8,13 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Assignment, AssignmentStatus, Course } from '@/app/data/types';
+import type { Assignment, Course } from '@/app/data/types';
+import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 
 const schema = z.object({
   name: z.string().min(1, 'Assignment name is required'),
   courseId: z.string().min(1, 'Course is required'),
   dueDate: z.string().min(1, 'Due date is required'),
-  status: z.enum(['upcoming', 'late', 'completed']),
+  dueTime: z.string().optional(),
+  dueTimeZone: z.string().min(1, 'Time zone is required'),
+  completed: z.boolean(),
   description: z.string().optional(),
 });
 
@@ -29,7 +32,15 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-const emptyValues: FormValues = { name: '', courseId: '', dueDate: '', status: 'upcoming', description: '' };
+const emptyValues: FormValues = {
+  name: '',
+  courseId: '',
+  dueDate: '',
+  dueTime: '',
+  dueTimeZone: getBrowserTimeZone(),
+  completed: false,
+  description: '',
+};
 
 function AssignmentFormDialog({ open, onOpenChange, courses, assignment, onSubmit, onDelete }: Props) {
   const isEdit = Boolean(assignment);
@@ -47,16 +58,24 @@ function AssignmentFormDialog({ open, onOpenChange, courses, assignment, onSubmi
               name: assignment.name,
               courseId: assignment.courseId,
               dueDate: assignment.dueDate,
-              status: assignment.status,
+              dueTime: assignment.dueTime ?? '',
+              dueTimeZone: assignment.dueTimeZone,
+              completed: assignment.status === 'completed',
               description: assignment.description ?? '',
             }
-          : emptyValues
+          : { ...emptyValues, dueTimeZone: getBrowserTimeZone() }
       );
     }
   }, [open, assignment, form]);
 
   const handleSubmit = (values: FormValues) => {
-    onSubmit({ ...values, description: values.description || undefined, id: assignment?.id });
+    onSubmit({
+      ...values,
+      dueTime: values.dueTime || undefined,
+      description: values.description || undefined,
+      status: values.completed ? 'completed' : 'upcoming',
+      id: assignment?.id,
+    });
     onOpenChange(false);
   };
 
@@ -125,30 +144,19 @@ function AssignmentFormDialog({ open, onOpenChange, courses, assignment, onSubmi
                 </FormItem>
               )}
             />
-            {isEdit && (
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={(v) => field.onChange(v as AssignmentStatus)} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="upcoming">Upcoming</SelectItem>
-                        <SelectItem value="late">Late</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            <FormField
+              control={form.control}
+              name="dueTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Time (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="description"
@@ -162,6 +170,28 @@ function AssignmentFormDialog({ open, onOpenChange, courses, assignment, onSubmi
                 </FormItem>
               )}
             />
+            {isEdit && (
+              <FormField
+                control={form.control}
+                name="completed"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
+                        <Input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={field.value}
+                          onChange={(event) => field.onChange(event.target.checked)}
+                        />
+                        Completed
+                      </label>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter className="flex items-center justify-between">
               {isEdit && onDelete ? (
                 <Button type="button" variant="destructive" onClick={handleDelete}>

@@ -56,6 +56,7 @@ export function buildCalendarItems(
       type: 'assignment',
       title: `${course ? `${course.code}: ` : ''}${a.name}`,
       date: a.dueDate,
+      time: a.dueTime,
       color: 'var(--course-yellow)',
       course,
       raw: a,

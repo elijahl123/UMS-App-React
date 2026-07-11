@@ -9,13 +9,14 @@ import CourseFormDialog from '@/app/components/widgets/CourseFormDialog';
 import CourseLinkFormDialog from '@/app/components/widgets/CourseLinkFormDialog';
 import { mapCourse, mapAssignment, mapClassSession, mapNote, mapCourseLink } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
+import { formatAssignmentDue, formatIsoDate, normalizeDateString } from '@/app/data/assignmentDates';
 import type { Course, CourseLink } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function formatDueDate(dueDate: string): string {
-  return new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatIsoDate(normalizeDateString(dueDate), { month: 'short', day: 'numeric' });
 }
 
 function formatTimeDisplay(time: string): string {
@@ -32,6 +33,7 @@ function formatTimeDisplay(time: string): string {
 const STATUS_STYLES: Record<string, string> = {
   late: 'bg-[#ffdcdd] text-[#B3261E]',
   completed: 'bg-[#dcefe3] text-[#24553D]',
+  due_today: 'bg-[#fff2cf] text-[#6B5A1E]',
   upcoming: 'bg-[#fff2cf] text-[#6B5A1E]',
 };
 
@@ -64,7 +66,7 @@ function CoursePage() {
   const course = courses.find((c) => c.id === courseId);
   const courseAssignments = assignments
     .filter((a) => a.courseId === courseId)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    .sort((a, b) => `${a.dueDate} ${a.dueTime ?? ''}`.localeCompare(`${b.dueDate} ${b.dueTime ?? ''}`));
   const openAssignments = courseAssignments.filter((a) => a.status !== 'completed');
   const lateCount = courseAssignments.filter((a) => a.status === 'late').length;
   const courseSessions = sessions
@@ -225,11 +227,11 @@ function CoursePage() {
                       {a.status === 'completed' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#24553D]" />}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{a.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatDueDate(a.dueDate)}</p>
+                        <p className="text-xs text-muted-foreground">{formatAssignmentDue(a, { month: 'short', day: 'numeric' })}</p>
                       </div>
                     </div>
                     <Badge variant="secondary" className={`shrink-0 text-xs ${STATUS_STYLES[a.status]}`}>
-                      {a.status}
+                      {a.status === 'due_today' ? 'due today' : a.status}
                     </Badge>
                   </div>
                 ))}

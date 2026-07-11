@@ -25,7 +25,7 @@ function DashboardPage() {
   const sessions = (sessionRows ?? []).map(mapClassSession);
   const events = (eventRows ?? []).map(mapEvent);
 
-  const upcoming = assignments.filter((a) => a.status === 'upcoming');
+  const upcoming = assignments.filter((a) => a.status === 'upcoming' || a.status === 'due_today');
   const late = assignments.filter((a) => a.status === 'late');
   const todaysSessions = sessions.filter((s) => s.day === todayDayName());
 
@@ -34,6 +34,8 @@ function DashboardPage() {
       courseId: values.courseId,
       name: values.name,
       dueDate: values.dueDate,
+      dueTime: values.dueTime ?? null,
+      dueTimeZone: values.dueTimeZone,
       description: values.description ?? null,
       userId: user?.id,
     });

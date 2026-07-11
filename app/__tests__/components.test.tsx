@@ -106,6 +106,25 @@ describe('form dialogs', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ id: '1', name: 'Updated worksheet' }));
   });
 
+  it('lets a completed assignment be marked incomplete from the edit dialog', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AssignmentFormDialog
+        open
+        onOpenChange={vi.fn()}
+        courses={courses}
+        assignment={assignments[2]}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.click(screen.getByLabelText(/completed/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ id: '3', status: 'upcoming' }));
+  });
+
   it('submits course, class session, event, and link forms', async () => {
     const user = userEvent.setup();
     const onCourseSubmit = vi.fn();

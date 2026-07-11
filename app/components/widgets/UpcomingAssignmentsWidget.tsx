@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import type { Assignment, Course } from '@/app/data/types';
 import AddAssignmentDialog from '@/app/components/widgets/AddAssignmentDialog';
+import { formatAssignmentDue } from '@/app/data/assignmentDates';
 
 interface Props {
   assignments: Assignment[];
@@ -48,7 +49,9 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd }: Props) {
                     <p className="font-semibold text-sm text-foreground truncate">
                       {course ? `${course.code}: ` : ''}{a.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">Due {a.dueDate}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Due {formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
                   </div>
                 </li>
               );

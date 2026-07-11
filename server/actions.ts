@@ -3,6 +3,22 @@ import { required, type Params } from './errors';
 
 type ActionBuilder = (params: Params) => QueryConfig;
 
+const assignmentSelectColumns = `
+  a.id,
+  a.course_id,
+  a.name,
+  a.due_date::text AS due_date,
+  a.due_time::text AS due_time,
+  COALESCE(NULLIF(a.due_timezone, ''), 'UTC') AS due_timezone,
+  CASE
+    WHEN a.status = 'completed' THEN 'completed'
+    WHEN a.due_date < (NOW() AT TIME ZONE COALESCE(NULLIF(a.due_timezone, ''), 'UTC'))::date THEN 'late'
+    WHEN a.due_date = (NOW() AT TIME ZONE COALESCE(NULLIF(a.due_timezone, ''), 'UTC'))::date THEN 'due_today'
+    ELSE 'upcoming'
+  END AS status,
+  a.description
+`;
+
 const actionBuilders: Record<string, ActionBuilder> = {
   loadCourses: (params) => ({
     text: `
@@ -45,46 +61,66 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   loadAssignments: (params) => ({
     text: `
-      SELECT a.id, a.course_id, a.name, a.due_date::text AS due_date, a.status, a.description
+      SELECT ${assignmentSelectColumns}
       FROM assignments a
       JOIN courses c ON c.id = a.course_id
       WHERE c.user_id = $1
-      ORDER BY a.due_date;
+      ORDER BY a.due_date, a.due_time NULLS LAST;
     `,
     values: [required(params, 'userId')],
   }),
 
   createAssignment: (params) => ({
     text: `
-      INSERT INTO assignments (course_id, name, due_date, status, description)
-      SELECT c.id, $1, $2::date, 'upcoming', $3
-      FROM courses c
-      WHERE c.id = $4::bigint AND c.user_id = $5
-      RETURNING id, course_id, name, due_date::text AS due_date, status, description;
+      WITH inserted AS (
+        INSERT INTO assignments (course_id, name, due_date, due_time, due_timezone, status, description)
+        SELECT c.id, $1, $2::date, NULLIF($3, '')::time, $4, 'upcoming', $5
+        FROM courses c
+        WHERE c.id = $6::bigint AND c.user_id = $7
+        RETURNING *
+      )
+      SELECT ${assignmentSelectColumns}
+      FROM inserted a;
     `,
-    values: [required(params, 'name'), required(params, 'dueDate'), params.description ?? null, required(params, 'courseId'), required(params, 'userId')],
+    values: [
+      required(params, 'name'),
+      required(params, 'dueDate'),
+      params.dueTime ?? null,
+      params.dueTimeZone ?? 'UTC',
+      params.description ?? null,
+      required(params, 'courseId'),
+      required(params, 'userId'),
+    ],
   }),
 
   updateAssignment: (params) => ({
     text: `
-      UPDATE assignments
-      SET course_id = $1::bigint,
-          name = $2,
-          due_date = $3::date,
-          status = $4,
-          description = $5
-      WHERE id = $6::bigint
-        AND EXISTS (
-          SELECT 1 FROM courses c
-          WHERE c.id = $1::bigint AND c.user_id = $7
-        )
-      RETURNING id, course_id, name, due_date::text AS due_date, status, description;
+      WITH updated AS (
+        UPDATE assignments
+        SET course_id = $1::bigint,
+            name = $2,
+            due_date = $3::date,
+            due_time = NULLIF($4, '')::time,
+            due_timezone = $5,
+            status = CASE WHEN $6 = 'completed' THEN 'completed' ELSE 'upcoming' END,
+            description = $7
+        WHERE id = $8::bigint
+          AND EXISTS (
+            SELECT 1 FROM courses c
+            WHERE c.id = $1::bigint AND c.user_id = $9
+          )
+        RETURNING *
+      )
+      SELECT ${assignmentSelectColumns}
+      FROM updated a;
     `,
     values: [
       required(params, 'courseId'),
       required(params, 'name'),
       required(params, 'dueDate'),
-      required(params, 'status'),
+      params.dueTime ?? null,
+      params.dueTimeZone ?? 'UTC',
+      params.status ?? 'upcoming',
       params.description ?? null,
       required(params, 'id'),
       required(params, 'userId'),

@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Assignment, Course } from '@/app/data/types';
+import { formatAssignmentDue } from '@/app/data/assignmentDates';
 
 interface Props {
   assignments: Assignment[];
@@ -54,10 +55,7 @@ function LateAssignmentsWidget({ assignments, courses }: Props) {
                         {course?.code}: {a.name}
                       </TableCell>
                       <TableCell className="font-semibold text-xs py-2.5 text-right" style={{ color: textColors[colorIdx] }}>
-                        {new Date(a.dueDate).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatAssignmentDue(a, { month: 'short', day: 'numeric' })}
                       </TableCell>
                     </TableRow>
                   );
