@@ -6,9 +6,13 @@ import { Menu, X } from 'lucide-react';
 
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
+  });
 
   return (
-    <div className="flex h-full min-h-screen w-full bg-background">
+    <div className="h-screen w-full overflow-hidden bg-background">
       {/* Mobile hamburger button */}
       <div className="fixed bottom-5 right-5 z-40 md:hidden">
         <Button
@@ -21,20 +25,28 @@ function AppLayout() {
         </Button>
       </div>
 
-      {/* Sidebar - hidden on mobile, visible on desktop */}
+      {/* Sidebar drawer on mobile, persistent and collapsible on larger screens */}
       <div
-        className={`fixed inset-0 z-30 bg-black/50 md:static md:bg-transparent md:inset-auto ${
+        className={`fixed inset-0 z-30 bg-black/50 md:inset-y-0 md:left-0 md:right-auto md:block md:bg-transparent ${
           sidebarOpen ? 'block' : 'hidden md:block'
         }`}
         onClick={() => setSidebarOpen(false)}
       >
-        <div onClick={(e) => e.stopPropagation()}>
-          <Sidebar onClose={() => setSidebarOpen(false)} />
+        <div className="h-full" onClick={(e) => e.stopPropagation()}>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            onClose={() => setSidebarOpen(false)}
+          />
         </div>
       </div>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col overflow-y-auto p-3 sm:p-4 md:overflow-hidden md:p-6">
+      <main
+        className={`flex h-screen min-w-0 flex-col overflow-hidden p-3 pb-20 sm:p-4 sm:pb-20 md:pb-4 xl:p-6 ${
+          sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
+        }`}
+      >
         <Outlet />
       </main>
     </div>

@@ -123,12 +123,12 @@ function CalendarPage() {
   }
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 pb-4">
+    <Card className="flex h-full min-h-[42rem] flex-col xl:min-h-0">
+      <CardHeader className="flex flex-col gap-3 pb-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div className="flex items-center gap-2">
           <CardTitle>{monthLabel}</CardTitle>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button size="icon" variant="outline" onClick={() => goToMonth(-1)} aria-label="Previous month">
             <ChevronLeft className="h-4 w-4" />
           </Button>

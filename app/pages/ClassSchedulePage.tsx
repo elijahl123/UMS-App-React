@@ -125,7 +125,7 @@ function ClassSchedulePage() {
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <div className="flex-1 overflow-auto">
-            <div className="flex min-w-[820px]">
+            <div className="flex min-w-[680px] xl:min-w-[820px]">
               {/* Time gutter */}
               <div className="sticky left-0 z-10 w-12 sm:w-16 shrink-0 bg-card">
                 <div className="h-10 border-b border-[var(--border-light)]" />
@@ -182,7 +182,7 @@ function ClassSchedulePage() {
                           >
                             <div className="flex items-start justify-between gap-1">
                               <span className="truncate text-[9px] sm:text-[11px] font-bold">{course?.code ?? '—'}</span>
-                              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                                 <button
                                   type="button"
                                   className="rounded p-0.5 hover:bg-black/10"

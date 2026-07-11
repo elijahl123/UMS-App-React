@@ -191,7 +191,7 @@ function HomeworkPage() {
           >
             {emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>
-          <div className="flex shrink-0 items-center gap-1 sm:gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:gap-0.5 xl:opacity-0 xl:group-hover:opacity-100">
             {a.status === 'completed' ? (
               <Button variant="ghost" size="icon" className="h-7 w-7" title="Mark incomplete" onClick={() => handleMarkIncomplete(a)}>
                 <RotateCcw className="h-4 w-4 text-[#24553D]" />
@@ -235,9 +235,9 @@ function HomeworkPage() {
               </Badge>
             )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectTrigger className="w-full md:w-[200px]">
                 <SelectValue placeholder="Filter by course" />
               </SelectTrigger>
               <SelectContent>
@@ -250,7 +250,7 @@ function HomeworkPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectTrigger className="w-full md:w-[160px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>

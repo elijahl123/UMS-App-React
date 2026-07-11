@@ -1,5 +1,20 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Gauge, Calendar, Clock, BookOpen, FileText, GraduationCap, ChevronDown, LogOut, MessageSquare, User, NotebookPen } from 'lucide-react';
+import {
+  Gauge,
+  Calendar,
+  Clock,
+  BookOpen,
+  FileText,
+  GraduationCap,
+  ChevronDown,
+  LogOut,
+  MessageSquare,
+  User,
+  NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
@@ -15,17 +30,20 @@ interface CreatedNoteRow {
   id: number | string;
 }
 
-const navItemClass = ({ isActive }: { isActive: boolean }) =>
+const navItemClass = (collapsed: boolean) => ({ isActive }: { isActive: boolean }) =>
   cn(
-    'flex items-center gap-3 rounded-lg px-4 py-2.5 text-base font-semibold text-primary transition-colors duration-150 hover:bg-primary hover:text-primary-foreground',
+    'flex items-center gap-3 rounded-lg px-4 py-2.5 text-base font-semibold text-primary transition-colors duration-150 hover:bg-primary hover:text-primary-foreground md:h-11',
+    collapsed && 'md:justify-center md:px-2',
     isActive ? 'bg-primary/25' : 'bg-primary/10'
   );
 
 interface Props {
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
   onClose?: () => void;
 }
 
-function Sidebar({ onClose }: Props) {
+function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const [coursesOpen, setCoursesOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const { user, logout } = useAuth();
@@ -80,52 +98,89 @@ function Sidebar({ onClose }: Props) {
     navigate(noteId ? `/notes/${noteId}` : `/notes?courseId=${course.id}`);
   };
 
+  const textClass = collapsed ? 'md:sr-only' : '';
+  const collapsedOnlyClass = collapsed ? 'md:hidden' : '';
+
   return (
-    <aside className="flex h-screen w-72 shrink-0 flex-col border-r-2 border-[var(--border-light)] bg-[var(--secondary-color)]">
+    <aside
+      className={cn(
+        'flex h-screen w-72 shrink-0 flex-col border-r-2 border-[var(--border-light)] bg-[var(--secondary-color)] transition-[width] duration-200',
+        collapsed && 'md:w-20'
+      )}
+    >
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border-light)] p-4 sm:p-6">
+      <div
+        className={cn(
+          'flex shrink-0 items-center gap-3 border-b border-[var(--border-light)] p-4 sm:p-6 md:px-4',
+          collapsed && 'md:flex-col md:justify-center md:p-3'
+        )}
+      >
         <img
           src="/storages/zwD6Awu5SX/static/UMSLogo.svg"
           alt="Untitled Management Software logo"
-          className="h-12 w-12 shrink-0 sm:h-14 sm:w-14"
+          className={cn('h-12 w-12 shrink-0 sm:h-14 sm:w-14', collapsed && 'md:h-10 md:w-10')}
         />
-        <h1 className="text-lg font-bold leading-tight text-primary sm:text-xl">UMS</h1>
+        <h1 className={cn('text-lg font-bold leading-tight text-primary sm:text-xl', textClass)}>UMS</h1>
+        <Button
+          size="icon"
+          variant="ghost"
+          className={cn('ml-auto hidden h-9 w-9 text-primary md:flex', collapsed && 'md:ml-0 md:h-8 md:w-8')}
+          onClick={() => onCollapsedChange?.(!collapsed)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="ml-auto h-9 w-9 text-primary md:hidden"
+          onClick={onClose}
+          title="Close menu"
+          aria-label="Close menu"
+        >
+          <X className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Navigation - grows to fill available space */}
-      <nav className="flex flex-grow flex-col gap-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+      <nav className={cn('flex flex-grow flex-col gap-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 md:px-3', collapsed && 'md:px-2')}>
         <NavLink
           to="/"
           end
-          className={navItemClass}
+          className={navItemClass(collapsed)}
           onClick={handleNavClick}
+          title="Dashboard"
         >
           <Gauge className="h-5 w-5 shrink-0" />
-          <span>Dashboard</span>
+          <span className={textClass}>Dashboard</span>
         </NavLink>
         <NavLink
           to="/calendar"
-          className={navItemClass}
+          className={navItemClass(collapsed)}
           onClick={handleNavClick}
+          title="Calendar"
         >
           <Calendar className="h-5 w-5 shrink-0" />
-          <span>Calendar</span>
+          <span className={textClass}>Calendar</span>
         </NavLink>
         <NavLink
           to="/class-schedule"
-          className={navItemClass}
+          className={navItemClass(collapsed)}
           onClick={handleNavClick}
+          title="Class Schedule"
         >
           <Clock className="h-5 w-5 shrink-0" />
-          <span>Class Schedule</span>
+          <span className={textClass}>Class Schedule</span>
         </NavLink>
         <NavLink
           to="/homework"
-          className={navItemClass}
+          className={navItemClass(collapsed)}
           onClick={handleNavClick}
+          title="Homework"
         >
           <BookOpen className="h-5 w-5 shrink-0" />
-          <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className={cn('flex min-w-0 flex-1 items-center gap-2', textClass)}>
             <span className="min-w-0 flex-1 truncate">Homework</span>
             <span className="flex shrink-0 items-center gap-1">
               {lateCount > 0 && (
@@ -147,11 +202,12 @@ function Sidebar({ onClose }: Props) {
         </NavLink>
         <NavLink
           to="/notes"
-          className={navItemClass}
+          className={navItemClass(collapsed)}
           onClick={handleNavClick}
+          title="Notes"
         >
           <FileText className="h-5 w-5 shrink-0" />
-          <span>Notes</span>
+          <span className={textClass}>Notes</span>
         </NavLink>
 
         <div className="my-2 border-t border-[var(--border-light)]" />
@@ -160,22 +216,29 @@ function Sidebar({ onClose }: Props) {
           <NavLink
             to="/courses"
             onClick={handleNavClick}
-            className="flex flex-1 items-center gap-3 px-4 py-2.5 font-semibold text-primary transition-colors group-hover:text-primary-foreground"
+            className={cn(
+              'flex flex-1 items-center gap-3 px-4 py-2.5 font-semibold text-primary transition-colors group-hover:text-primary-foreground md:h-11',
+              collapsed && 'md:justify-center md:px-2'
+            )}
+            title="Courses"
           >
             <GraduationCap className="h-5 w-5 shrink-0" />
-            <span>Courses</span>
+            <span className={textClass}>Courses</span>
           </NavLink>
           <button
             type="button"
             onClick={() => setCoursesOpen((v) => !v)}
-            className="shrink-0 rounded-md p-1 text-primary transition-colors hover:bg-primary-foreground/20 group-hover:text-primary-foreground"
+            className={cn(
+              'shrink-0 rounded-md p-1 text-primary transition-colors hover:bg-primary-foreground/20 group-hover:text-primary-foreground',
+              collapsedOnlyClass
+            )}
             title="Toggle course list"
           >
             <ChevronDown className={cn('h-4 w-4 transition-transform', coursesOpen && 'rotate-180')} />
           </button>
         </div>
         {coursesOpen && (
-          <div className="ml-3 flex flex-col gap-1 border-l-2 border-primary/20 py-1">
+          <div className={cn('ml-3 flex flex-col gap-1 border-l-2 border-primary/20 py-1', collapsedOnlyClass)}>
             {courses.map((course) => {
               const colors = getCourseColor(course.color);
               return (
@@ -197,7 +260,7 @@ function Sidebar({ onClose }: Props) {
         <div className="my-2 border-t border-[var(--border-light)]" />
 
         <div
-          className="rounded-lg border p-3 shadow-sm"
+          className={cn('rounded-lg border p-3 shadow-sm', collapsedOnlyClass)}
           style={{
             backgroundColor: classFocus ? classFocusColors.bg : 'white',
             borderColor: classFocus ? classFocusColors.border : 'rgb(9 9 11 / 0.08)',
@@ -246,18 +309,22 @@ function Sidebar({ onClose }: Props) {
       </nav>
 
       {/* Footer - action buttons */}
-      <div className="shrink-0 border-t border-[var(--border-light)] p-4 sm:p-6">
+      <div className={cn('shrink-0 border-t border-[var(--border-light)] p-4 sm:p-6 md:px-3', collapsed && 'md:px-2')}>
         {user && (
           <NavLink
             to="/account"
             onClick={handleNavClick}
-            className="group mb-3 flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2.5 transition-colors hover:bg-primary"
+            className={cn(
+              'group mb-3 flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2.5 transition-colors hover:bg-primary',
+              collapsed && 'md:justify-center md:px-2'
+            )}
+            title={`${user.firstName} ${user.lastName}`}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary transition-colors group-hover:bg-primary-foreground/20 group-hover:text-primary-foreground">
               {user.firstName.charAt(0)}
               {user.lastName.charAt(0)}
             </div>
-            <div className="min-w-0">
+            <div className={cn('min-w-0', textClass)}>
               <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-foreground">
                 {user.firstName} {user.lastName}
               </p>
@@ -268,32 +335,38 @@ function Sidebar({ onClose }: Props) {
         <div className="flex flex-col gap-2">
           <Button
             size="sm"
-            className="w-full justify-start gap-2"
+            className={cn('w-full justify-start gap-2', collapsed && 'md:justify-center md:px-2')}
             onClick={handleNavClick}
+            title="Feedback"
           >
             <MessageSquare className="h-4 w-4" />
-            <span>Feedback</span>
+            <span className={textClass}>Feedback</span>
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            className="w-full justify-start gap-2"
+            className={cn('w-full justify-start gap-2', collapsed && 'md:justify-center md:px-2')}
             onClick={() => {
               navigate('/account');
               handleNavClick();
             }}
+            title="Account"
           >
             <User className="h-4 w-4" />
-            <span>Account</span>
+            <span className={textClass}>Account</span>
           </Button>
           <Button
             size="sm"
             variant="outline"
-            className="w-full justify-start gap-2 border-[var(--border-light)] text-[var(--text-secondary)]"
+            className={cn(
+              'w-full justify-start gap-2 border-[var(--border-light)] text-[var(--text-secondary)]',
+              collapsed && 'md:justify-center md:px-2'
+            )}
             onClick={handleLogout}
+            title="Log Out"
           >
             <LogOut className="h-4 w-4" />
-            <span>Log Out</span>
+            <span className={textClass}>Log Out</span>
           </Button>
         </div>
       </div>

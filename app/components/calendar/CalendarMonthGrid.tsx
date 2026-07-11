@@ -47,7 +47,7 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick }: Props) {
               type="button"
               onClick={() => onDayClick(iso)}
               className={cn(
-                'flex flex-col items-stretch gap-0.5 sm:gap-1 border-b border-r border-[var(--border-light)] p-1 sm:p-1.5 text-left transition-colors hover:bg-primary/5 min-h-[60px] sm:min-h-[80px]',
+                'flex min-h-[60px] flex-col items-stretch gap-0.5 border-b border-r border-[var(--border-light)] p-1 text-left transition-colors hover:bg-primary/5 sm:min-h-[80px] sm:gap-1 sm:p-1.5 md:min-h-[96px] xl:min-h-[80px]',
                 !isCurrentMonth && 'bg-muted/40 text-muted-foreground'
               )}
             >

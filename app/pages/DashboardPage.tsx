@@ -60,22 +60,18 @@ function DashboardPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 pb-20 sm:gap-4 md:gap-6 md:pb-0 lg:h-full lg:grid-cols-[2fr_1fr]">
-      <div className="flex min-h-0 flex-col gap-3 sm:gap-4 md:gap-6">
-        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} />
-        </div>
-        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          <LateAssignmentsWidget assignments={late} courses={courses} />
-        </div>
+    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-4 gap-3 overflow-hidden sm:gap-4 md:grid-cols-2 md:grid-rows-2 md:gap-5 xl:gap-6">
+      <div className="min-h-0 overflow-hidden">
+        <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} compact />
       </div>
-      <div className="flex min-h-0 flex-col gap-3 sm:gap-4 md:gap-6">
-        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          <ClassesTodayWidget sessions={todaysSessions} courses={courses} />
-        </div>
-        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-          <UpcomingEventsWidget events={events} onAdd={handleAddEvent} />
-        </div>
+      <div className="min-h-0 overflow-hidden">
+        <ClassesTodayWidget sessions={todaysSessions} courses={courses} compact />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <LateAssignmentsWidget assignments={late} courses={courses} compact />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <UpcomingEventsWidget events={events} onAdd={handleAddEvent} compact />
       </div>
     </div>
   );

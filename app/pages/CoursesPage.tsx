@@ -70,7 +70,7 @@ function CoursesPage() {
               <p className="text-xs text-muted-foreground">Add your first course to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {courses.map((course) => {
                 const colors = getCourseColor(course.color);
                 return (
@@ -88,7 +88,7 @@ function CoursesPage() {
                       >
                         {course.code}
                       </span>
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={(e) => openEditDialog(course, e)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
