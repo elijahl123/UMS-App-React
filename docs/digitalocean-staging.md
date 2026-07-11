@@ -49,6 +49,27 @@ npm run build
 
 Then copy the Nginx and systemd templates from `deploy/` into place, reload Nginx, and start the service.
 
+## Runtime
+
+`npm run dev` is a local development command. It starts the Vite client and the API server together, and the API server still requires `DATABASE_URL` plus the other runtime variables from the env file. If those are missing, `server/config.ts` fails before the API binds a port.
+
+On the droplet, prefer one of these:
+
+```sh
+systemctl start ums-app-react
+```
+
+or, for a one-off shell session:
+
+```sh
+set -a
+source /etc/ums-app-react/staging.env
+set +a
+npm start
+```
+
+If you want to run `npm run dev` on the droplet anyway, put a `.env` file in `/var/www/ums-app-react` with the same values so `dotenv.config()` can load it.
+
 ## Notes
 
 - Google OAuth and Firebase email-link redirects must use `https://dev.untitledmanagementsoftware.com`.
