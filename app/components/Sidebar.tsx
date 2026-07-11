@@ -29,6 +29,7 @@ function Sidebar({ onClose }: Props) {
   const courses = (courseRows ?? []).map(mapCourse);
   const assignments = (assignmentRows ?? []).map(mapAssignment);
   const lateCount = assignments.filter((a) => a.status === 'late').length;
+  const dueTodayCount = assignments.filter((a) => a.status === 'due_today').length;
 
   const handleNavClick = () => {
     onClose?.();
@@ -85,13 +86,24 @@ function Sidebar({ onClose }: Props) {
           onClick={handleNavClick}
         >
           <BookOpen className="h-5 w-5 shrink-0" />
-          <span className="flex items-center gap-2">
-            Homework
-            {lateCount > 0 && (
-              <Badge variant="destructive" className="ml-auto text-xs">
-                {lateCount}
-              </Badge>
-            )}
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="min-w-0 flex-1 truncate">Homework</span>
+            <span className="flex shrink-0 items-center gap-1">
+              {lateCount > 0 && (
+                <Badge variant="destructive" className="px-1.5 text-xs" title={`${lateCount} late assignment${lateCount === 1 ? '' : 's'}`}>
+                  {lateCount}
+                </Badge>
+              )}
+              {dueTodayCount > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="bg-[#fff2cf] px-1.5 text-xs text-[#6B5A1E] hover:bg-[#fff2cf]"
+                  title={`${dueTodayCount} assignment${dueTodayCount === 1 ? '' : 's'} due today`}
+                >
+                  {dueTodayCount}
+                </Badge>
+              )}
+            </span>
           </span>
         </NavLink>
         <NavLink
