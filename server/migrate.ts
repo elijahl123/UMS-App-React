@@ -19,6 +19,27 @@ async function ensureMigrationsTable() {
   `);
 }
 
+async function seedBaselineMigrations() {
+  const appliedTxtPath = path.resolve(currentDir, '..', 'migrations', 'applied.txt');
+  const appliedTxt = await readFile(appliedTxtPath, 'utf8');
+  const filenames = appliedTxt
+    .split(/\r?\n/)
+    .map((line: string) => line.trim())
+    .filter((line: string) => /^\d+_/.test(line))
+    .map((line: string) => line.split(/\s+/)[0]);
+
+  for (const filename of filenames) {
+    await pool.query(
+      `
+        INSERT INTO schema_migrations (filename)
+        VALUES ($1)
+        ON CONFLICT (filename) DO NOTHING;
+      `,
+      [filename]
+    );
+  }
+}
+
 async function getAppliedMigrations(): Promise<Set<string>> {
   const result = await pool.query<AppliedMigrationRow>(`
     SELECT filename
@@ -26,7 +47,7 @@ async function getAppliedMigrations(): Promise<Set<string>> {
     ORDER BY filename;
   `);
 
-  return new Set(result.rows.map((row) => row.filename));
+  return new Set(result.rows.map((row: { filename: any; }) => row.filename));
 }
 
 async function applyMigration(filename: string, sql: string) {
@@ -46,10 +67,11 @@ async function applyMigration(filename: string, sql: string) {
 
 async function main() {
   await ensureMigrationsTable();
+  await seedBaselineMigrations();
   const applied = await getAppliedMigrations();
   const files = (await readdir(migrationsDir))
-    .filter((file) => file.endsWith('.sql'))
-    .sort((a, b) => a.localeCompare(b, 'en'));
+    .filter((file: string) => file.endsWith('.sql'))
+    .sort((a: string, b: any) => a.localeCompare(b, 'en'));
 
   for (const filename of files) {
     if (applied.has(filename)) {
