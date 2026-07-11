@@ -12,9 +12,9 @@ function AppLayout() {
   });
 
   return (
-    <div className="h-screen w-full overflow-hidden bg-background">
+    <div className="h-[100dvh] w-full overflow-hidden bg-background">
       {/* Mobile hamburger button */}
-      <div className="fixed bottom-5 right-5 z-40 md:hidden">
+      <div className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-40 md:hidden">
         <Button
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -27,7 +27,7 @@ function AppLayout() {
 
       {/* Sidebar drawer on mobile, persistent and collapsible on larger screens */}
       <div
-        className={`fixed inset-0 z-30 bg-black/50 md:inset-y-0 md:left-0 md:right-auto md:block md:bg-transparent ${
+        className={`fixed inset-0 z-30 h-[100dvh] bg-black/50 md:inset-y-0 md:left-0 md:right-auto md:block md:bg-transparent ${
           sidebarOpen ? 'block' : 'hidden md:block'
         }`}
         onClick={() => setSidebarOpen(false)}
@@ -43,7 +43,7 @@ function AppLayout() {
 
       {/* Main content */}
       <main
-        className={`flex h-screen min-w-0 flex-col overflow-hidden p-3 pb-20 sm:p-4 sm:pb-20 md:pb-4 xl:p-6 ${
+        className={`flex h-[100dvh] min-w-0 flex-col overflow-hidden p-3 pb-20 sm:p-4 sm:pb-20 md:pb-4 xl:p-6 ${
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >

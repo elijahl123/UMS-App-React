@@ -104,7 +104,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   return (
     <aside
       className={cn(
-        'flex h-screen w-72 shrink-0 flex-col border-r-2 border-[var(--border-light)] bg-[var(--secondary-color)] transition-[width] duration-200',
+        'flex h-[100dvh] max-h-[100dvh] w-72 shrink-0 flex-col overflow-hidden border-r-2 border-[var(--border-light)] bg-[var(--secondary-color)] transition-[width] duration-200',
         collapsed && 'md:w-20'
       )}
     >
@@ -144,7 +144,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
       </div>
 
       {/* Navigation - grows to fill available space */}
-      <nav className={cn('flex flex-grow flex-col gap-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 md:px-3', collapsed && 'md:px-2')}>
+      <nav className={cn('flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 md:px-3', collapsed && 'md:px-2')}>
         <NavLink
           to="/"
           end
@@ -309,7 +309,12 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
       </nav>
 
       {/* Footer - action buttons */}
-      <div className={cn('shrink-0 border-t border-[var(--border-light)] p-4 sm:p-6 md:px-3', collapsed && 'md:px-2')}>
+      <div
+        className={cn(
+          'shrink-0 border-t border-[var(--border-light)] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pt-6 md:px-3 md:pb-4',
+          collapsed && 'md:px-2'
+        )}
+      >
         {user && (
           <NavLink
             to="/account"
