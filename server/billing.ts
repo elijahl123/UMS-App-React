@@ -5,6 +5,17 @@ import { ApiError } from './errors';
 
 export type BillingInterval = 'monthly' | 'yearly';
 
+export interface BillingPaymentMethod {
+  id: string;
+  type: string;
+  brand: string | null;
+  last4: string | null;
+  expMonth: number | null;
+  expYear: number | null;
+  wallet: string | null;
+  billingName: string | null;
+}
+
 export const activeSubscriptionStatuses = new Set(['active', 'trialing']);
 
 export function isSubscribed(status: string | null | undefined): boolean {
@@ -89,6 +100,87 @@ export async function getOrCreateCustomer(params: { userId: string; email: strin
   );
 
   return customer.id;
+}
+
+export async function getBillingReference(userId: string): Promise<{ customerId: string | null; subscriptionId: string | null }> {
+  const result = await pool.query(
+    `
+      SELECT stripe_customer_id, stripe_subscription_id
+      FROM user_subscriptions
+      WHERE user_id = $1;
+    `,
+    [userId]
+  );
+
+  const row = result.rows[0];
+  return {
+    customerId: (row?.stripe_customer_id as string | null | undefined) ?? null,
+    subscriptionId: (row?.stripe_subscription_id as string | null | undefined) ?? null,
+  };
+}
+
+export function formatPaymentMethod(paymentMethod: Stripe.PaymentMethod): BillingPaymentMethod {
+  return {
+    id: paymentMethod.id,
+    type: paymentMethod.type,
+    brand: paymentMethod.card?.brand ?? null,
+    last4: paymentMethod.card?.last4 ?? null,
+    expMonth: paymentMethod.card?.exp_month ?? null,
+    expYear: paymentMethod.card?.exp_year ?? null,
+    wallet: paymentMethod.card?.wallet?.type ?? null,
+    billingName: paymentMethod.billing_details.name ?? null,
+  };
+}
+
+function isPaymentMethod(value: Stripe.PaymentMethod | string | null | undefined): value is Stripe.PaymentMethod {
+  return typeof value === 'object' && value !== null && value.object === 'payment_method';
+}
+
+async function retrievePaymentMethod(paymentMethod: Stripe.PaymentMethod | string | null | undefined): Promise<Stripe.PaymentMethod | null> {
+  if (!paymentMethod) {
+    return null;
+  }
+
+  if (isPaymentMethod(paymentMethod)) {
+    return paymentMethod;
+  }
+
+  return stripeClient().paymentMethods.retrieve(paymentMethod);
+}
+
+export async function getDefaultPaymentMethodForUser(userId: string): Promise<BillingPaymentMethod | null> {
+  const reference = await getBillingReference(userId);
+
+  if (!reference.subscriptionId && !reference.customerId) {
+    return null;
+  }
+
+  const stripe = stripeClient();
+
+  if (reference.subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(reference.subscriptionId, {
+      expand: ['default_payment_method'],
+    });
+    const paymentMethod = await retrievePaymentMethod(subscription.default_payment_method);
+    if (paymentMethod) {
+      return formatPaymentMethod(paymentMethod);
+    }
+  }
+
+  if (!reference.customerId) {
+    return null;
+  }
+
+  const customer = await stripe.customers.retrieve(reference.customerId, {
+    expand: ['invoice_settings.default_payment_method'],
+  });
+
+  if ('deleted' in customer && customer.deleted) {
+    return null;
+  }
+
+  const paymentMethod = await retrievePaymentMethod(customer.invoice_settings.default_payment_method);
+  return paymentMethod ? formatPaymentMethod(paymentMethod) : null;
 }
 
 export async function upsertSubscriptionForUser(params: {

@@ -3,7 +3,10 @@ import Stripe from 'stripe';
 import { config } from '../config';
 import { ApiError, required } from '../errors';
 import {
+  formatPaymentMethod,
+  getBillingReference,
   getBillingStatus,
+  getDefaultPaymentMethodForUser,
   getOrCreateCustomer,
   isSubscribed,
   priceIdForInterval,
@@ -219,6 +222,91 @@ billingRouter.post('/update-subscription', async (req, res) => {
 
     await updateSubscriptionByStripeSubscription(subscription);
     return res.json(await getBillingStatus(userId));
+  } catch (err) {
+    return errorResponse(res, err);
+  }
+});
+
+billingRouter.get('/payment-method', async (req, res) => {
+  try {
+    const userId = required(req.query, 'userId') as string;
+    return res.json({ paymentMethod: await getDefaultPaymentMethodForUser(userId) });
+  } catch (err) {
+    return errorResponse(res, err);
+  }
+});
+
+billingRouter.post('/payment-method/setup-intent', async (req, res) => {
+  try {
+    const userId = required(req.body, 'userId') as string;
+    const reference = await getBillingReference(userId);
+
+    if (!reference.customerId) {
+      throw new ApiError('No Stripe customer found for this user.', 404);
+    }
+
+    const setupIntent = await stripeClient().setupIntents.create({
+      customer: reference.customerId,
+      usage: 'off_session',
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        firebase_user_id: userId,
+      },
+    });
+
+    if (!setupIntent.client_secret) {
+      throw new ApiError('Unable to start Stripe payment method update. No client secret was returned.', 500);
+    }
+
+    return res.json({ clientSecret: setupIntent.client_secret });
+  } catch (err) {
+    return errorResponse(res, err);
+  }
+});
+
+billingRouter.post('/payment-method', async (req, res) => {
+  try {
+    const userId = required(req.body, 'userId') as string;
+    const setupIntentId = required(req.body, 'setupIntentId') as string;
+    const reference = await getBillingReference(userId);
+
+    if (!reference.customerId) {
+      throw new ApiError('No Stripe customer found for this user.', 404);
+    }
+
+    const stripe = stripeClient();
+    const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+    const setupCustomerId = typeof setupIntent.customer === 'string' ? setupIntent.customer : setupIntent.customer?.id;
+
+    if (setupCustomerId !== reference.customerId) {
+      throw new ApiError('Payment method update does not belong to this user.', 403);
+    }
+
+    if (setupIntent.status !== 'succeeded') {
+      throw new ApiError('Payment method setup is not complete.', 400);
+    }
+
+    const paymentMethodId = typeof setupIntent.payment_method === 'string' ? setupIntent.payment_method : setupIntent.payment_method?.id;
+    if (!paymentMethodId) {
+      throw new ApiError('Stripe did not return a payment method.', 500);
+    }
+
+    await stripe.customers.update(reference.customerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
+    if (reference.subscriptionId) {
+      await stripe.subscriptions.update(reference.subscriptionId, {
+        default_payment_method: paymentMethodId,
+      });
+    }
+
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    return res.json({ paymentMethod: formatPaymentMethod(paymentMethod) });
   } catch (err) {
     return errorResponse(res, err);
   }

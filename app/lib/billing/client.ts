@@ -9,6 +9,17 @@ export interface BillingStatus {
   stripePriceId?: string | null;
 }
 
+export interface BillingPaymentMethod {
+  id: string;
+  type: string;
+  brand: string | null;
+  last4: string | null;
+  expMonth: number | null;
+  expYear: number | null;
+  wallet: string | null;
+  billingName: string | null;
+}
+
 export interface BillingConfig {
   publishableKey: string | null;
   prices: {
@@ -80,6 +91,24 @@ export function resumeSubscription(userId: string) {
 
 export function updateSubscriptionPlan(params: { userId: string; interval: BillingInterval }) {
   return billingRequest<BillingStatus>('/update-subscription', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export function getPaymentMethod(userId: string) {
+  return billingRequest<{ paymentMethod: BillingPaymentMethod | null }>(`/payment-method?userId=${encodeURIComponent(userId)}`);
+}
+
+export function createPaymentMethodSetupIntent(userId: string) {
+  return billingRequest<{ clientSecret: string }>('/payment-method/setup-intent', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export function savePaymentMethod(params: { userId: string; setupIntentId: string }) {
+  return billingRequest<{ paymentMethod: BillingPaymentMethod }>('/payment-method', {
     method: 'POST',
     body: JSON.stringify(params),
   });

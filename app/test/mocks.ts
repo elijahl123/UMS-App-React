@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
 import type { AppUser } from '@/app/data/types';
-import type { BillingConfig, BillingStatus } from '@/app/lib/billing/client';
+import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 
 export const authState = {
   user: mockUser as AppUser | null,
@@ -45,6 +45,16 @@ export const billingState = {
     stripeSubscriptionId: 'sub_mock',
     stripePriceId: 'price_monthly',
   } as BillingStatus,
+  paymentMethod: {
+    id: 'pm_mock',
+    type: 'card',
+    brand: 'visa',
+    last4: '4242',
+    expMonth: 12,
+    expYear: 2030,
+    wallet: null,
+    billingName: 'Jane Doe',
+  } as BillingPaymentMethod | null,
 };
 
 export function resetMockState() {
@@ -62,6 +72,16 @@ export function resetMockState() {
     cancelAtPeriodEnd: false,
     stripeSubscriptionId: 'sub_mock',
     stripePriceId: 'price_monthly',
+  };
+  billingState.paymentMethod = {
+    id: 'pm_mock',
+    type: 'card',
+    brand: 'visa',
+    last4: '4242',
+    expMonth: 12,
+    expYear: 2030,
+    wallet: null,
+    billingName: 'Jane Doe',
   };
   Object.values(authActions).forEach((mock) => mock.mockClear());
 }

@@ -101,7 +101,23 @@ describe('page rendering', () => {
     renderWithRouter(<BillingPage />);
 
     expect(await screen.findByText(/^your subscription is active\.$/i)).toBeInTheDocument();
+    expect(screen.getByText(/visa ending in 4242/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel at period end/i })).toBeInTheDocument();
+  });
+
+  it('changes the payment method from the billing page', async () => {
+    cleanup();
+    const user = userEvent.setup();
+
+    renderWithRouter(<BillingPage />);
+
+    await user.click(await screen.findByRole('button', { name: /change payment method/i }));
+    expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save payment method/i }));
+
+    expect(await screen.findByText(/payment method updated/i)).toBeInTheDocument();
+    expect(screen.getByText(/mastercard ending in 5555/i)).toBeInTheDocument();
   });
 });
 
