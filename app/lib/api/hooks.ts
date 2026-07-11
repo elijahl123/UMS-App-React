@@ -6,6 +6,9 @@ const invalidatesByMutation: Record<string, string[]> = {
   createAssignment: ['loadAssignments'],
   updateAssignment: ['loadAssignments'],
   deleteAssignment: ['loadAssignments'],
+  createNote: ['loadNotes'],
+  updateNote: ['loadNotes'],
+  deleteNote: ['loadNotes'],
 };
 
 export function useLoadAction<T = unknown[]>(

@@ -2,6 +2,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import type { ClassSession, Course } from '@/app/data/types';
+import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay } from '@/app/data/classSchedule';
+import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
+import { useAuth } from '@/app/lib/auth/AuthContext';
+import { mapNote } from '@/app/data/mappers';
+
+interface CreatedNoteRow {
+  id: number | string;
+}
 
 interface Props {
   sessions: ClassSession[];
@@ -10,8 +18,30 @@ interface Props {
 
 function ClassesTodayWidget({ sessions, courses }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [noteRows] = useLoadAction('loadNotes', [], { userId: user?.id });
+  const [addNote, isCreatingNote] = useMutateAction<Record<string, unknown>, CreatedNoteRow[]>('createNote');
 
+  const notes = (noteRows ?? []).map(mapNote);
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
+
+  const handleOpenNotes = async (course: Course | undefined, courseId: string) => {
+    if (!course) return;
+    const existingNote = findDailyClassNote(notes, course);
+    if (existingNote) {
+      navigate(`/notes/${existingNote.id}`);
+      return;
+    }
+
+    const createdNotes = await addNote({
+      courseId,
+      title: createDailyClassNoteTitle(course),
+      content: '',
+      userId: user?.id,
+    });
+    const noteId = createdNotes[0]?.id;
+    navigate(noteId ? `/notes/${noteId}` : `/notes?courseId=${courseId}`);
+  };
 
   return (
     <Card>
@@ -45,7 +75,7 @@ function ClassesTodayWidget({ sessions, courses }: Props) {
                     <div>
                       <p className="font-bold text-sm text-[#24553D]">{course?.code}</p>
                       <p className="text-xs text-[#24553D]/80">
-                        {session.startTime} – {session.endTime}
+                        {formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}
                       </p>
                     </div>
                   </div>
@@ -53,9 +83,10 @@ function ClassesTodayWidget({ sessions, courses }: Props) {
                     size="sm"
                     variant="success"
                     className="w-full text-xs h-8"
-                    onClick={() => navigate(`/notes?courseId=${session.courseId}`)}
+                    disabled={!course || isCreatingNote}
+                    onClick={() => handleOpenNotes(course, session.courseId)}
                   >
-                    Open Notes
+                    {isCreatingNote ? 'Opening...' : 'Open Notes'}
                   </Button>
                 </div>
               );

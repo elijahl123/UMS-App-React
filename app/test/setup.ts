@@ -43,6 +43,18 @@ vi.doMock('@/app/lib/api/hooks', () => ({
   useMutateAction: (name: string) => {
     const mutate = vi.fn(async (params?: Record<string, unknown>) => {
       apiState.mutations.push({ name, params });
+      if (name === 'createNote') {
+        return [
+          {
+            id: 99,
+            course_id: params?.courseId ? Number(params.courseId) : null,
+            title: params?.title,
+            content: params?.content ?? '',
+            created_at: '2026-07-10T16:30:00.000Z',
+            updated_at: '2026-07-10T16:30:00.000Z',
+          },
+        ];
+      }
       return {};
     });
     return [mutate, false, null];

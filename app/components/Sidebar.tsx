@@ -1,13 +1,19 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Gauge, Calendar, Clock, BookOpen, FileText, GraduationCap, ChevronDown, LogOut, MessageSquare, User } from 'lucide-react';
+import { Gauge, Calendar, Clock, BookOpen, FileText, GraduationCap, ChevronDown, LogOut, MessageSquare, User, NotebookPen } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
-import { useLoadAction } from '@/app/lib/api/hooks';
+import { useEffect, useState } from 'react';
+import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { cn } from '@/lib/utils';
-import { mapCourse, mapAssignment } from '@/app/data/mappers';
+import { mapCourse, mapAssignment, mapClassSession, mapNote } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay, getTodayClassFocus } from '@/app/data/classSchedule';
+import type { Course } from '@/app/data/types';
+
+interface CreatedNoteRow {
+  id: number | string;
+}
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   cn(
@@ -21,15 +27,28 @@ interface Props {
 
 function Sidebar({ onClose }: Props) {
   const [coursesOpen, setCoursesOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const { user, logout } = useAuth();
   const [courseRows] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows] = useLoadAction('loadAssignments', [], { userId: user?.id });
+  const [sessionRows] = useLoadAction('loadClassSessions', [], { userId: user?.id });
+  const [noteRows] = useLoadAction('loadNotes', [], { userId: user?.id });
+  const [addNote, isCreatingNote] = useMutateAction<Record<string, unknown>, CreatedNoteRow[]>('createNote');
   const navigate = useNavigate();
 
   const courses = (courseRows ?? []).map(mapCourse);
   const assignments = (assignmentRows ?? []).map(mapAssignment);
+  const sessions = (sessionRows ?? []).map(mapClassSession);
+  const notes = (noteRows ?? []).map(mapNote);
   const lateCount = assignments.filter((a) => a.status === 'late').length;
   const dueTodayCount = assignments.filter((a) => a.status === 'due_today').length;
+  const classFocus = getTodayClassFocus(sessions, courses, now);
+  const classFocusColors = getCourseColor(classFocus?.course?.color);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleNavClick = () => {
     onClose?.();
@@ -39,6 +58,26 @@ function Sidebar({ onClose }: Props) {
     logout();
     onClose?.();
     navigate('/login', { replace: true });
+  };
+
+  const handleOpenNotes = async (course: Course | undefined) => {
+    if (!course) return;
+    const existingNote = findDailyClassNote(notes, course, now);
+    if (existingNote) {
+      onClose?.();
+      navigate(`/notes/${existingNote.id}`);
+      return;
+    }
+
+    const createdNotes = await addNote({
+      courseId: course.id,
+      title: createDailyClassNoteTitle(course, now),
+      content: '',
+      userId: user?.id,
+    });
+    const noteId = createdNotes[0]?.id;
+    onClose?.();
+    navigate(noteId ? `/notes/${noteId}` : `/notes?courseId=${course.id}`);
   };
 
   return (
@@ -153,6 +192,56 @@ function Sidebar({ onClose }: Props) {
             })}
           </div>
         )}
+
+        <div className="my-2 border-t border-[var(--border-light)]" />
+
+        <div
+          className="rounded-lg border p-3 shadow-sm"
+          style={{
+            backgroundColor: classFocus ? classFocusColors.bg : 'white',
+            borderColor: classFocus ? classFocusColors.border : 'rgb(9 9 11 / 0.08)',
+            color: classFocus ? classFocusColors.text : undefined,
+          }}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <div
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/50"
+              style={{ color: classFocus ? classFocusColors.text : undefined }}
+            >
+              <Clock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase opacity-75">
+                {classFocus?.status === 'current' ? 'Current Class' : 'Next Class'}
+              </p>
+              <p className="truncate text-sm font-bold">
+                {classFocus?.course?.code ?? (classFocus ? 'Class' : 'No more classes today')}
+              </p>
+            </div>
+          </div>
+
+          {classFocus ? (
+            <>
+              <p className="truncate text-xs font-medium opacity-85">
+                {classFocus.course?.name ?? 'Course details unavailable'}
+              </p>
+              <p className="mt-1 text-xs opacity-85">
+                {formatTimeDisplay(classFocus.session.startTime)} - {formatTimeDisplay(classFocus.session.endTime)}
+              </p>
+              <Button
+                size="sm"
+                className="mt-3 h-8 w-full gap-2 text-xs"
+                disabled={!classFocus.course || isCreatingNote}
+                onClick={() => handleOpenNotes(classFocus.course)}
+              >
+                <NotebookPen className="h-3.5 w-3.5" />
+                <span>{isCreatingNote ? 'Opening...' : 'Open Notes'}</span>
+              </Button>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">Your schedule is clear for the rest of the day.</p>
+          )}
+        </div>
       </nav>
 
       {/* Footer - action buttons */}

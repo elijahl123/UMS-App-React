@@ -5,7 +5,7 @@ import LateAssignmentsWidget from '@/app/components/widgets/LateAssignmentsWidge
 import UpcomingEventsWidget from '@/app/components/widgets/UpcomingEventsWidget';
 import { mapCourse, mapAssignment, mapClassSession, mapEvent } from '@/app/data/mappers';
 import type { Assignment, CalendarEvent } from '@/app/data/types';
-import { todayDayName } from '@/app/data/mockData';
+import { todayDayName } from '@/app/data/classSchedule';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 function DashboardPage() {

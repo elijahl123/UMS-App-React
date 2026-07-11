@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountPage from '@/app/pages/AccountPage';
@@ -95,6 +95,32 @@ describe('page rendering', () => {
 
     expect(screen.getByDisplayValue(/chain rule notes/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/rich text editor/i)).toBeInTheDocument();
+  });
+
+  it('warns before leaving a note with unsaved changes', async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.confirm).mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/notes/:noteId" element={<NotesEditorPage />} />
+        <Route path="/notes" element={<div>Notes list destination</div>} />
+      </Routes>,
+      { route: '/notes/1' }
+    );
+
+    const titleInput = screen.getByDisplayValue(/chain rule notes/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Edited Chain Rule Notes');
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(window.confirm).toHaveBeenCalledWith('You have unsaved changes. Leave without saving?');
+    expect(screen.getByDisplayValue(/edited chain rule notes/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(await screen.findByText(/notes list destination/i)).toBeInTheDocument();
   });
 
   it('renders the account page', () => {

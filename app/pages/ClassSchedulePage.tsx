@@ -8,47 +8,19 @@ import { mapCourse, mapClassSession } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import type { ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { dayLabels, formatTimeDisplay, parseTimeToMinutes } from '@/app/data/classSchedule';
 
 const days: ClassSession['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const dayLabels: Record<ClassSession['day'], string> = {
-  Mon: 'Monday',
-  Tue: 'Tuesday',
-  Wed: 'Wednesday',
-  Thu: 'Thursday',
-  Fri: 'Friday',
-  Sat: 'Saturday',
-  Sun: 'Sunday',
-};
 
 const HOUR_HEIGHT = 56; // px per hour row
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 18;
-
-function parseTimeToMinutes(time: string): number {
-  // Parse HH:MM or HH:MM:SS format (24-hour)
-  const match = time.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return 0;
-  const hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  return hours * 60 + minutes;
-}
 
 function formatHourLabel(hour: number): string {
   const h = hour % 24;
   const period = h < 12 ? 'AM' : 'PM';
   const display = h % 12 === 0 ? 12 : h % 12;
   return `${display} ${period}`;
-}
-
-function formatTimeDisplay(time: string): string {
-  // Convert HH:MM or HH:MM:SS to 12-hour format for display
-  const match = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return time;
-  const hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const period = hours < 12 ? 'a.m.' : 'p.m.';
-  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
-  return `${displayHour}:${minutes} ${period}`;
 }
 
 function ClassSchedulePage() {
