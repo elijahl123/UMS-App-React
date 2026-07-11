@@ -1,4 +1,5 @@
 import type { Assignment, CalendarEvent, ClassSession, Course } from '@/app/data/types';
+import { getCourseColor, type CourseColor } from '@/app/data/courseColors';
 
 export interface CalendarItem {
   id: string;
@@ -7,6 +8,8 @@ export interface CalendarItem {
   date: string; // ISO date (yyyy-mm-dd)
   time?: string;
   color: string;
+  textColor: string;
+  borderColor: string;
   course?: Course;
   raw: Assignment | ClassSession | CalendarEvent;
 }
@@ -51,26 +54,32 @@ export function buildCalendarItems(
 
   assignments.forEach((a) => {
     const course = getCourse(a.courseId);
+    const colors = getCourseColor(course?.color);
     addItem(a.dueDate, {
       id: `assignment-${a.id}`,
       type: 'assignment',
       title: `${course ? `${course.code}: ` : ''}${a.name}`,
       date: a.dueDate,
       time: a.dueTime,
-      color: 'var(--course-yellow)',
+      color: colors.bg,
+      textColor: colors.text,
+      borderColor: colors.border,
       course,
       raw: a,
     });
   });
 
   events.forEach((e) => {
+    const colors: CourseColor = { bg: 'var(--course-blue)', text: '#1F3A66', border: '#9fb6e6' };
     addItem(e.date, {
       id: `event-${e.id}`,
       type: 'event',
       title: e.title,
       date: e.date,
       time: e.time,
-      color: 'var(--course-blue)',
+      color: colors.bg,
+      textColor: colors.text,
+      borderColor: colors.border,
       raw: e,
     });
   });
@@ -83,13 +92,16 @@ export function buildCalendarItems(
       .filter((s) => s.day === dayName)
       .forEach((s) => {
         const course = getCourse(s.courseId);
+        const colors = getCourseColor(course?.color);
         addItem(iso, {
           id: `class-${s.id}-${iso}`,
           type: 'class',
           title: `${course ? course.code : 'Class'}`,
           date: iso,
           time: s.startTime,
-          color: 'var(--course-green)',
+          color: colors.bg,
+          textColor: colors.text,
+          borderColor: colors.border,
           course,
           raw: s,
         });

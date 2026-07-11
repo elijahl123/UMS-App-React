@@ -8,15 +8,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getCourseColor } from '@/app/data/courseColors';
+import { courseColorOptions, getCourseColor } from '@/app/data/courseColors';
 import type { Course } from '@/app/data/types';
-
-const COLOR_OPTIONS = [
-  { key: 'course-green', label: 'Green' },
-  { key: 'course-blue', label: 'Blue' },
-  { key: 'course-yellow', label: 'Yellow' },
-  { key: 'course-gray', label: 'Gray' },
-];
 
 const schema = z.object({
   code: z.string().min(1, 'Course code is required'),
@@ -107,8 +100,8 @@ function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Pr
                 <FormItem>
                   <FormLabel>Color</FormLabel>
                   <FormControl>
-                    <div className="flex items-center gap-3">
-                      {COLOR_OPTIONS.map((opt) => {
+                    <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
+                      {courseColorOptions.map((opt) => {
                         const colors = getCourseColor(opt.key);
                         const selected = field.value === opt.key;
                         return (
@@ -121,9 +114,9 @@ function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Pr
                               'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-transform',
                               selected ? 'scale-110 border-primary' : 'border-transparent'
                             )}
-                            style={{ backgroundColor: colors.bg }}
+                            style={{ backgroundColor: colors.bg, color: colors.text }}
                           >
-                            {selected && <Check className="h-4 w-4" style={{ color: colors.text }} />}
+                            {selected && <Check className="h-4 w-4" />}
                           </button>
                         );
                       })}

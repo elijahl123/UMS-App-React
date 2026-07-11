@@ -63,8 +63,8 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick }: Props) {
                 {items.slice(0, 3).map((item) => (
                   <span
                     key={item.id}
-                    className="truncate rounded px-1 py-0.5 text-[8px] sm:text-[10px] font-medium text-foreground/80"
-                    style={{ backgroundColor: item.color }}
+                    className="truncate rounded border px-1 py-0.5 text-[8px] font-semibold sm:text-[10px]"
+                    style={{ backgroundColor: item.color, borderColor: item.borderColor, color: item.textColor }}
                   >
                     {item.title}
                   </span>

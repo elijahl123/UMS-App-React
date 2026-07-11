@@ -19,6 +19,10 @@
   --course-blue: #c9d8f3;
   --course-yellow: #f8e7af;
   --course-gray: #d8d8dd;
+  --course-teal: #bfe6e1;
+  --course-purple: #ded2f4;
+  --course-pink: #f5cddd;
+  --course-red: #f7c7c7;
 
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -82,7 +86,7 @@
   --shadow-xl: 0px 3px 5px 0.5px rgb(9 9 11 / 0.08), 0px 8px 10px -0.5px rgb(9 9 11 / 0.08);
   --shadow-2xl: 0px 3px 5px 0.5px rgb(9 9 11 / 0.20);
 
-  --tracking-normal: -0.025em;
+  --tracking-normal: 0;
 }
 
 .dark {

@@ -60,20 +60,20 @@ function DashboardPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-[2fr_1fr] h-full">
-      <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 min-h-0">
-        <div className="flex-1 min-h-0 overflow-hidden">
+    <div className="grid grid-cols-1 gap-3 pb-20 sm:gap-4 md:gap-6 md:pb-0 lg:h-full lg:grid-cols-[2fr_1fr]">
+      <div className="flex min-h-0 flex-col gap-3 sm:gap-4 md:gap-6">
+        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} />
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <LateAssignmentsWidget assignments={late} courses={courses} />
         </div>
       </div>
-      <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 min-h-0">
-        <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex min-h-0 flex-col gap-3 sm:gap-4 md:gap-6">
+        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <ClassesTodayWidget sessions={todaysSessions} courses={courses} />
         </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="min-h-[18rem] lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <UpcomingEventsWidget events={events} onAdd={handleAddEvent} />
         </div>
       </div>

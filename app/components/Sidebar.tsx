@@ -182,10 +182,11 @@ function Sidebar({ onClose }: Props) {
                 <NavLink
                   key={course.id}
                   to={`/courses/${course.id}`}
-                  className="flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                  className="flex items-center gap-2 rounded-md border px-4 py-2 text-xs font-bold transition-all hover:shadow-sm"
+                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                   onClick={handleNavClick}
                 >
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colors.bg, border: `1px solid ${colors.border}` }} />
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: colors.border }} />
                   {course.code}
                 </NavLink>
               );

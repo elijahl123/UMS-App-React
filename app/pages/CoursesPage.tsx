@@ -78,13 +78,13 @@ function CoursesPage() {
                     key={course.id}
                     role="button"
                     onClick={() => navigate(`/courses/${course.id}`)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border-l-4 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
-                    style={{ borderLeftColor: colors.border }}
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border-l-4 p-4 shadow-sm transition-shadow hover:shadow-md"
+                    style={{ backgroundColor: colors.bg, borderLeftColor: colors.border, color: colors.text }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span
                         className="rounded-full px-2.5 py-1 text-xs font-bold"
-                        style={{ backgroundColor: colors.bg, color: colors.text }}
+                        style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors.text }}
                       >
                         {course.code}
                       </span>
@@ -109,8 +109,8 @@ function CoursesPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{course.name}</p>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <p className="truncate text-sm font-bold">{course.name}</p>
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
                     </div>
                   </div>
                 );

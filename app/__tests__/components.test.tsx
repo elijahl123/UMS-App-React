@@ -150,6 +150,8 @@ describe('widgets and calendar components', () => {
       date: '2026-07-10',
       time: '16:00',
       color: '#fff',
+      textColor: '#1F3A66',
+      borderColor: '#9fb6e6',
       raw: events[0],
     };
 

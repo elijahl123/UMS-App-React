@@ -3,6 +3,9 @@ import { callAction } from '@/app/lib/api/client';
 
 const MUTATION_EVENT = 'ums-api-action-mutated';
 const invalidatesByMutation: Record<string, string[]> = {
+  createCourse: ['loadCourses'],
+  updateCourse: ['loadCourses'],
+  deleteCourse: ['loadCourses'],
   createAssignment: ['loadAssignments'],
   updateAssignment: ['loadAssignments'],
   deleteAssignment: ['loadAssignments'],

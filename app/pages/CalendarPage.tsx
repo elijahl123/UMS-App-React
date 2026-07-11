@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,11 +13,22 @@ import EditEventDialog from '@/app/components/widgets/EditEventDialog';
 import type { CalendarEvent } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
+function parseDateParam(value: string | null): Date | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function CalendarPage() {
   const { user } = useAuth();
   const today = new Date();
-  const [cursor, setCursor] = useState({ year: today.getFullYear(), month: today.getMonth() });
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialDate = parseDateParam(searchParams.get('date'));
+  const [cursor, setCursor] = useState({
+    year: (initialDate ?? today).getFullYear(),
+    month: (initialDate ?? today).getMonth(),
+  });
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate ? searchParams.get('date') : null);
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<(CalendarEvent & { id: string }) | null>(null);
   const [editEventOpen, setEditEventOpen] = useState(false);
@@ -33,6 +45,13 @@ function CalendarPage() {
   const assignments = (assignmentRows ?? []).map(mapAssignment);
   const sessions = (sessionRows ?? []).map(mapClassSession);
   const events = (eventRows ?? []).map(mapEvent);
+
+  useEffect(() => {
+    const linkedDate = parseDateParam(searchParams.get('date'));
+    if (!linkedDate) return;
+    setCursor({ year: linkedDate.getFullYear(), month: linkedDate.getMonth() });
+    setSelectedDate(searchParams.get('date'));
+  }, [searchParams]);
 
   const itemsByDate = useMemo(
     () => buildCalendarItems(cursor.year, cursor.month, assignments, sessions, events, courses),

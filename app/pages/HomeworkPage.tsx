@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import { formatAssignmentDue, formatDueTime, formatTimeZoneLabel } from '@/app/d
 import type { Assignment, Course } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
+const statusValues = new Set(['all', 'upcoming', 'due_today', 'late', 'completed']);
+
 interface Group {
   key: string;
   label: string;
@@ -22,6 +25,7 @@ interface Group {
 
 function HomeworkPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows, assignmentsLoading, , refreshAssignments] = useLoadAction('loadAssignments', [], {
     userId: user?.id,
@@ -31,8 +35,11 @@ function HomeworkPage() {
   const [editAssignment] = useMutateAction('updateAssignment');
   const [removeAssignment] = useMutateAction('deleteAssignment');
 
-  const [courseFilter, setCourseFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [courseFilter, setCourseFilter] = useState(() => searchParams.get('courseId') ?? 'all');
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const status = searchParams.get('status');
+    return status && statusValues.has(status) ? status : 'all';
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
@@ -41,6 +48,12 @@ function HomeworkPage() {
   const assignments = (assignmentRows ?? []).map(mapAssignment);
 
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
+
+  useEffect(() => {
+    setCourseFilter(searchParams.get('courseId') ?? 'all');
+    const status = searchParams.get('status');
+    setStatusFilter(status && statusValues.has(status) ? status : 'all');
+  }, [searchParams]);
 
   const filtered = useMemo(() => {
     return assignments
@@ -154,31 +167,27 @@ function HomeworkPage() {
 
   const renderRow = (a: Assignment, course: Course | undefined, emphasis?: 'late' | 'today') => {
     const colors = getCourseColor(course?.color);
-    const leftBorder =
-      emphasis === 'late' ? '#e35c5f' : emphasis === 'today' ? '#e0c874' : colors.border;
     const dueTimeLabel = formatDueTime(a.dueTime);
     const dueTodayLabel = dueTimeLabel ? `Today at ${dueTimeLabel} ${formatTimeZoneLabel(a.dueTimeZone, a.dueDate)}` : 'Today';
     return (
       <div
         key={a.id}
-        className="group flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-lg border-l-4 bg-card p-2 sm:p-3 shadow-sm"
-        style={{ borderLeftColor: leftBorder, backgroundColor: emphasis === 'late' ? '#fff5f5' : emphasis === 'today' ? '#fffaf0' : undefined }}
+        className="group flex flex-col gap-2 rounded-lg border-l-4 p-2 shadow-sm sm:flex-row sm:items-center sm:gap-3 sm:p-3"
+        style={{ borderLeftColor: colors.border, backgroundColor: colors.bg, color: colors.text }}
       >
         <span
           className="hidden shrink-0 rounded-full px-1.5 py-0.5 text-[9px] sm:px-2 sm:text-[10px] font-bold sm:inline-block"
-          style={{ backgroundColor: colors.bg, color: colors.text }}
+          style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors.text }}
         >
           {course?.code ?? '—'}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{a.name}</p>
-          <p className="truncate text-xs text-muted-foreground sm:hidden">{course?.code ?? '—'}</p>
+          <p className="truncate text-sm font-bold">{a.name}</p>
+          <p className="truncate text-xs opacity-80 sm:hidden">{course?.code ?? '—'}</p>
         </div>
         <div className="flex flex-row-reverse items-center justify-between gap-2 sm:gap-3 sm:flex-row">
           <span
-            className={`shrink-0 text-xs font-semibold ${
-              emphasis === 'late' ? 'text-[#B3261E]' : emphasis === 'today' ? 'text-[#8a6d1a]' : 'text-muted-foreground'
-            }`}
+            className={`shrink-0 text-xs font-bold ${emphasis === 'late' ? 'text-[#B3261E]' : ''}`}
           >
             {emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' })}
           </span>

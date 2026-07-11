@@ -91,13 +91,17 @@ function NotesPage() {
                     key={note.id}
                     role="button"
                     onClick={() => navigate(`/notes/${note.id}`)}
-                    className="group flex cursor-pointer flex-col gap-2 rounded-xl border-l-4 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
-                    style={{ borderLeftColor: colors?.border ?? 'var(--border-light)' }}
+                    className="group flex cursor-pointer flex-col gap-2 rounded-xl border-l-4 p-4 shadow-sm transition-shadow hover:shadow-md"
+                    style={{
+                      backgroundColor: colors?.bg ?? 'var(--card)',
+                      borderLeftColor: colors?.border ?? 'var(--border-light)',
+                      color: colors?.text ?? 'var(--foreground)',
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <FileText className="h-4 w-4 shrink-0 text-primary" />
-                        <p className="truncate text-sm font-bold text-foreground">{note.title}</p>
+                        <FileText className="h-4 w-4 shrink-0" />
+                        <p className="truncate text-sm font-bold">{note.title}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                         <Button
@@ -126,19 +130,19 @@ function NotesPage() {
                         </Button>
                       </div>
                     </div>
-                    <p className="line-clamp-3 text-xs text-muted-foreground">{preview || 'No content yet.'}</p>
+                    <p className="line-clamp-3 text-xs opacity-80">{preview || 'No content yet.'}</p>
                     <div className="mt-auto flex items-center justify-between gap-2 pt-1">
                       {course ? (
                         <span
                           className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-                          style={{ backgroundColor: colors?.bg, color: colors?.text }}
+                          style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors?.text }}
                         >
                           {course.code}
                         </span>
                       ) : (
                         <span className="text-[10px] font-medium text-muted-foreground">No course</span>
                       )}
-                      <span className="text-[10px] text-muted-foreground">{formatDate(note.updatedAt)}</span>
+                      <span className="text-[10px] opacity-70">{formatDate(note.updatedAt)}</span>
                     </div>
                   </div>
                 );

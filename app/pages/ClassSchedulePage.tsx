@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ function formatHourLabel(hour: number): string {
 
 function ClassSchedulePage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [sessionRows, sessionsLoading, , refreshSessions] = useLoadAction('loadClassSessions', [], {
     userId: user?.id,
@@ -39,16 +41,18 @@ function ClassSchedulePage() {
 
   const courses = (courseRows ?? []).map(mapCourse);
   const sessions = (sessionRows ?? []).map(mapClassSession);
+  const focusedCourseId = searchParams.get('courseId');
+  const visibleSessions = focusedCourseId ? sessions.filter((s) => s.courseId === focusedCourseId) : sessions;
 
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
 
   const { startHour, endHour } = useMemo(() => {
-    if (sessions.length === 0) {
+    if (visibleSessions.length === 0) {
       return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
     }
     let minMinutes = Infinity;
     let maxMinutes = -Infinity;
-    sessions.forEach((s) => {
+    visibleSessions.forEach((s) => {
       minMinutes = Math.min(minMinutes, parseTimeToMinutes(s.startTime));
       maxMinutes = Math.max(maxMinutes, parseTimeToMinutes(s.endTime));
     });
@@ -56,7 +60,7 @@ function ClassSchedulePage() {
       startHour: Math.min(DEFAULT_START_HOUR, Math.floor(minMinutes / 60)),
       endHour: Math.max(DEFAULT_END_HOUR, Math.ceil(maxMinutes / 60)),
     };
-  }, [sessions]);
+  }, [visibleSessions]);
 
   const hours = useMemo(() => {
     const result: number[] = [];
@@ -140,7 +144,7 @@ function ClassSchedulePage() {
 
               {/* Day columns */}
               {days.map((day) => {
-                const daySessions = sessions.filter((s) => s.day === day);
+                const daySessions = visibleSessions.filter((s) => s.day === day);
                 return (
                   <div key={day} className="flex min-w-0 flex-1 flex-col border-l border-[var(--border-light)]">
                     <div className="flex h-8 sm:h-10 shrink-0 flex-col items-center justify-center border-b border-[var(--border-light)] bg-secondary/40">
