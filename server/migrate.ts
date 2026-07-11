@@ -26,7 +26,10 @@ async function seedBaselineMigrations() {
     .split(/\r?\n/)
     .map((line: string) => line.trim())
     .filter((line: string) => /^\d+_/.test(line))
-    .map((line: string) => line.split(/\s+/)[0]);
+    .map((line: string) => {
+      const token = line.split(/\s+/)[0];
+      return token.endsWith('.sql') ? token : `${token}.sql`;
+    });
 
   for (const filename of filenames) {
     await pool.query(
