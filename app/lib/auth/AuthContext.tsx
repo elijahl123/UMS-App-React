@@ -1,23 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { mapFirebaseUser } from '@/app/data/mappers';
-import type { AppUser, StagingAccessUser } from '@/app/data/types';
-import { apiFetch, getApiAuthHeaders, setApiAuthToken } from '@/app/lib/api/client';
-import {
-  consumeGoogleRedirectIdToken,
-  getGoogleOAuthRequestUri,
-  isGoogleSignInConfigured,
-  setGoogleAuthReturnTo,
-  startGoogleSignIn,
-} from '@/app/lib/auth/googleOAuth';
+import type { AppUser } from '@/app/data/types';
+import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo } from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
-import { startTrial } from '@/app/lib/billing/client';
-import { stagingAccessControlEnabled } from '@/app/lib/env';
-import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
-const TRIAL_REDIRECT_STORAGE_KEY = 'schoolwork_trial_started_redirect';
-
-type AuthResult = Promise<{ success: boolean; error?: string; trialStartedNow?: boolean }>;
 
 interface FirebaseErrorResponse {
   error?: { message?: string };
@@ -105,18 +92,14 @@ function extractErrorCode(err: unknown): string {
 
 interface AuthContextValue {
   user: AppUser | null;
-  idToken: string | null;
-  stagingAccess: StagingAccessUser | null;
-  isStagingAccessControlEnabled: boolean;
   isLoading: boolean;
-  isStagingAccessLoading: boolean;
-  login: (email: string, password: string) => AuthResult;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (values: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
-  }) => AuthResult;
+  }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateProfile: (values: { email: string; firstName: string; lastName: string }) => Promise<{ success: boolean; error?: string }>;
   changePassword: (values: { currentPassword: string; newPassword: string }) => Promise<{ success: boolean; error?: string }>;
@@ -124,13 +107,10 @@ interface AuthContextValue {
   verifyEmailWithToken: (oobCode: string) => Promise<{ success: boolean; error?: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   resetPasswordWithToken: (oobCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  signInWithGoogle: () => AuthResult;
-  deleteAccount: (values: { confirmationEmail: string }) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   isGoogleSignInAvailable: boolean;
   isProcessingGoogleRedirect: boolean;
   googleSignInError: string | null;
-  refreshStagingAccess: () => Promise<boolean>;
-  consumeTrialStartedRedirect: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -138,77 +118,16 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
-  const [stagingAccess, setStagingAccess] = useState<StagingAccessUser | null>(null);
-  const [isStagingAccessControlEnabled, setIsStagingAccessControlEnabled] = useState(stagingAccessControlEnabled);
   const [isLoading, setIsLoading] = useState(true);
-  const [isStagingAccessLoading, setIsStagingAccessLoading] = useState(false);
   const [isProcessingGoogleRedirect, setIsProcessingGoogleRedirect] = useState(false);
   const [googleSignInError, setGoogleSignInError] = useState<string | null>(null);
-  const [trialStartedRedirectPending, setTrialStartedRedirectPending] = useState(() =>
-    sessionStorage.getItem(TRIAL_REDIRECT_STORAGE_KEY) === '1'
-  );
 
-  const refreshStagingAccess = async (token = idToken, enabled = isStagingAccessControlEnabled): Promise<boolean> => {
-    if (!enabled) {
-      setStagingAccess(null);
-      setIsStagingAccessLoading(false);
-      return true;
-    }
-
-    if (!token) {
-      setStagingAccess(null);
-      setIsStagingAccessLoading(false);
-      return false;
-    }
-
-    setIsStagingAccessLoading(true);
-    setApiAuthToken(token);
-    try {
-      const result = await getMyStagingAccess();
-      setStagingAccess(result.user);
-      return Boolean(result.user);
-    } catch (err) {
-      console.warn('[Auth] Staging access check failed:', err);
-      setStagingAccess(null);
-      return false;
-    } finally {
-      setIsStagingAccessLoading(false);
-    }
-  };
-
-  const markTrialStartedRedirect = useCallback(() => {
-    sessionStorage.setItem(TRIAL_REDIRECT_STORAGE_KEY, '1');
-    setTrialStartedRedirectPending(true);
-  }, []);
-
-  const consumeTrialStartedRedirect = useCallback(() => {
-    const pending = trialStartedRedirectPending || sessionStorage.getItem(TRIAL_REDIRECT_STORAGE_KEY) === '1';
-    if (pending) {
-      sessionStorage.removeItem(TRIAL_REDIRECT_STORAGE_KEY);
-      setTrialStartedRedirectPending(false);
-    }
-    return pending;
-  }, [trialStartedRedirectPending]);
-
-  const startTrialAfterAuth = async (nextUser: AppUser): Promise<boolean> => {
-    try {
-      const status = await startTrial({ userId: nextUser.id, email: nextUser.email });
-      if (status.trialStartedNow) {
-        markTrialStartedRedirect();
-      }
-      return status.trialStartedNow;
-    } catch (err) {
-      console.warn('[Auth] Trial start check failed:', err);
-      return false;
-    }
-  };
-
-  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string, accessControlEnabled = isStagingAccessControlEnabled) => {
+  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string) => {
     try {
       const postBody = `id_token=${encodeURIComponent(googleIdToken)}&providerId=google.com`;
       const result: FirebaseIdpResult = await firebaseAuth.signInWithIdp({
         postBody,
-        requestUri: getGoogleOAuthRequestUri(),
+        requestUri: window.location.origin,
         idToken: linkToIdToken,
       });
       const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: result.idToken });
@@ -223,12 +142,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
             createdAt: new Date().toISOString(),
             emailVerified: result.emailVerified ?? true,
             connectedProviders: [result.providerId ?? 'google.com'],
-      };
+          };
       persistSession(result.idToken, nextUser);
-      const trialStartedNow = await startTrialAfterAuth(nextUser);
-      await refreshStagingAccess(result.idToken, accessControlEnabled);
       console.log('[Auth] Google id_token exchanged for Firebase session');
-      return { success: true, trialStartedNow };
+      return { success: true };
     } catch (err) {
       console.error('[Auth] Google id_token exchange failed:', err);
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -239,21 +156,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       const authStartedAt = performance.now();
       console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
-      let accessControlEnabled = stagingAccessControlEnabled;
-      try {
-        const stagingConfig = await getStagingAccessConfig();
-        accessControlEnabled = stagingConfig.enabled;
-        setIsStagingAccessControlEnabled(stagingConfig.enabled);
-      } catch {
-        setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
-      }
       const googleIdToken = consumeGoogleRedirectIdToken();
 
       if (googleIdToken) {
         console.log('[Auth] Found Google id_token from local OAuth redirect');
         setIsProcessingGoogleRedirect(true);
         const storedSession = readStoredSession();
-        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
+        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken);
         if (!result.success) {
           setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
           console.error('[Auth] Google redirect sign-in failed:', result.error);
@@ -279,10 +188,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
             console.log('[Auth] Successfully logged in user:', freshUser.email);
-            const nextUser = mapFirebaseUser(freshUser);
-            persistSession(sessionToken, nextUser);
-            await startTrialAfterAuth(nextUser);
-            await refreshStagingAccess(sessionToken, accessControlEnabled);
+            persistSession(sessionToken, mapFirebaseUser(freshUser));
             // Clean URL
             const previousUrl = window.location.href;
             window.history.replaceState(null, '', `${window.location.pathname}#/`);
@@ -301,20 +207,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const session = readStoredSession();
       if (session) {
         try {
-          setApiAuthToken(session.idToken);
           const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
-            const nextUser = mapFirebaseUser(freshUser);
-            persistSession(session.idToken, nextUser);
-            await startTrialAfterAuth(nextUser);
-            await refreshStagingAccess(session.idToken, accessControlEnabled);
+            setIdToken(session.idToken);
+            setUser(mapFirebaseUser(freshUser));
           } else {
-            setApiAuthToken(null);
             localStorage.removeItem(SESSION_STORAGE_KEY);
           }
         } catch {
-          setApiAuthToken(null);
           localStorage.removeItem(SESSION_STORAGE_KEY);
         }
       }
@@ -333,7 +234,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const persistSession = (nextIdToken: string, nextUser: AppUser) => {
     setIdToken(nextIdToken);
-    setApiAuthToken(nextIdToken);
     setUser(nextUser);
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
   };
@@ -346,11 +246,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       if (!freshUser) {
         return { success: false, error: 'Could not log in. Please try again.' };
       }
-      const nextUser = mapFirebaseUser(freshUser);
-      persistSession(result.idToken, nextUser);
-      const trialStartedNow = await startTrialAfterAuth(nextUser);
-      await refreshStagingAccess(result.idToken);
-      return { success: true, trialStartedNow };
+      persistSession(result.idToken, mapFirebaseUser(freshUser));
+      return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
     }
@@ -361,7 +258,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const displayName = `${values.firstName} ${values.lastName}`.trim();
       const result: FirebaseAuthResult = await firebaseAuth.signUp({ email: values.email, password: values.password });
       await firebaseAuth.updateProfile({ idToken: result.idToken, email: values.email, displayName });
-      const nextUser = {
+      persistSession(result.idToken, {
         id: result.localId,
         email: values.email,
         firstName: values.firstName,
@@ -369,16 +266,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         emailVerified: false,
         connectedProviders: ['password'],
-      };
-      persistSession(result.idToken, nextUser);
-      const trialStartedNow = await startTrialAfterAuth(nextUser);
-      await refreshStagingAccess(result.idToken);
+      });
       await firebaseAuth.sendOobCode({
         requestType: 'VERIFY_EMAIL',
         idToken: result.idToken,
         continueUrl: buildContinueUrl('verify-email'),
       });
-      return { success: true, trialStartedNow };
+      return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
     }
@@ -387,8 +281,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setIdToken(null);
-    setStagingAccess(null);
-    setApiAuthToken(null);
     localStorage.removeItem(SESSION_STORAGE_KEY);
   };
 
@@ -410,7 +302,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
         lastName: values.lastName,
       };
       persistSession(result.idToken ?? idToken, nextUser);
-      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -426,7 +317,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseAuth.signIn({ email: user.email, password: values.currentPassword });
       const result: FirebaseAuthResult = await firebaseAuth.changePassword({ idToken, password: values.newPassword });
       persistSession(result.idToken ?? idToken, user);
-      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       const code = extractErrorCode(err);
@@ -458,7 +348,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyEmailWithToken = async (oobCode: string) => {
     try {
-      await firebaseAuth.verifyEmail({ oobCode });
+      await firebaseAuth.resetPassword({ oobCode });
       if (user && idToken) {
         const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken });
         const freshUser = lookup?.users?.[0];
@@ -530,37 +420,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteAccount = async (values: { confirmationEmail: string }) => {
-    if (!user || !idToken) {
-      return { success: false, error: 'You must be logged in.' };
-    }
-
-    try {
-      const response = await apiFetch('/auth/account', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
-        body: JSON.stringify(values),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        return { success: false, error: payload?.error?.message ?? 'Unable to delete account.' };
-      }
-
-      logout();
-      return { success: true };
-    } catch {
-      return { success: false, error: 'Unable to delete account.' };
-    }
-  };
-
   const value = useMemo(
     () => ({
       user,
-      idToken,
-      stagingAccess,
-      isStagingAccessControlEnabled,
       isLoading,
-      isStagingAccessLoading,
       login,
       signup,
       logout,
@@ -571,24 +434,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
       requestPasswordReset,
       resetPasswordWithToken,
       signInWithGoogle,
-      deleteAccount,
       isGoogleSignInAvailable: isGoogleSignInConfigured(),
       isProcessingGoogleRedirect,
       googleSignInError,
-      refreshStagingAccess: () => refreshStagingAccess(),
-      consumeTrialStartedRedirect,
     }),
-    [
-      user,
-      idToken,
-      stagingAccess,
-      isStagingAccessControlEnabled,
-      isLoading,
-      isStagingAccessLoading,
-      isProcessingGoogleRedirect,
-      googleSignInError,
-      consumeTrialStartedRedirect,
-    ]
+    [user, isLoading, idToken, isProcessingGoogleRedirect, googleSignInError]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
