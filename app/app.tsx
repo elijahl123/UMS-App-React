@@ -1,6 +1,7 @@
 'use client';
 
 import '@/index.css';
+import type { ReactNode } from 'react';
 import { HashRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import AppLayout from '@/app/components/AppLayout';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
@@ -21,6 +22,7 @@ import CoursePage from '@/app/pages/CoursePage';
 import NotesPage from '@/app/pages/NotesPage';
 import NotesEditorPage from '@/app/pages/NotesEditorPage';
 import AccountPage from '@/app/pages/AccountPage';
+import StagingAccessPage from '@/app/pages/StagingAccessPage';
 
 function FallbackRoute() {
   const location = useLocation();
@@ -40,6 +42,16 @@ function FallbackRoute() {
   }
 
   return <Navigate to="/" replace />;
+}
+
+function StagingAdminRoute({ children }: { children: ReactNode }) {
+  const { stagingAccess, isStagingAccessControlEnabled } = useAuth();
+
+  if (!isStagingAccessControlEnabled || stagingAccess?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
 }
 
 function App() {
@@ -66,6 +78,14 @@ function App() {
                 <Route path="/courses" element={<CoursesPage />} />
                 <Route path="/courses/:courseId" element={<CoursePage />} />
                 <Route path="/account" element={<AccountPage />} />
+                <Route
+                  path="/admin/staging-access"
+                  element={
+                    <StagingAdminRoute>
+                      <StagingAccessPage />
+                    </StagingAdminRoute>
+                  }
+                />
               </Route>
             </Route>
           </Route>

@@ -7,7 +7,8 @@ export const actionsRouter = Router();
 
 actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Response) => {
   try {
-    const query = getActionQuery(req.params.name, req.body ?? {});
+    const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
+    const query = getActionQuery(req.params.name, params);
     if (!query) {
       return res.status(404).json({ error: { message: 'UNKNOWN_ACTION' } });
     }
