@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { callAction } from '@/app/lib/api/client';
 
+const MUTATION_EVENT = 'ums-api-action-mutated';
+const invalidatesByMutation: Record<string, string[]> = {
+  createCourse: ['loadCourses'],
+  updateCourse: ['loadCourses'],
+  deleteCourse: ['loadCourses'],
+  createAssignment: ['loadAssignments'],
+  updateAssignment: ['loadAssignments'],
+  deleteAssignment: ['loadAssignments'],
+  createNote: ['loadNotes'],
+  updateNote: ['loadNotes'],
+  deleteNote: ['loadNotes'],
+};
+
 export function useLoadAction<T = unknown[]>(
   name: string,
   initialValue: T,
@@ -37,6 +50,18 @@ export function useLoadAction<T = unknown[]>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reload, options?.enabled]);
 
+  useEffect(() => {
+    const handleMutation = (event: Event) => {
+      const mutationName = (event as CustomEvent<{ name?: string }>).detail?.name;
+      if (mutationName && invalidatesByMutation[mutationName]?.includes(name)) {
+        void reload();
+      }
+    };
+
+    window.addEventListener(MUTATION_EVENT, handleMutation);
+    return () => window.removeEventListener(MUTATION_EVENT, handleMutation);
+  }, [name, reload]);
+
   return [data, loading, error, reload];
 }
 
@@ -51,7 +76,9 @@ export function useMutateAction<TParams extends Record<string, unknown> = Record
       setLoading(true);
       setError(null);
       try {
-        return await callAction<TResult>(name, params);
+        const result = await callAction<TResult>(name, params);
+        window.dispatchEvent(new CustomEvent(MUTATION_EVENT, { detail: { name } }));
+        return result;
       } catch (err) {
         setError(err);
         throw err;

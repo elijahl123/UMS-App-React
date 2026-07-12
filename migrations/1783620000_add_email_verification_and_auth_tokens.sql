@@ -1,8 +1,8 @@
 -- Migration to add email verification flag and auth tokens table (email verification + password reset)
 ALTER TABLE users
-  ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+  ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
-CREATE TABLE
+CREATE TABLE IF NOT EXISTS
   auth_tokens (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -13,5 +13,5 @@ CREATE TABLE
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW ()
   );
 
-CREATE INDEX idx_auth_tokens_token ON auth_tokens (token);
-CREATE INDEX idx_auth_tokens_user_id ON auth_tokens (user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_token ON auth_tokens (token);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON auth_tokens (user_id);

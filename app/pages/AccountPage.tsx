@@ -114,7 +114,8 @@ function AccountPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 pb-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
         <p className="text-sm text-muted-foreground">Manage your profile, subscription, and password.</p>
@@ -302,6 +303,7 @@ function AccountPage() {
           </Form>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -54,18 +54,18 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
                 className={`flex items-start gap-3 rounded-lg border border-[var(--border-light)] p-3 ${
                   item.type === 'event' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
                 }`}
-                style={{ backgroundColor: item.color }}
+                style={{ backgroundColor: item.color, borderColor: item.borderColor, color: item.textColor }}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] uppercase">
                       {typeLabels[item.type]}
                     </Badge>
-                    {item.time && <span className="text-xs text-foreground/70">{formatTimeDisplay(item.time)}</span>}
+                    {item.time && <span className="text-xs opacity-80">{formatTimeDisplay(item.time)}</span>}
                   </div>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{item.title}</p>
+                  <p className="mt-1 text-sm font-semibold">{item.title}</p>
                   {'description' in item.raw && item.raw.description && (
-                    <p className="text-xs text-foreground/70 mt-0.5">{item.raw.description}</p>
+                    <p className="mt-0.5 text-xs opacity-80">{item.raw.description}</p>
                   )}
                 </div>
               </li>

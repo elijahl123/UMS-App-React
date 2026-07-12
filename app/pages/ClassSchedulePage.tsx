@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,30 +9,13 @@ import { mapCourse, mapClassSession } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import type { ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { dayLabels, formatTimeDisplay, parseTimeToMinutes } from '@/app/data/classSchedule';
 
 const days: ClassSession['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const dayLabels: Record<ClassSession['day'], string> = {
-  Mon: 'Monday',
-  Tue: 'Tuesday',
-  Wed: 'Wednesday',
-  Thu: 'Thursday',
-  Fri: 'Friday',
-  Sat: 'Saturday',
-  Sun: 'Sunday',
-};
 
 const HOUR_HEIGHT = 56; // px per hour row
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 18;
-
-function parseTimeToMinutes(time: string): number {
-  // Parse HH:MM or HH:MM:SS format (24-hour)
-  const match = time.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return 0;
-  const hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  return hours * 60 + minutes;
-}
 
 function formatHourLabel(hour: number): string {
   const h = hour % 24;
@@ -40,19 +24,9 @@ function formatHourLabel(hour: number): string {
   return `${display} ${period}`;
 }
 
-function formatTimeDisplay(time: string): string {
-  // Convert HH:MM or HH:MM:SS to 12-hour format for display
-  const match = time.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return time;
-  const hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const period = hours < 12 ? 'a.m.' : 'p.m.';
-  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
-  return `${displayHour}:${minutes} ${period}`;
-}
-
 function ClassSchedulePage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [sessionRows, sessionsLoading, , refreshSessions] = useLoadAction('loadClassSessions', [], {
     userId: user?.id,
@@ -67,16 +41,18 @@ function ClassSchedulePage() {
 
   const courses = (courseRows ?? []).map(mapCourse);
   const sessions = (sessionRows ?? []).map(mapClassSession);
+  const focusedCourseId = searchParams.get('courseId');
+  const visibleSessions = focusedCourseId ? sessions.filter((s) => s.courseId === focusedCourseId) : sessions;
 
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
 
   const { startHour, endHour } = useMemo(() => {
-    if (sessions.length === 0) {
+    if (visibleSessions.length === 0) {
       return { startHour: DEFAULT_START_HOUR, endHour: DEFAULT_END_HOUR };
     }
     let minMinutes = Infinity;
     let maxMinutes = -Infinity;
-    sessions.forEach((s) => {
+    visibleSessions.forEach((s) => {
       minMinutes = Math.min(minMinutes, parseTimeToMinutes(s.startTime));
       maxMinutes = Math.max(maxMinutes, parseTimeToMinutes(s.endTime));
     });
@@ -84,7 +60,7 @@ function ClassSchedulePage() {
       startHour: Math.min(DEFAULT_START_HOUR, Math.floor(minMinutes / 60)),
       endHour: Math.max(DEFAULT_END_HOUR, Math.ceil(maxMinutes / 60)),
     };
-  }, [sessions]);
+  }, [visibleSessions]);
 
   const hours = useMemo(() => {
     const result: number[] = [];
@@ -149,7 +125,7 @@ function ClassSchedulePage() {
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
           <div className="flex-1 overflow-auto">
-            <div className="flex min-w-[820px]">
+            <div className="flex min-w-[680px] xl:min-w-[820px]">
               {/* Time gutter */}
               <div className="sticky left-0 z-10 w-12 sm:w-16 shrink-0 bg-card">
                 <div className="h-10 border-b border-[var(--border-light)]" />
@@ -168,7 +144,7 @@ function ClassSchedulePage() {
 
               {/* Day columns */}
               {days.map((day) => {
-                const daySessions = sessions.filter((s) => s.day === day);
+                const daySessions = visibleSessions.filter((s) => s.day === day);
                 return (
                   <div key={day} className="flex min-w-0 flex-1 flex-col border-l border-[var(--border-light)]">
                     <div className="flex h-8 sm:h-10 shrink-0 flex-col items-center justify-center border-b border-[var(--border-light)] bg-secondary/40">
@@ -206,7 +182,7 @@ function ClassSchedulePage() {
                           >
                             <div className="flex items-start justify-between gap-1">
                               <span className="truncate text-[9px] sm:text-[11px] font-bold">{course?.code ?? '—'}</span>
-                              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                                 <button
                                   type="button"
                                   className="rounded p-0.5 hover:bg-black/10"

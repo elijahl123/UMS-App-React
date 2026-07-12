@@ -43,6 +43,18 @@ vi.doMock('@/app/lib/api/hooks', () => ({
   useMutateAction: (name: string) => {
     const mutate = vi.fn(async (params?: Record<string, unknown>) => {
       apiState.mutations.push({ name, params });
+      if (name === 'createNote') {
+        return [
+          {
+            id: 99,
+            course_id: params?.courseId ? Number(params.courseId) : null,
+            title: params?.title,
+            content: params?.content ?? '',
+            created_at: '2026-07-10T16:30:00.000Z',
+            updated_at: '2026-07-10T16:30:00.000Z',
+          },
+        ];
+      }
       return {};
     });
     return [mutate, false, null];
@@ -53,7 +65,21 @@ vi.doMock('@/app/lib/billing/client', () => ({
   getBillingConfig: vi.fn(async () => billingState.config),
   getBillingStatus: vi.fn(async () => billingState.status),
   refreshBillingStatus: vi.fn(async () => billingState.status),
+  getPaymentMethod: vi.fn(async () => ({ paymentMethod: billingState.paymentMethod })),
   createSubscription: vi.fn(async () => ({ clientSecret: 'pi_secret_mock' })),
+  createPaymentMethodSetupIntent: vi.fn(async () => ({ clientSecret: 'seti_secret_mock' })),
+  savePaymentMethod: vi.fn(async () => ({
+    paymentMethod: {
+      id: 'pm_updated_mock',
+      type: 'card',
+      brand: 'mastercard',
+      last4: '5555',
+      expMonth: 11,
+      expYear: 2031,
+      wallet: null,
+      billingName: 'Jane Doe',
+    },
+  })),
   cancelSubscription: vi.fn(async () => ({
     ...billingState.status,
     cancelAtPeriodEnd: true,
@@ -78,6 +104,7 @@ vi.doMock('@stripe/react-stripe-js', () => ({
   useElements: () => ({}),
   useStripe: () => ({
     confirmPayment: vi.fn(async () => ({})),
+    confirmSetup: vi.fn(async () => ({ setupIntent: { id: 'seti_mock', status: 'succeeded' } })),
   }),
 }));
 

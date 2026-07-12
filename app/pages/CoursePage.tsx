@@ -1,7 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { ArrowLeft, Pencil, Trash2, BookOpen, Clock, FileText, AlertTriangle, CheckCircle2, Link2, ExternalLink, Plus } from 'lucide-react';
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  BookOpen,
+  Clock,
+  FileText,
+  AlertTriangle,
+  CheckCircle2,
+  Link2,
+  ExternalLink,
+  Plus,
+  ClipboardList,
+  CalendarDays,
+  StickyNote,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,13 +24,14 @@ import CourseFormDialog from '@/app/components/widgets/CourseFormDialog';
 import CourseLinkFormDialog from '@/app/components/widgets/CourseLinkFormDialog';
 import { mapCourse, mapAssignment, mapClassSession, mapNote, mapCourseLink } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
+import { formatAssignmentDue, formatIsoDate, normalizeDateString } from '@/app/data/assignmentDates';
 import type { Course, CourseLink } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function formatDueDate(dueDate: string): string {
-  return new Date(dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatIsoDate(normalizeDateString(dueDate), { month: 'short', day: 'numeric' });
 }
 
 function formatTimeDisplay(time: string): string {
@@ -32,6 +48,7 @@ function formatTimeDisplay(time: string): string {
 const STATUS_STYLES: Record<string, string> = {
   late: 'bg-[#ffdcdd] text-[#B3261E]',
   completed: 'bg-[#dcefe3] text-[#24553D]',
+  due_today: 'bg-[#fff2cf] text-[#6B5A1E]',
   upcoming: 'bg-[#fff2cf] text-[#6B5A1E]',
 };
 
@@ -64,7 +81,7 @@ function CoursePage() {
   const course = courses.find((c) => c.id === courseId);
   const courseAssignments = assignments
     .filter((a) => a.courseId === courseId)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    .sort((a, b) => `${a.dueDate} ${a.dueTime ?? ''}`.localeCompare(`${b.dueDate} ${b.dueTime ?? ''}`));
   const openAssignments = courseAssignments.filter((a) => a.status !== 'completed');
   const lateCount = courseAssignments.filter((a) => a.status === 'late').length;
   const courseSessions = sessions
@@ -193,24 +210,39 @@ function CoursePage() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl bg-card p-3 shadow-sm">
-          <p className="text-2xl font-bold text-foreground">{openAssignments.length}</p>
-          <p className="text-xs font-medium text-muted-foreground">Open Assignments</p>
+        <div className="flex items-center gap-3 rounded-xl border p-3 shadow-sm" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+            <ClipboardList className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-2xl font-bold leading-none">{openAssignments.length}</p>
+            <p className="text-xs font-semibold opacity-80">Open Assignments</p>
+          </div>
         </div>
-        <div className="rounded-xl bg-card p-3 shadow-sm">
-          <p className={`text-2xl font-bold ${lateCount > 0 ? 'text-[#B3261E]' : 'text-foreground'}`}>{lateCount}</p>
-          <p className="text-xs font-medium text-muted-foreground">Late</p>
+        <div className="flex items-center gap-3 rounded-xl border p-3 shadow-sm" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+            <AlertTriangle className={`h-5 w-5 ${lateCount > 0 ? 'text-[#B3261E]' : ''}`} />
+          </div>
+          <div className="min-w-0">
+            <p className={`text-2xl font-bold leading-none ${lateCount > 0 ? 'text-[#B3261E]' : ''}`}>{lateCount}</p>
+            <p className="text-xs font-semibold opacity-80">Late</p>
+          </div>
         </div>
-        <div className="col-span-2 rounded-xl bg-card p-3 shadow-sm sm:col-span-1">
-          <p className="text-2xl font-bold text-foreground">{courseSessions.length}</p>
-          <p className="text-xs font-medium text-muted-foreground">Weekly Sessions</p>
+        <div className="col-span-2 flex items-center gap-3 rounded-xl border p-3 shadow-sm sm:col-span-1" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+            <CalendarDays className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-2xl font-bold leading-none">{courseSessions.length}</p>
+            <p className="text-xs font-semibold opacity-80">Weekly Sessions</p>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-3">
-            <BookOpen className="h-4 w-4 text-primary" />
+            <BookOpen className="h-4 w-4" style={{ color: colors.text }} />
             <CardTitle className="text-base">Assignments</CardTitle>
           </CardHeader>
           <CardContent>
@@ -219,17 +251,28 @@ function CoursePage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {courseAssignments.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/50 p-2.5 sm:p-3">
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border p-2.5 sm:p-3"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                  >
                     <div className="flex min-w-0 items-center gap-2">
-                      {a.status === 'late' && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#B3261E]" />}
-                      {a.status === 'completed' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#24553D]" />}
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                        {a.status === 'late' ? (
+                          <AlertTriangle className="h-4 w-4 text-[#B3261E]" />
+                        ) : a.status === 'completed' ? (
+                          <CheckCircle2 className="h-4 w-4 text-[#24553D]" />
+                        ) : (
+                          <ClipboardList className="h-4 w-4" />
+                        )}
+                      </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{a.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatDueDate(a.dueDate)}</p>
+                        <p className="truncate text-sm font-bold">{a.name}</p>
+                        <p className="text-xs opacity-80">{formatAssignmentDue(a, { month: 'short', day: 'numeric' })}</p>
                       </div>
                     </div>
                     <Badge variant="secondary" className={`shrink-0 text-xs ${STATUS_STYLES[a.status]}`}>
-                      {a.status}
+                      {a.status === 'due_today' ? 'due today' : a.status}
                     </Badge>
                   </div>
                 ))}
@@ -240,7 +283,7 @@ function CoursePage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-3">
-            <Clock className="h-4 w-4 text-primary" />
+            <Clock className="h-4 w-4" style={{ color: colors.text }} />
             <CardTitle className="text-base">Class Schedule</CardTitle>
           </CardHeader>
           <CardContent>
@@ -249,9 +292,18 @@ function CoursePage() {
             ) : (
               <div className="flex flex-col gap-2">
                 {courseSessions.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-secondary/50 p-2.5 sm:p-3">
-                    <span className="text-sm font-semibold text-foreground">{s.day}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border p-2.5 sm:p-3"
+                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <span className="text-sm font-bold">{s.day}</span>
+                    </div>
+                    <span className="text-xs font-semibold opacity-80">
                       {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
                     </span>
                   </div>
@@ -265,7 +317,7 @@ function CoursePage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
+            <FileText className="h-4 w-4" style={{ color: colors.text }} />
             <CardTitle className="text-base">Notes</CardTitle>
           </div>
           <Button variant="outline" size="sm" onClick={() => navigate('/notes')}>
@@ -282,10 +334,18 @@ function CoursePage() {
                   key={n.id}
                   role="button"
                   onClick={() => navigate(`/notes/${n.id}`)}
-                  className="cursor-pointer rounded-lg bg-secondary/50 p-2.5 transition-colors hover:bg-secondary sm:p-3"
+                  className="cursor-pointer rounded-lg border p-2.5 transition-shadow hover:shadow-sm sm:p-3"
+                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                 >
-                  <p className="truncate text-sm font-semibold text-foreground">{n.title}</p>
-                  <p className="text-xs text-muted-foreground">{formatDueDate(n.updatedAt)}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                      <StickyNote className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{n.title}</p>
+                      <p className="text-xs opacity-80">{formatDueDate(n.updatedAt)}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

@@ -2,29 +2,63 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import type { ClassSession, Course } from '@/app/data/types';
+import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay } from '@/app/data/classSchedule';
+import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
+import { useAuth } from '@/app/lib/auth/AuthContext';
+import { mapNote } from '@/app/data/mappers';
+import { getCourseColor } from '@/app/data/courseColors';
+
+interface CreatedNoteRow {
+  id: number | string;
+}
 
 interface Props {
   sessions: ClassSession[];
   courses: Course[];
+  compact?: boolean;
 }
 
-function ClassesTodayWidget({ sessions, courses }: Props) {
+function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [noteRows] = useLoadAction('loadNotes', [], { userId: user?.id });
+  const [addNote, isCreatingNote] = useMutateAction<Record<string, unknown>, CreatedNoteRow[]>('createNote');
 
+  const notes = (noteRows ?? []).map(mapNote);
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
+  const visibleSessions = compact ? sessions.slice(0, 2) : sessions;
+  const hiddenCount = sessions.length - visibleSessions.length;
+
+  const handleOpenNotes = async (course: Course | undefined, courseId: string) => {
+    if (!course) return;
+    const existingNote = findDailyClassNote(notes, course);
+    if (existingNote) {
+      navigate(`/notes/${existingNote.id}`);
+      return;
+    }
+
+    const createdNotes = await addNote({
+      courseId,
+      title: createDailyClassNoteTitle(course),
+      content: '',
+      userId: user?.id,
+    });
+    const noteId = createdNotes[0]?.id;
+    navigate(noteId ? `/notes/${noteId}` : `/notes?courseId=${courseId}`);
+  };
 
   return (
     <Card>
-      <CardHeader className="pb-4">
-        <CardTitle>Classes Today</CardTitle>
+      <CardHeader className={`shrink-0 p-3 pb-2 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
+        <CardTitle className={compact ? 'text-base md:text-lg xl:text-xl' : 'text-lg sm:text-2xl'}>Classes Today</CardTitle>
       </CardHeader>
-      <CardContent className={sessions.length === 0 ? 'flex items-center justify-center' : undefined}>
+      <CardContent className={sessions.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {sessions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
+          <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoClassesToday.svg"
               alt="No classes today"
-              className="h-32 w-auto sm:h-36"
+              className={compact ? 'hidden h-16 w-auto max-w-[60%] sm:block xl:h-20' : 'h-[clamp(5.5rem,18vw,8rem)] w-auto max-w-[70%]'}
             />
             <div>
               <p className="text-base font-semibold text-primary">No Classes Today</p>
@@ -33,33 +67,46 @@ function ClassesTodayWidget({ sessions, courses }: Props) {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {sessions.map((session) => {
+            {visibleSessions.map((session) => {
               const course = getCourse(session.courseId);
+              const colors = getCourseColor(course?.color);
+              const openClassContext = () => navigate(`/class-schedule?courseId=${encodeURIComponent(session.courseId)}`);
               return (
                 <div
                   key={session.id}
-                  className="rounded-lg p-4 transition-all hover:shadow-sm"
-                  style={{ backgroundColor: 'var(--course-green)' }}
+                  className={`rounded-lg border transition-all hover:shadow-sm ${compact ? 'p-2' : 'p-4'}`}
+                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                 >
-                  <div className="flex items-start justify-between gap-3 mb-2">
+                  <button
+                    type="button"
+                    className={`${compact ? 'mb-1' : 'mb-2'} flex w-full items-start justify-between gap-3 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring`}
+                    onClick={openClassContext}
+                  >
                     <div>
-                      <p className="font-bold text-sm text-[#24553D]">{course?.code}</p>
-                      <p className="text-xs text-[#24553D]/80">
-                        {session.startTime} – {session.endTime}
+                      <p className={`font-bold ${compact ? 'text-xs sm:text-sm' : 'text-sm'}`}>{course?.code}</p>
+                      <p className="truncate text-xs opacity-80">
+                        {formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}
                       </p>
                     </div>
-                  </div>
+                  </button>
                   <Button
                     size="sm"
                     variant="success"
-                    className="w-full text-xs h-8"
-                    onClick={() => navigate(`/notes?courseId=${session.courseId}`)}
+                    className={`${compact ? 'h-7' : 'h-8'} w-full text-xs`}
+                    style={{ backgroundColor: colors.border, color: colors.text }}
+                    disabled={!course || isCreatingNote}
+                    onClick={() => handleOpenNotes(course, session.courseId)}
                   >
-                    Open Notes
+                    {isCreatingNote ? 'Opening...' : 'Open Notes'}
                   </Button>
                 </div>
               );
             })}
+            {hiddenCount > 0 && (
+              <div className="rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-muted-foreground">
+                +{hiddenCount} more
+              </div>
+            )}
           </div>
         )}
       </CardContent>

@@ -21,6 +21,8 @@ DATABASE_URL=postgres://user:password@localhost:5432/dbname
 SENDGRID_API_KEY=SG.xxxx
 VITE_FIREBASE_API_KEY=xxxx
 VITE_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+APP_ORIGIN=http://localhost:5173
+APP_BASE_URL=http://localhost:5173
 PORT=3001
 VITE_DEV_ORIGIN=http://localhost:5173
 ```
@@ -47,3 +49,23 @@ npm run lint
 npx tsc --noEmit
 npm run build
 ```
+
+## Staging Deploy
+
+For the DigitalOcean staging host, build the client and run the API on the droplet, with Nginx serving `dist/` and proxying `/api` to `127.0.0.1:3001`.
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+Set the staging origin to your public URL:
+
+```sh
+APP_ORIGIN=https://dev.untitledmanagementsoftware.com
+APP_BASE_URL=https://dev.untitledmanagementsoftware.com
+PORT=3001
+```
+
+Stripe webhooks should point to `https://dev.untitledmanagementsoftware.com/api/billing/webhook`.

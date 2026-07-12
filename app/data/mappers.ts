@@ -1,4 +1,5 @@
 import type { Assignment, AssignmentStatus, AppUser, CalendarEvent, ClassSession, Course, CourseLink, Note } from '@/app/data/types';
+import { DEFAULT_DUE_TIME_ZONE, normalizeDateString, normalizeTimeString } from '@/app/data/assignmentDates';
 
 interface DbCourse {
   id: number;
@@ -12,6 +13,8 @@ interface DbAssignment {
   course_id: number;
   name: string;
   due_date: string;
+  due_time?: string | null;
+  due_timezone?: string | null;
   status: string;
   description: string | null;
 }
@@ -63,7 +66,9 @@ export function mapAssignment(row: DbAssignment): Assignment {
     id: String(row.id),
     courseId: String(row.course_id),
     name: row.name,
-    dueDate: row.due_date.split('T')[0], // Extract date part from ISO timestamp
+    dueDate: normalizeDateString(row.due_date),
+    dueTime: normalizeTimeString(row.due_time),
+    dueTimeZone: row.due_timezone || DEFAULT_DUE_TIME_ZONE,
     status: row.status as AssignmentStatus,
     description: row.description ?? undefined,
   };

@@ -1,4 +1,4 @@
-export type AssignmentStatus = 'upcoming' | 'late' | 'completed';
+export type AssignmentStatus = 'upcoming' | 'due_today' | 'late' | 'completed';
 
 export interface Course {
   id: string;
@@ -19,7 +19,9 @@ export interface Assignment {
   id: string;
   name: string;
   courseId: string;
-  dueDate: string; // ISO date
+  dueDate: string; // ISO date in the assignment's dueTimeZone
+  dueTime?: string; // HH:MM format (24-hour)
+  dueTimeZone: string;
   status: AssignmentStatus;
   description?: string;
 }

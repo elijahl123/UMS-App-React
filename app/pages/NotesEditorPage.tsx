@@ -10,6 +10,13 @@ import { mapCourse, mapNote } from '@/app/data/mappers';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const NO_COURSE = 'none';
+const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave without saving?';
+
+interface NoteDraftSnapshot {
+  title: string;
+  content: string;
+  courseId: string;
+}
 
 function NotesEditorPage() {
   const { noteId } = useParams<{ noteId?: string }>();
@@ -26,24 +33,112 @@ function NotesEditorPage() {
   const [content, setContent] = useState('');
   const [courseId, setCourseId] = useState<string>(NO_COURSE);
   const [isSaving, setIsSaving] = useState(false);
+  const initialDraftRef = useRef<NoteDraftSnapshot>({
+    title: '',
+    content: '',
+    courseId: NO_COURSE,
+  });
+  const allowNavigationRef = useRef(false);
+  const currentHashRef = useRef(window.location.hash);
+  const restoringHashRef = useRef(false);
 
   const courses = useMemo(() => (courseRows ?? []).map(mapCourse), [courseRows]);
   const notes = useMemo(() => (noteRows ?? []).map(mapNote), [noteRows]);
   const note = noteId ? notes.find((n) => n.id === noteId) ?? null : null;
 
   const isEdit = Boolean(noteId);
+  const hasUnsavedChanges =
+    title !== initialDraftRef.current.title ||
+    content !== initialDraftRef.current.content ||
+    courseId !== initialDraftRef.current.courseId;
+
+  const confirmLeave = () => !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE);
+
+  const navigateSafely = (to: string) => {
+    if (!confirmLeave()) return;
+    allowNavigationRef.current = true;
+    navigate(to);
+  };
 
   // Only load the note's data into the form once per note (when it first becomes
   // available), so it doesn't keep overwriting the user's in-progress edits.
-  const loadedNoteIdRef = useRef<string | null>(null);
+  const loadedNoteIdRef = useRef<string | null>(noteId ? null : 'new');
   useEffect(() => {
     if (noteId && note && loadedNoteIdRef.current !== noteId) {
       setTitle(note.title);
       setContent(note.content);
       setCourseId(note.courseId ?? NO_COURSE);
+      initialDraftRef.current = {
+        title: note.title,
+        content: note.content,
+        courseId: note.courseId ?? NO_COURSE,
+      };
       loadedNoteIdRef.current = noteId;
     }
   }, [noteId, note]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (!hasUnsavedChanges || allowNavigationRef.current || event.defaultPrevented) return;
+      if (event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+      const link = target?.closest('a[href]');
+      if (!(link instanceof HTMLAnchorElement)) return;
+      if (link.target && link.target !== '_self') return;
+
+      const destination = new URL(link.href);
+      if (destination.origin !== window.location.origin) return;
+
+      if (!window.confirm(UNSAVED_CHANGES_MESSAGE)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      } else {
+        allowNavigationRef.current = true;
+      }
+    };
+
+    document.addEventListener('click', handleDocumentClick, true);
+    return () => document.removeEventListener('click', handleDocumentClick, true);
+  }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (restoringHashRef.current) {
+        restoringHashRef.current = false;
+        return;
+      }
+
+      if (!hasUnsavedChanges || allowNavigationRef.current) {
+        currentHashRef.current = window.location.hash;
+        return;
+      }
+
+      if (window.confirm(UNSAVED_CHANGES_MESSAGE)) {
+        allowNavigationRef.current = true;
+        currentHashRef.current = window.location.hash;
+        return;
+      }
+
+      restoringHashRef.current = true;
+      window.location.hash = currentHashRef.current;
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [hasUnsavedChanges]);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -65,6 +160,7 @@ function NotesEditorPage() {
           userId: user?.id,
         });
       }
+      allowNavigationRef.current = true;
       navigate('/notes');
     } finally {
       setIsSaving(false);
@@ -74,6 +170,7 @@ function NotesEditorPage() {
   const handleDelete = async () => {
     if (!note || !confirm('Are you sure you want to delete this note?')) return;
     await removeNote({ id: note.id, userId: user?.id });
+    allowNavigationRef.current = true;
     navigate('/notes');
   };
 
@@ -82,7 +179,7 @@ function NotesEditorPage() {
       <div className="flex flex-col gap-4">
         <button
           type="button"
-          onClick={() => navigate('/notes')}
+          onClick={() => navigateSafely('/notes')}
           className="flex w-fit items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -101,7 +198,7 @@ function NotesEditorPage() {
       <div className="flex flex-col gap-4">
         <button
           type="button"
-          onClick={() => navigate('/notes')}
+          onClick={() => navigateSafely('/notes')}
           className="flex w-fit items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -153,7 +250,7 @@ function NotesEditorPage() {
           <div />
         )}
         <div className="flex gap-2 sm:gap-3">
-          <Button variant="outline" onClick={() => navigate('/notes')} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={() => navigateSafely('/notes')} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!title.trim() || isSaving} className="w-full gap-2 sm:w-auto">

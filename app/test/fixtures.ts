@@ -15,9 +15,9 @@ export const courses: Course[] = [
 ];
 
 export const assignments: Assignment[] = [
-  { id: '1', courseId: '1', name: 'Limits Worksheet', dueDate: '2026-07-10', status: 'upcoming' },
-  { id: '2', courseId: '1', name: 'Derivative Quiz', dueDate: '2026-07-01', status: 'late' },
-  { id: '3', courseId: '2', name: 'Reading Response', dueDate: '2026-07-08', status: 'completed' },
+  { id: '1', courseId: '1', name: 'Limits Worksheet', dueDate: '2026-07-10', dueTime: '23:59', dueTimeZone: 'America/Los_Angeles', status: 'upcoming' },
+  { id: '2', courseId: '1', name: 'Derivative Quiz', dueDate: '2026-07-01', dueTimeZone: 'America/Los_Angeles', status: 'late' },
+  { id: '3', courseId: '2', name: 'Reading Response', dueDate: '2026-07-08', dueTimeZone: 'America/Los_Angeles', status: 'completed' },
 ];
 
 export const sessions: ClassSession[] = [
@@ -62,6 +62,8 @@ export const dbRows = {
     course_id: Number(assignment.courseId),
     name: assignment.name,
     due_date: assignment.dueDate,
+    due_time: assignment.dueTime ?? null,
+    due_timezone: assignment.dueTimeZone,
     status: assignment.status,
     description: assignment.description ?? null,
   })),

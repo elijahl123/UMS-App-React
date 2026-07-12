@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AccountPage from '@/app/pages/AccountPage';
@@ -46,6 +46,15 @@ describe('page rendering', () => {
     expect(screen.getByText(/limits worksheet/i)).toBeInTheDocument();
   });
 
+  it('collapses completed assignments by default', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    expect(screen.queryByText(/reading response/i)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /completed/i }));
+    expect(screen.getByText(/reading response/i)).toBeInTheDocument();
+  });
+
   it('renders the class schedule grid and legend', () => {
     renderWithRouter(<ClassSchedulePage />);
 
@@ -88,6 +97,32 @@ describe('page rendering', () => {
     expect(screen.getByLabelText(/rich text editor/i)).toBeInTheDocument();
   });
 
+  it('warns before leaving a note with unsaved changes', async () => {
+    const user = userEvent.setup();
+    vi.mocked(window.confirm).mockReturnValueOnce(false).mockReturnValueOnce(true);
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/notes/:noteId" element={<NotesEditorPage />} />
+        <Route path="/notes" element={<div>Notes list destination</div>} />
+      </Routes>,
+      { route: '/notes/1' }
+    );
+
+    const titleInput = screen.getByDisplayValue(/chain rule notes/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Edited Chain Rule Notes');
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(window.confirm).toHaveBeenCalledWith('You have unsaved changes. Leave without saving?');
+    expect(screen.getByDisplayValue(/edited chain rule notes/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(await screen.findByText(/notes list destination/i)).toBeInTheDocument();
+  });
+
   it('renders the account page', () => {
     renderWithRouter(<AccountPage />);
 
@@ -101,7 +136,23 @@ describe('page rendering', () => {
     renderWithRouter(<BillingPage />);
 
     expect(await screen.findByText(/^your subscription is active\.$/i)).toBeInTheDocument();
+    expect(screen.getByText(/visa ending in 4242/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel at period end/i })).toBeInTheDocument();
+  });
+
+  it('changes the payment method from the billing page', async () => {
+    cleanup();
+    const user = userEvent.setup();
+
+    renderWithRouter(<BillingPage />);
+
+    await user.click(await screen.findByRole('button', { name: /change payment method/i }));
+    expect(await screen.findByTestId('payment-element')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /save payment method/i }));
+
+    expect(await screen.findByText(/payment method updated/i)).toBeInTheDocument();
+    expect(screen.getByText(/mastercard ending in 5555/i)).toBeInTheDocument();
   });
 });
 

@@ -70,7 +70,7 @@ function CoursesPage() {
               <p className="text-xs text-muted-foreground">Add your first course to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {courses.map((course) => {
                 const colors = getCourseColor(course.color);
                 return (
@@ -78,17 +78,17 @@ function CoursesPage() {
                     key={course.id}
                     role="button"
                     onClick={() => navigate(`/courses/${course.id}`)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border-l-4 bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
-                    style={{ borderLeftColor: colors.border }}
+                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border-l-4 p-4 shadow-sm transition-shadow hover:shadow-md"
+                    style={{ backgroundColor: colors.bg, borderLeftColor: colors.border, color: colors.text }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <span
                         className="rounded-full px-2.5 py-1 text-xs font-bold"
-                        style={{ backgroundColor: colors.bg, color: colors.text }}
+                        style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors.text }}
                       >
                         {course.code}
                       </span>
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={(e) => openEditDialog(course, e)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
@@ -109,8 +109,8 @@ function CoursesPage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-semibold text-foreground">{course.name}</p>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <p className="truncate text-sm font-bold">{course.name}</p>
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
                     </div>
                   </div>
                 );

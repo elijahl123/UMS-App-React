@@ -1,0 +1,15 @@
+[Unit]
+Description=UMS App React staging API
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/ums-app-react
+EnvironmentFile=/etc/ums-app-react/staging.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

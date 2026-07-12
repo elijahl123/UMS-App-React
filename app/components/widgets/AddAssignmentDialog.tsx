@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Assignment, Course } from '@/app/data/types';
+import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 
 const schema = z.object({
   name: z.string().min(1, 'Assignment name is required'),
   courseId: z.string().min(1, 'Course is required'),
   dueDate: z.string().min(1, 'Due date is required'),
+  dueTime: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -26,11 +28,15 @@ interface Props {
 function AddAssignmentDialog({ open, onOpenChange, courses, onSubmit }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', courseId: '', dueDate: '' },
+    defaultValues: { name: '', courseId: '', dueDate: '', dueTime: '' },
   });
 
   const handleSubmit = (values: FormValues) => {
-    onSubmit(values);
+    onSubmit({
+      ...values,
+      dueTime: values.dueTime || undefined,
+      dueTimeZone: getBrowserTimeZone(),
+    });
     form.reset();
     onOpenChange(false);
   };
@@ -88,6 +94,19 @@ function AddAssignmentDialog({ open, onOpenChange, courses, onSubmit }: Props) {
                   <FormLabel>Due Date</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Time (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

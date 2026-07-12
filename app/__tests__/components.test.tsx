@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AddEventDialog from '@/app/components/widgets/AddEventDialog';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
@@ -8,6 +8,7 @@ import CourseFormDialog from '@/app/components/widgets/CourseFormDialog';
 import CourseLinkFormDialog from '@/app/components/widgets/CourseLinkFormDialog';
 import ClassesTodayWidget from '@/app/components/widgets/ClassesTodayWidget';
 import LateAssignmentsWidget from '@/app/components/widgets/LateAssignmentsWidget';
+import Sidebar from '@/app/components/Sidebar';
 import UpcomingAssignmentsWidget from '@/app/components/widgets/UpcomingAssignmentsWidget';
 import UpcomingEventsWidget from '@/app/components/widgets/UpcomingEventsWidget';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
@@ -21,7 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { assignments, courses, events, sessions } from '@/app/test/fixtures';
-import { authActions } from '@/app/test/mocks';
+import { apiState, authActions } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 import type { CalendarItem } from '@/app/data/calendarUtils';
 
@@ -58,6 +59,87 @@ describe('widgets and calendar components', () => {
     expect(screen.getByText(/no upcoming events/i)).toBeInTheDocument();
   });
 
+  it('creates a dated course note from class Open Notes buttons', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+
+    try {
+      renderWithRouter(<ClassesTodayWidget sessions={[sessions[0]]} courses={courses} />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /open notes/i }));
+        await Promise.resolve();
+      });
+
+      expect(apiState.mutations).toContainEqual({
+        name: 'createNote',
+        params: expect.objectContaining({
+          courseId: '1',
+          title: 'Calculus I Notes for 2026-07-10',
+          content: '',
+        }),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens an existing dated class note without creating a duplicate', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+    apiState.loads.loadNotes = [
+      {
+        id: 42,
+        course_id: 1,
+        title: 'Calculus I Notes for 2026-07-10',
+        content: '<p>Already started.</p>',
+        created_at: '2026-07-10T16:00:00.000Z',
+        updated_at: '2026-07-10T16:00:00.000Z',
+      },
+    ];
+
+    try {
+      renderWithRouter(<ClassesTodayWidget sessions={[sessions[0]]} courses={courses} />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /open notes/i }));
+        await Promise.resolve();
+      });
+
+      expect(apiState.mutations).not.toContainEqual(expect.objectContaining({ name: 'createNote' }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows the current class card in the sidebar and opens notes for it', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+
+    try {
+      renderWithRouter(<Sidebar />);
+
+      expect(screen.getByText(/current class/i)).toBeInTheDocument();
+      expect(screen.getByText(/math 101/i)).toBeInTheDocument();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /open notes/i }));
+        await Promise.resolve();
+      });
+
+      expect(apiState.mutations).toContainEqual({
+        name: 'createNote',
+        params: expect.objectContaining({
+          courseId: '1',
+          title: 'Calculus I Notes for 2026-07-10',
+          content: '',
+        }),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders calendar grid items and day details', async () => {
     const onDayClick = vi.fn();
     const onEventClick = vi.fn();
@@ -68,6 +150,8 @@ describe('widgets and calendar components', () => {
       date: '2026-07-10',
       time: '16:00',
       color: '#fff',
+      textColor: '#1F3A66',
+      borderColor: '#9fb6e6',
       raw: events[0],
     };
 
@@ -104,6 +188,25 @@ describe('form dialogs', () => {
     await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ id: '1', name: 'Updated worksheet' }));
+  });
+
+  it('lets a completed assignment be marked incomplete from the edit dialog', async () => {
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <AssignmentFormDialog
+        open
+        onOpenChange={vi.fn()}
+        courses={courses}
+        assignment={assignments[2]}
+        onSubmit={onSubmit}
+      />
+    );
+
+    await user.click(screen.getByLabelText(/completed/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ id: '3', status: 'upcoming' }));
   });
 
   it('submits course, class session, event, and link forms', async () => {

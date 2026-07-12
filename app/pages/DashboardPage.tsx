@@ -5,7 +5,7 @@ import LateAssignmentsWidget from '@/app/components/widgets/LateAssignmentsWidge
 import UpcomingEventsWidget from '@/app/components/widgets/UpcomingEventsWidget';
 import { mapCourse, mapAssignment, mapClassSession, mapEvent } from '@/app/data/mappers';
 import type { Assignment, CalendarEvent } from '@/app/data/types';
-import { todayDayName } from '@/app/data/mockData';
+import { todayDayName } from '@/app/data/classSchedule';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 function DashboardPage() {
@@ -25,7 +25,7 @@ function DashboardPage() {
   const sessions = (sessionRows ?? []).map(mapClassSession);
   const events = (eventRows ?? []).map(mapEvent);
 
-  const upcoming = assignments.filter((a) => a.status === 'upcoming');
+  const upcoming = assignments.filter((a) => a.status === 'upcoming' || a.status === 'due_today');
   const late = assignments.filter((a) => a.status === 'late');
   const todaysSessions = sessions.filter((s) => s.day === todayDayName());
 
@@ -34,6 +34,8 @@ function DashboardPage() {
       courseId: values.courseId,
       name: values.name,
       dueDate: values.dueDate,
+      dueTime: values.dueTime ?? null,
+      dueTimeZone: values.dueTimeZone,
       description: values.description ?? null,
       userId: user?.id,
     });
@@ -58,22 +60,18 @@ function DashboardPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-[2fr_1fr] h-full">
-      <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 min-h-0">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} />
-        </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <LateAssignmentsWidget assignments={late} courses={courses} />
-        </div>
+    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-4 gap-3 overflow-hidden sm:gap-4 md:grid-cols-2 md:grid-rows-2 md:gap-5 xl:gap-6">
+      <div className="min-h-0 overflow-hidden">
+        <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} compact />
       </div>
-      <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 min-h-0">
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ClassesTodayWidget sessions={todaysSessions} courses={courses} />
-        </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <UpcomingEventsWidget events={events} onAdd={handleAddEvent} />
-        </div>
+      <div className="min-h-0 overflow-hidden">
+        <ClassesTodayWidget sessions={todaysSessions} courses={courses} compact />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <LateAssignmentsWidget assignments={late} courses={courses} compact />
+      </div>
+      <div className="min-h-0 overflow-hidden">
+        <UpcomingEventsWidget events={events} onAdd={handleAddEvent} compact />
       </div>
     </div>
   );

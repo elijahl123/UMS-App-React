@@ -7,7 +7,18 @@ import { assignments, courses, events, links, notes, sessions } from '@/app/test
 describe('data mappers and calendar utilities', () => {
   it('maps database rows into app models', () => {
     expect(mapCourse({ id: 1, code: 'MATH 101', name: 'Calculus I', color: 'course-blue' })).toEqual(courses[0]);
-    expect(mapAssignment({ id: 1, course_id: 1, name: 'Limits Worksheet', due_date: '2026-07-10T00:00:00.000Z', status: 'upcoming', description: null })).toEqual(assignments[0]);
+    expect(
+      mapAssignment({
+        id: 1,
+        course_id: 1,
+        name: 'Limits Worksheet',
+        due_date: '2026-07-10T00:00:00.000Z',
+        due_time: '23:59:00',
+        due_timezone: 'America/Los_Angeles',
+        status: 'upcoming',
+        description: null,
+      })
+    ).toEqual(assignments[0]);
     expect(mapClassSession({ id: 1, course_id: 1, day: 'Fri', start_time: '09:00:00', end_time: '10:15:00' })).toEqual(sessions[0]);
     expect(mapEvent({ id: 1, title: 'Study Group', event_date: '2026-07-10T00:00:00.000Z', event_time: '16:00', description: 'Library room 2' })).toEqual(events[0]);
     expect(mapNote({ id: 1, course_id: 1, title: notes[0].title, content: notes[0].content, created_at: notes[0].createdAt, updated_at: notes[0].updatedAt })).toEqual(notes[0]);
