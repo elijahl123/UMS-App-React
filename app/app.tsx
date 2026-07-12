@@ -1,8 +1,8 @@
 'use client';
 
 import '@/index.css';
-import { useEffect, type ReactNode } from 'react';
-import { HashRouter, Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import type { ReactNode } from 'react';
+import { HashRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import AppLayout from '@/app/components/AppLayout';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import SubscriptionRoute from '@/app/components/SubscriptionRoute';
@@ -44,44 +44,6 @@ function FallbackRoute() {
   return <Navigate to="/" replace />;
 }
 
-function AuthActionRedirect() {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const browserParams = new URLSearchParams(window.location.search);
-    const oobCode = browserParams.get('oobCode');
-    const mode = browserParams.get('mode');
-
-    if (!oobCode || location.pathname === '/verify-email' || location.pathname === '/reset-password') {
-      return;
-    }
-
-    const targetPath = mode === 'resetPassword' ? '/reset-password' : '/verify-email';
-    navigate(`${targetPath}${window.location.search}`, { replace: true });
-  }, [location.pathname, navigate]);
-
-  return null;
-}
-
-function TrialStartedRedirect() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, isLoading, consumeTrialStartedRedirect } = useAuth();
-
-  useEffect(() => {
-    if (isLoading || !user || !consumeTrialStartedRedirect()) {
-      return;
-    }
-
-    if (location.pathname !== '/billing' || !location.search.includes('trial=started')) {
-      navigate('/billing?trial=started', { replace: true });
-    }
-  }, [consumeTrialStartedRedirect, isLoading, location.pathname, location.search, navigate, user]);
-
-  return null;
-}
-
 function StagingAdminRoute({ children }: { children: ReactNode }) {
   const { stagingAccess, isStagingAccessControlEnabled } = useAuth();
 
@@ -96,8 +58,6 @@ function App() {
   return (
     <HashRouter>
       <AuthProvider>
-        <AuthActionRedirect />
-        <TrialStartedRedirect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />

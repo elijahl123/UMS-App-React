@@ -1,8 +1,8 @@
-import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
+import { getApiAuthHeaders } from '@/app/lib/api/client';
 import type { StagingAccessGrant, StagingAccessRole, StagingAccessStatus, StagingAccessUser } from '@/app/data/types';
 
 async function stagingRequest<TResult>(path: string, options?: RequestInit): Promise<TResult> {
-  const response = await apiFetch(`/staging-access${path}`, {
+  const response = await fetch(`/api/staging-access${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -24,7 +24,7 @@ export function getMyStagingAccess() {
 }
 
 export async function getStagingAccessConfig() {
-  const response = await apiFetch('/staging-access/config');
+  const response = await fetch('/api/staging-access/config');
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw payload ?? { error: { message: 'REQUEST_FAILED' } };
