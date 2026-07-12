@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { mapFirebaseUser } from '@/app/data/mappers';
-import type { AppUser } from '@/app/data/types';
+import type { AppUser, StagingAccessUser } from '@/app/data/types';
+import { setApiAuthToken } from '@/app/lib/api/client';
 import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo } from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
+import { stagingAccessControlEnabled } from '@/app/lib/env';
+import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
 
@@ -92,7 +95,11 @@ function extractErrorCode(err: unknown): string {
 
 interface AuthContextValue {
   user: AppUser | null;
+  idToken: string | null;
+  stagingAccess: StagingAccessUser | null;
+  isStagingAccessControlEnabled: boolean;
   isLoading: boolean;
+  isStagingAccessLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (values: {
     email: string;
@@ -111,6 +118,7 @@ interface AuthContextValue {
   isGoogleSignInAvailable: boolean;
   isProcessingGoogleRedirect: boolean;
   googleSignInError: string | null;
+  refreshStagingAccess: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -118,11 +126,42 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
+  const [stagingAccess, setStagingAccess] = useState<StagingAccessUser | null>(null);
+  const [isStagingAccessControlEnabled, setIsStagingAccessControlEnabled] = useState(stagingAccessControlEnabled);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStagingAccessLoading, setIsStagingAccessLoading] = useState(false);
   const [isProcessingGoogleRedirect, setIsProcessingGoogleRedirect] = useState(false);
   const [googleSignInError, setGoogleSignInError] = useState<string | null>(null);
 
-  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string) => {
+  const refreshStagingAccess = async (token = idToken, enabled = isStagingAccessControlEnabled): Promise<boolean> => {
+    if (!enabled) {
+      setStagingAccess(null);
+      setIsStagingAccessLoading(false);
+      return true;
+    }
+
+    if (!token) {
+      setStagingAccess(null);
+      setIsStagingAccessLoading(false);
+      return false;
+    }
+
+    setIsStagingAccessLoading(true);
+    setApiAuthToken(token);
+    try {
+      const result = await getMyStagingAccess();
+      setStagingAccess(result.user);
+      return Boolean(result.user);
+    } catch (err) {
+      console.warn('[Auth] Staging access check failed:', err);
+      setStagingAccess(null);
+      return false;
+    } finally {
+      setIsStagingAccessLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string, accessControlEnabled = isStagingAccessControlEnabled) => {
     try {
       const postBody = `id_token=${encodeURIComponent(googleIdToken)}&providerId=google.com`;
       const result: FirebaseIdpResult = await firebaseAuth.signInWithIdp({
@@ -142,8 +181,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
             createdAt: new Date().toISOString(),
             emailVerified: result.emailVerified ?? true,
             connectedProviders: [result.providerId ?? 'google.com'],
-          };
+      };
       persistSession(result.idToken, nextUser);
+      await refreshStagingAccess(result.idToken, accessControlEnabled);
       console.log('[Auth] Google id_token exchanged for Firebase session');
       return { success: true };
     } catch (err) {
@@ -156,13 +196,21 @@ function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       const authStartedAt = performance.now();
       console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
+      let accessControlEnabled = stagingAccessControlEnabled;
+      try {
+        const stagingConfig = await getStagingAccessConfig();
+        accessControlEnabled = stagingConfig.enabled;
+        setIsStagingAccessControlEnabled(stagingConfig.enabled);
+      } catch {
+        setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
+      }
       const googleIdToken = consumeGoogleRedirectIdToken();
 
       if (googleIdToken) {
         console.log('[Auth] Found Google id_token from local OAuth redirect');
         setIsProcessingGoogleRedirect(true);
         const storedSession = readStoredSession();
-        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken);
+        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
         if (!result.success) {
           setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
           console.error('[Auth] Google redirect sign-in failed:', result.error);
@@ -189,6 +237,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
           if (freshUser) {
             console.log('[Auth] Successfully logged in user:', freshUser.email);
             persistSession(sessionToken, mapFirebaseUser(freshUser));
+            await refreshStagingAccess(sessionToken, accessControlEnabled);
             // Clean URL
             const previousUrl = window.location.href;
             window.history.replaceState(null, '', `${window.location.pathname}#/`);
@@ -207,15 +256,18 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const session = readStoredSession();
       if (session) {
         try {
+          setApiAuthToken(session.idToken);
           const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
-            setIdToken(session.idToken);
-            setUser(mapFirebaseUser(freshUser));
+            persistSession(session.idToken, mapFirebaseUser(freshUser));
+            await refreshStagingAccess(session.idToken, accessControlEnabled);
           } else {
+            setApiAuthToken(null);
             localStorage.removeItem(SESSION_STORAGE_KEY);
           }
         } catch {
+          setApiAuthToken(null);
           localStorage.removeItem(SESSION_STORAGE_KEY);
         }
       }
@@ -234,6 +286,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const persistSession = (nextIdToken: string, nextUser: AppUser) => {
     setIdToken(nextIdToken);
+    setApiAuthToken(nextIdToken);
     setUser(nextUser);
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
   };
@@ -247,6 +300,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'Could not log in. Please try again.' };
       }
       persistSession(result.idToken, mapFirebaseUser(freshUser));
+      await refreshStagingAccess(result.idToken);
       return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -267,6 +321,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: false,
         connectedProviders: ['password'],
       });
+      await refreshStagingAccess(result.idToken);
       await firebaseAuth.sendOobCode({
         requestType: 'VERIFY_EMAIL',
         idToken: result.idToken,
@@ -281,6 +336,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setIdToken(null);
+    setStagingAccess(null);
+    setApiAuthToken(null);
     localStorage.removeItem(SESSION_STORAGE_KEY);
   };
 
@@ -302,6 +359,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         lastName: values.lastName,
       };
       persistSession(result.idToken ?? idToken, nextUser);
+      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -317,6 +375,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseAuth.signIn({ email: user.email, password: values.currentPassword });
       const result: FirebaseAuthResult = await firebaseAuth.changePassword({ idToken, password: values.newPassword });
       persistSession(result.idToken ?? idToken, user);
+      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       const code = extractErrorCode(err);
@@ -423,7 +482,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user,
+      idToken,
+      stagingAccess,
+      isStagingAccessControlEnabled,
       isLoading,
+      isStagingAccessLoading,
       login,
       signup,
       logout,
@@ -437,8 +500,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       isGoogleSignInAvailable: isGoogleSignInConfigured(),
       isProcessingGoogleRedirect,
       googleSignInError,
+      refreshStagingAccess: () => refreshStagingAccess(),
     }),
-    [user, isLoading, idToken, isProcessingGoogleRedirect, googleSignInError]
+    [user, idToken, stagingAccess, isStagingAccessControlEnabled, isLoading, isStagingAccessLoading, isProcessingGoogleRedirect, googleSignInError]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,11 +1,15 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
-import type { AppUser } from '@/app/data/types';
+import type { AppUser, StagingAccessUser } from '@/app/data/types';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 
 export const authState = {
   user: mockUser as AppUser | null,
+  idToken: 'mock-id-token' as string | null,
+  stagingAccess: { uid: mockUser.id, email: mockUser.email, role: 'admin' } as StagingAccessUser | null,
+  isStagingAccessControlEnabled: false,
   isLoading: false,
+  isStagingAccessLoading: false,
   isGoogleSignInAvailable: true,
   isProcessingGoogleRedirect: false,
   googleSignInError: null as string | null,
@@ -22,6 +26,7 @@ export const authActions = {
   requestPasswordReset: vi.fn(async () => ({ success: true })),
   resetPasswordWithToken: vi.fn(async () => ({ success: true })),
   signInWithGoogle: vi.fn(async () => ({ success: true })),
+  refreshStagingAccess: vi.fn(async () => true),
 };
 
 export const apiState = {
@@ -59,7 +64,11 @@ export const billingState = {
 
 export function resetMockState() {
   authState.user = mockUser;
+  authState.idToken = 'mock-id-token';
+  authState.stagingAccess = { uid: mockUser.id, email: mockUser.email, role: 'admin' };
+  authState.isStagingAccessControlEnabled = false;
   authState.isLoading = false;
+  authState.isStagingAccessLoading = false;
   authState.isGoogleSignInAvailable = true;
   authState.isProcessingGoogleRedirect = false;
   authState.googleSignInError = null;

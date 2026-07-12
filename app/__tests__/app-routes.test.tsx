@@ -37,4 +37,23 @@ describe('App routes', () => {
     expect(await screen.findByText(/upcoming assignments/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /toggle menu/i })).toBeInTheDocument();
   });
+
+  it('blocks authenticated users without staging access when staging access control is enabled', async () => {
+    authState.isStagingAccessControlEnabled = true;
+    authState.stagingAccess = null;
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /access pending/i })).toBeInTheDocument();
+  });
+
+  it('renders the staging access admin page for staging admins', async () => {
+    authState.isStagingAccessControlEnabled = true;
+    window.location.hash = '#/admin/staging-access';
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /staging access/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument();
+  });
 });

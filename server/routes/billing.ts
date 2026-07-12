@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
+import { requestUserId } from '../auth';
 import { config } from '../config';
 import { ApiError, required } from '../errors';
 import {
@@ -47,7 +48,7 @@ billingRouter.get('/config', (_req, res) => {
 
 billingRouter.get('/status', async (req, res) => {
   try {
-    const userId = required(req.query, 'userId') as string;
+    const userId = requestUserId(req, req.query);
     const status = await getBillingStatus(userId);
     return res.json(status);
   } catch (err) {
@@ -57,7 +58,7 @@ billingRouter.get('/status', async (req, res) => {
 
 billingRouter.get('/status/refresh', async (req, res) => {
   try {
-    const userId = required(req.query, 'userId') as string;
+    const userId = requestUserId(req, req.query);
     const status = await getBillingStatus(userId);
     if (status.stripeSubscriptionId) {
       const subscription = await stripeClient().subscriptions.retrieve(status.stripeSubscriptionId);
@@ -72,8 +73,8 @@ billingRouter.get('/status/refresh', async (req, res) => {
 
 billingRouter.post('/create-subscription', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
-    const email = required(req.body, 'email') as string;
+    const userId = requestUserId(req, req.body);
+    const email = req.auth?.email ?? (required(req.body, 'email') as string);
     const interval = req.body.interval;
 
     if (!isBillingInterval(interval)) {
@@ -138,7 +139,7 @@ billingRouter.post('/create-subscription', async (req, res) => {
 
 billingRouter.post('/cancel-subscription', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
+    const userId = requestUserId(req, req.body);
     const status = await getBillingStatus(userId);
 
     if (!status.stripeSubscriptionId) {
@@ -158,7 +159,7 @@ billingRouter.post('/cancel-subscription', async (req, res) => {
 
 billingRouter.post('/resume-subscription', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
+    const userId = requestUserId(req, req.body);
     const status = await getBillingStatus(userId);
 
     if (!status.stripeSubscriptionId) {
@@ -178,7 +179,7 @@ billingRouter.post('/resume-subscription', async (req, res) => {
 
 billingRouter.post('/update-subscription', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
+    const userId = requestUserId(req, req.body);
     const interval = req.body.interval;
 
     if (!isBillingInterval(interval)) {
@@ -229,7 +230,7 @@ billingRouter.post('/update-subscription', async (req, res) => {
 
 billingRouter.get('/payment-method', async (req, res) => {
   try {
-    const userId = required(req.query, 'userId') as string;
+    const userId = requestUserId(req, req.query);
     return res.json({ paymentMethod: await getDefaultPaymentMethodForUser(userId) });
   } catch (err) {
     return errorResponse(res, err);
@@ -238,7 +239,7 @@ billingRouter.get('/payment-method', async (req, res) => {
 
 billingRouter.post('/payment-method/setup-intent', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
+    const userId = requestUserId(req, req.body);
     const reference = await getBillingReference(userId);
 
     if (!reference.customerId) {
@@ -268,7 +269,7 @@ billingRouter.post('/payment-method/setup-intent', async (req, res) => {
 
 billingRouter.post('/payment-method', async (req, res) => {
   try {
-    const userId = required(req.body, 'userId') as string;
+    const userId = requestUserId(req, req.body);
     const setupIntentId = required(req.body, 'setupIntentId') as string;
     const reference = await getBillingReference(userId);
 

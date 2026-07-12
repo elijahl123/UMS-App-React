@@ -13,6 +13,7 @@ import {
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
+  Shield,
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -46,7 +47,7 @@ interface Props {
 function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const [coursesOpen, setCoursesOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
-  const { user, logout } = useAuth();
+  const { user, logout, stagingAccess, isStagingAccessControlEnabled } = useAuth();
   const [courseRows] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows] = useLoadAction('loadAssignments', [], { userId: user?.id });
   const [sessionRows] = useLoadAction('loadClassSessions', [], { userId: user?.id });
@@ -258,6 +259,21 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         )}
 
         <div className="my-2 border-t border-[var(--border-light)]" />
+
+        {isStagingAccessControlEnabled && stagingAccess?.role === 'admin' && (
+          <>
+            <NavLink
+              to="/admin/staging-access"
+              className={navItemClass(collapsed)}
+              onClick={handleNavClick}
+              title="Staging Access"
+            >
+              <Shield className="h-5 w-5 shrink-0" />
+              <span className={textClass}>Staging Access</span>
+            </NavLink>
+            <div className="my-2 border-t border-[var(--border-light)]" />
+          </>
+        )}
 
         <div
           className={cn('rounded-lg border p-3 shadow-sm', collapsedOnlyClass)}
