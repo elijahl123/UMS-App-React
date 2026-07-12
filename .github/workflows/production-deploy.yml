@@ -1,0 +1,36 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        env:
+          SSH_HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          SSH_USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          SSH_PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          PORT="${SSH_PORT:-22}"
+          ssh-keyscan -p "$PORT" "$SSH_HOST" >> ~/.ssh/known_hosts
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" deploy/production-deploy.sh "$SSH_USER@$SSH_HOST:/tmp/production-deploy.sh"
+          ssh -i ~/.ssh/id_ed25519 -p "$PORT" "$SSH_USER@$SSH_HOST" 'bash /tmp/production-deploy.sh'
