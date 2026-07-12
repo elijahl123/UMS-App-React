@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
 import type { AppUser, StagingAccessUser } from '@/app/data/types';
+import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 
 export const authState = {
@@ -27,6 +28,43 @@ export const authActions = {
   resetPasswordWithToken: vi.fn(async () => ({ success: true })),
   signInWithGoogle: vi.fn(async () => ({ success: true })),
   refreshStagingAccess: vi.fn(async () => true),
+};
+
+export const accountEmailState = {
+  emails: [] as AccountEmailAddress[],
+};
+
+export const accountEmailActions = {
+  listAccountEmails: vi.fn(async () => ({ emails: accountEmailState.emails })),
+  addAccountEmail: vi.fn(async (email: string) => {
+    const nextEmail: AccountEmailAddress = {
+      id: `email-${accountEmailState.emails.length + 1}`,
+      email: email.trim().toLowerCase(),
+      verified: false,
+      verifiedAt: null,
+      verificationExpiresAt: '2026-07-13T00:00:00.000Z',
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    accountEmailState.emails = [nextEmail, ...accountEmailState.emails];
+    return { email: nextEmail };
+  }),
+  resendAccountEmailVerification: vi.fn(async (id: string) => {
+    const email = accountEmailState.emails.find((candidate) => candidate.id === id);
+    if (!email) {
+      throw { error: { message: 'Email address was not found or is already verified.' } };
+    }
+    return { email };
+  }),
+  verifyAccountEmailToken: vi.fn(async () => ({
+    email: {
+      id: 'email-verified',
+      email: 'alt@example.com',
+      verified: true,
+      verifiedAt: '2026-07-12T00:00:00.000Z',
+      verificationExpiresAt: null,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    } satisfies AccountEmailAddress,
+  })),
 };
 
 export const apiState = {
@@ -72,6 +110,7 @@ export function resetMockState() {
   authState.isGoogleSignInAvailable = true;
   authState.isProcessingGoogleRedirect = false;
   authState.googleSignInError = null;
+  accountEmailState.emails = [];
   apiState.loads = { ...dbRows };
   apiState.mutations = [];
   billingState.status = {
@@ -93,4 +132,5 @@ export function resetMockState() {
     billingName: 'Jane Doe',
   };
   Object.values(authActions).forEach((mock) => mock.mockClear());
+  Object.values(accountEmailActions).forEach((mock) => mock.mockClear());
 }

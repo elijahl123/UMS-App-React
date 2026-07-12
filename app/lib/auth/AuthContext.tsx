@@ -407,7 +407,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyEmailWithToken = async (oobCode: string) => {
     try {
-      await firebaseAuth.resetPassword({ oobCode });
+      await firebaseAuth.verifyEmail({ oobCode });
       if (user && idToken) {
         const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken });
         const freshUser = lookup?.users?.[0];

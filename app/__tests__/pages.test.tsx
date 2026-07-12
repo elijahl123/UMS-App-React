@@ -17,7 +17,7 @@ import NotesPage from '@/app/pages/NotesPage';
 import ResetPasswordPage from '@/app/pages/ResetPasswordPage';
 import SignupPage from '@/app/pages/SignupPage';
 import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
-import { authActions, authState } from '@/app/test/mocks';
+import { accountEmailActions, accountEmailState, authActions, authState } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 
 function renderRoute(path: string, element: React.ReactElement, route = path) {
@@ -123,13 +123,14 @@ describe('page rendering', () => {
     expect(await screen.findByText(/notes list destination/i)).toBeInTheDocument();
   });
 
-  it('renders the account page', () => {
+  it('renders the account page', async () => {
     renderWithRouter(<AccountPage />);
 
     expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
+    await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
   });
 
   it('connects Google from the account page', async () => {
@@ -141,7 +142,7 @@ describe('page rendering', () => {
     expect(authActions.signInWithGoogle).toHaveBeenCalled();
   });
 
-  it('shows Google as connected on the account page', () => {
+  it('shows Google as connected on the account page', async () => {
     authState.user = {
       ...authState.user!,
       connectedProviders: ['password', 'google.com'],
@@ -151,6 +152,33 @@ describe('page rendering', () => {
 
     expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /connect google/i })).not.toBeInTheDocument();
+    await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
+  });
+
+  it('adds and resends verification for an additional account email', async () => {
+    const user = userEvent.setup();
+    accountEmailState.emails = [
+      {
+        id: 'email-1',
+        email: 'school@example.com',
+        verified: false,
+        verifiedAt: null,
+        verificationExpiresAt: '2026-07-13T00:00:00.000Z',
+        createdAt: '2026-07-12T00:00:00.000Z',
+      },
+    ];
+
+    renderWithRouter(<AccountPage />);
+
+    expect(await screen.findByText(/school@example\.com/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^resend$/i }));
+    expect(accountEmailActions.resendAccountEmailVerification).toHaveBeenCalledWith('email-1');
+
+    await user.type(screen.getByLabelText(/additional email/i), 'alt@example.com');
+    await user.click(screen.getByRole('button', { name: /add email/i }));
+
+    expect(await screen.findByText(/verification email sent/i)).toBeInTheDocument();
+    expect(accountEmailActions.addAccountEmail).toHaveBeenCalledWith('alt@example.com');
   });
 
   it('renders the billing page', async () => {
@@ -236,6 +264,11 @@ describe('auth and recovery pages', () => {
 
     expect(await screen.findByText(/your email address has been verified/i)).toBeInTheDocument();
     expect(authActions.verifyEmailWithToken).toHaveBeenCalledWith('abc123');
+
+    renderWithRouter(<VerifyEmailPage />, { route: '/verify-email?accountEmailToken=token123' });
+
+    expect(await screen.findByText(/your email address has been verified/i)).toBeInTheDocument();
+    expect(accountEmailActions.verifyAccountEmailToken).toHaveBeenCalledWith('token123');
   });
 
   it('shows validation errors on invalid login input', async () => {
