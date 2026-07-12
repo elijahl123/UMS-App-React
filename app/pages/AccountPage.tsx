@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard } from 'lucide-react';
+import { FcGoogle } from 'react-icons/fc';
+import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard, Link2, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const profileSchema = z.object({
@@ -32,7 +34,16 @@ const passwordSchema = z
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 function AccountPage() {
-  const { user, updateProfile, changePassword, resendVerificationEmail } = useAuth();
+  const {
+    user,
+    updateProfile,
+    changePassword,
+    resendVerificationEmail,
+    signInWithGoogle,
+    isGoogleSignInAvailable,
+    isProcessingGoogleRedirect,
+    googleSignInError,
+  } = useAuth();
 
   const [resendSubmitting, setResendSubmitting] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -45,6 +56,9 @@ function AccountPage() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  const [googleConnectSubmitting, setGoogleConnectSubmitting] = useState(false);
+  const [googleConnectError, setGoogleConnectError] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -109,16 +123,31 @@ function AccountPage() {
     }
   };
 
+  const handleGoogleConnect = async () => {
+    setGoogleConnectError(null);
+    setGoogleConnectSubmitting(true);
+    try {
+      const result = await signInWithGoogle();
+      if (!result.success) {
+        setGoogleConnectError(result.error ?? 'Unable to connect Google.');
+      }
+    } finally {
+      setGoogleConnectSubmitting(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
+
+  const googleConnected = user.connectedProviders.includes('google.com');
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 pb-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
-        <p className="text-sm text-muted-foreground">Manage your profile, subscription, and password.</p>
+        <p className="text-sm text-muted-foreground">Manage your profile, subscription, connected accounts, and password.</p>
       </div>
 
       {!user.emailVerified && (
@@ -165,6 +194,65 @@ function AccountPage() {
               Manage Subscription
             </Link>
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-primary" />
+            <CardTitle>Connected accounts</CardTitle>
+          </div>
+          <CardDescription>See the sign-in methods attached to this account.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col divide-y rounded-md border">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
+                <Mail className="h-4 w-4 text-secondary-foreground" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Email</p>
+                <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+              </div>
+            </div>
+            <Badge variant="secondary" className="w-fit">Primary</Badge>
+          </div>
+
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
+                <FcGoogle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Google</p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {googleConnected ? user.email : 'Connect Google for one-click sign in.'}
+                </p>
+              </div>
+            </div>
+            {googleConnected ? (
+              <Badge variant="secondary" className="w-fit">Connected</Badge>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 sm:w-auto"
+                disabled={!isGoogleSignInAvailable || isProcessingGoogleRedirect || googleConnectSubmitting}
+                onClick={handleGoogleConnect}
+              >
+                {isProcessingGoogleRedirect || googleConnectSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FcGoogle className="h-4 w-4" />}
+                Connect Google
+              </Button>
+            )}
+          </div>
+          {!googleConnected && !isGoogleSignInAvailable && (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">Google sign-in is not configured yet for this app.</p>
+          )}
+          {(googleConnectError || googleSignInError) && (
+            <p className="px-4 pb-4 text-sm font-medium text-destructive">{googleConnectError ?? googleSignInError}</p>
+          )}
         </CardContent>
       </Card>
 

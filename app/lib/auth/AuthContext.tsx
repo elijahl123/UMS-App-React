@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { mapFirebaseUser } from '@/app/data/mappers';
 import type { AppUser } from '@/app/data/types';
-import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured } from '@/app/lib/auth/googleOAuth';
+import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo } from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
@@ -25,6 +25,7 @@ interface FirebaseIdpResult {
   refreshToken: string;
   displayName?: string;
   emailVerified?: boolean;
+  providerId?: string;
 }
 
 interface FirebaseLookupResult {
@@ -34,12 +35,29 @@ interface FirebaseLookupResult {
     displayName?: string;
     emailVerified?: boolean;
     createdAt?: string;
+    providerUserInfo?: Array<{
+      providerId?: string;
+    }>;
   }>;
 }
 
 interface StoredSession {
   idToken: string;
   user: AppUser;
+}
+
+function readStoredSession(): StoredSession | null {
+  const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!stored) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(stored) as StoredSession;
+  } catch {
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    return null;
+  }
 }
 
 function friendlyFirebaseError(code: string): string {
@@ -104,21 +122,27 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [isProcessingGoogleRedirect, setIsProcessingGoogleRedirect] = useState(false);
   const [googleSignInError, setGoogleSignInError] = useState<string | null>(null);
 
-  const loginWithGoogle = async (googleIdToken: string) => {
+  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string) => {
     try {
       const postBody = `id_token=${encodeURIComponent(googleIdToken)}&providerId=google.com`;
       const result: FirebaseIdpResult = await firebaseAuth.signInWithIdp({
         postBody,
         requestUri: window.location.origin,
+        idToken: linkToIdToken,
       });
-      const nextUser: AppUser = {
-        id: result.localId,
-        email: result.email,
-        firstName: (result.displayName ?? '').split(' ').filter(Boolean)[0] ?? '',
-        lastName: (result.displayName ?? '').split(' ').filter(Boolean).slice(1).join(' '),
-        createdAt: new Date().toISOString(),
-        emailVerified: result.emailVerified ?? true,
-      };
+      const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: result.idToken });
+      const freshUser = lookup?.users?.[0];
+      const nextUser: AppUser = freshUser
+        ? mapFirebaseUser(freshUser)
+        : {
+            id: result.localId,
+            email: result.email,
+            firstName: (result.displayName ?? '').split(' ').filter(Boolean)[0] ?? '',
+            lastName: (result.displayName ?? '').split(' ').filter(Boolean).slice(1).join(' '),
+            createdAt: new Date().toISOString(),
+            emailVerified: result.emailVerified ?? true,
+            connectedProviders: [result.providerId ?? 'google.com'],
+          };
       persistSession(result.idToken, nextUser);
       console.log('[Auth] Google id_token exchanged for Firebase session');
       return { success: true };
@@ -137,7 +161,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       if (googleIdToken) {
         console.log('[Auth] Found Google id_token from local OAuth redirect');
         setIsProcessingGoogleRedirect(true);
-        const result = await loginWithGoogle(googleIdToken);
+        const storedSession = readStoredSession();
+        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken);
         if (!result.success) {
           setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
           console.error('[Auth] Google redirect sign-in failed:', result.error);
@@ -179,10 +204,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('[Auth] No sessionToken found, checking for stored session');
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (stored) {
+      const session = readStoredSession();
+      if (session) {
         try {
-          const session = JSON.parse(stored) as StoredSession;
           const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
@@ -241,6 +265,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         lastName: values.lastName,
         createdAt: new Date().toISOString(),
         emailVerified: false,
+        connectedProviders: ['password'],
       });
       await firebaseAuth.sendOobCode({
         requestType: 'VERIFY_EMAIL',
@@ -368,10 +393,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setIsProcessingGoogleRedirect(true);
     try {
       console.log('[Auth] Calling startGoogleSignIn()...');
+      setGoogleAuthReturnTo(user ? '/account' : '/');
       const { idToken: googleIdToken } = await startGoogleSignIn();
       console.log('[Auth] ========== startGoogleSignIn() completed successfully ==========');
       console.log('[Auth] Received google idToken, exchanging for Firebase session');
-      const result = await loginWithGoogle(googleIdToken);
+      const result = await loginWithGoogle(googleIdToken, idToken ?? undefined);
       console.log('[Auth] Firebase exchange result:', result.success ? 'SUCCESS' : 'FAILED - ' + result.error);
       if (!result.success) {
         setGoogleSignInError(result.error ?? 'Unable to sign in with Google.');
