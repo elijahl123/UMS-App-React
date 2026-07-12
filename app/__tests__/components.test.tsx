@@ -61,7 +61,7 @@ describe('widgets and calendar components', () => {
 
   it('creates a dated course note from class Open Notes buttons', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+    vi.setSystemTime(new Date(2026, 6, 10, 9, 30));
 
     try {
       renderWithRouter(<ClassesTodayWidget sessions={[sessions[0]]} courses={courses} />);
@@ -86,7 +86,7 @@ describe('widgets and calendar components', () => {
 
   it('opens an existing dated class note without creating a duplicate', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+    vi.setSystemTime(new Date(2026, 6, 10, 9, 30));
     apiState.loads.loadNotes = [
       {
         id: 42,
@@ -114,7 +114,7 @@ describe('widgets and calendar components', () => {
 
   it('shows the current class card in the sidebar and opens notes for it', async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-10T09:30:00-07:00'));
+    vi.setSystemTime(new Date(2026, 6, 10, 9, 30));
 
     try {
       renderWithRouter(<Sidebar />);

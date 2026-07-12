@@ -10,4 +10,3 @@ vite.config.js
 vite.config.d.ts
 .idea
 staging.env
-package-lock.json
