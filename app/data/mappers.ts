@@ -121,6 +121,9 @@ interface FirebaseUser {
   displayName?: string;
   emailVerified?: boolean;
   createdAt?: string;
+  providerUserInfo?: Array<{
+    providerId?: string;
+  }>;
 }
 
 export function mapFirebaseUser(row: FirebaseUser): AppUser {
@@ -134,5 +137,6 @@ export function mapFirebaseUser(row: FirebaseUser): AppUser {
     lastName,
     createdAt: row.createdAt ? new Date(Number(row.createdAt)).toISOString() : new Date().toISOString(),
     emailVerified: row.emailVerified ?? false,
+    connectedProviders: row.providerUserInfo?.map((provider) => provider.providerId).filter((providerId): providerId is string => Boolean(providerId)) ?? [],
   };
 }

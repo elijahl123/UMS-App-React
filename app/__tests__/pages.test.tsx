@@ -17,7 +17,7 @@ import NotesPage from '@/app/pages/NotesPage';
 import ResetPasswordPage from '@/app/pages/ResetPasswordPage';
 import SignupPage from '@/app/pages/SignupPage';
 import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
-import { authActions } from '@/app/test/mocks';
+import { authActions, authState } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 
 function renderRoute(path: string, element: React.ReactElement, route = path) {
@@ -126,8 +126,31 @@ describe('page rendering', () => {
   it('renders the account page', () => {
     renderWithRouter(<AccountPage />);
 
-    expect(screen.getByRole('heading', { name: /account/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
+  });
+
+  it('connects Google from the account page', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<AccountPage />);
+
+    await user.click(screen.getByRole('button', { name: /connect google/i }));
+
+    expect(authActions.signInWithGoogle).toHaveBeenCalled();
+  });
+
+  it('shows Google as connected on the account page', () => {
+    authState.user = {
+      ...authState.user!,
+      connectedProviders: ['password', 'google.com'],
+    };
+
+    renderWithRouter(<AccountPage />);
+
+    expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /connect google/i })).not.toBeInTheDocument();
   });
 
   it('renders the billing page', async () => {

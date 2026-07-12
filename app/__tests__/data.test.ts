@@ -33,8 +33,9 @@ describe('data mappers and calendar utilities', () => {
         displayName: 'Jane Doe',
         emailVerified: true,
         createdAt: '1767225600000',
+        providerUserInfo: [{ providerId: 'password' }, { providerId: 'google.com' }],
       })
-    ).toMatchObject({ id: 'user-1', firstName: 'Jane', lastName: 'Doe', emailVerified: true });
+    ).toMatchObject({ id: 'user-1', firstName: 'Jane', lastName: 'Doe', emailVerified: true, connectedProviders: ['password', 'google.com'] });
 
     const itemsByDate = buildCalendarItems(2026, 6, assignments, sessions, events, courses);
 

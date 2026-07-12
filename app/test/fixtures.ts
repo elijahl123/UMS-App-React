@@ -7,6 +7,7 @@ export const mockUser: AppUser = {
   lastName: 'Doe',
   createdAt: '2026-01-01T00:00:00.000Z',
   emailVerified: false,
+  connectedProviders: ['password'],
 };
 
 export const courses: Course[] = [

@@ -58,4 +58,5 @@ export interface AppUser {
   lastName: string;
   createdAt: string;
   emailVerified: boolean;
+  connectedProviders: string[];
 }
