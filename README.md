@@ -67,6 +67,8 @@ By default, Playwright starts the Vite client on `http://127.0.0.1:5173`. To run
 PLAYWRIGHT_BASE_URL=https://dev.untitledmanagementsoftware.com npm run test:e2e
 ```
 
+The e2e suite mocks Firebase, billing, and app API calls so it can cover critical browser workflows without depending on real service credentials.
+
 ## Staging Deploy
 
 For the DigitalOcean staging host, build the client and run the API on the droplet, with Nginx serving `dist/` and proxying `/api` to `127.0.0.1:3001`.
