@@ -17,6 +17,7 @@ import {
   resendAccountEmailVerification,
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
+import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -285,6 +286,8 @@ function AccountPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <BrightspacePdfImportCard />
 
       <Card>
         <CardHeader>

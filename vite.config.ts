@@ -1,14 +1,17 @@
 import path from 'node:path';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   test: {
+    include: ['app/**/*.test.{ts,tsx}'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'playwright-report/**', 'test-results/**', 'blob-report/**'],
     environment: 'jsdom',
     globals: true,
     setupFiles: './app/test/setup.ts',
     css: true,
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
   server: {
     host: '127.0.0.1',
