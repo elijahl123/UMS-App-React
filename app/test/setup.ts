@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import React from 'react';
-import { apiState, authActions, authState, billingState, resetMockState } from '@/app/test/mocks';
+import { accountEmailActions, apiState, authActions, authState, billingState, resetMockState } from '@/app/test/mocks';
 
 afterEach(() => {
   cleanup();
@@ -33,6 +33,10 @@ vi.doMock('@/app/lib/auth/AuthContext', () => ({
     ...authState,
     ...authActions,
   }),
+}));
+
+vi.doMock('@/app/lib/accountEmails/client', () => ({
+  ...accountEmailActions,
 }));
 
 vi.doMock('@/app/lib/api/hooks', () => ({

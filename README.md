@@ -19,6 +19,7 @@ Use the same `.env` values as the original app:
 ```sh
 DATABASE_URL=postgres://user:password@localhost:5432/dbname
 SENDGRID_API_KEY=SG.xxxx
+SENDGRID_FROM_EMAIL=noreply@untitledmanagementsoftware.com
 VITE_FIREBASE_API_KEY=xxxx
 VITE_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 APP_ORIGIN=http://localhost:5173

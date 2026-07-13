@@ -4,11 +4,22 @@ import { GraduationCap, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { verifyAccountEmailToken } from '@/app/lib/accountEmails/client';
+
+function getVerificationParam(searchParams: URLSearchParams, name: string): string {
+  return searchParams.get(name) ?? new URLSearchParams(window.location.search).get(name) ?? '';
+}
+
+function verificationError(err: unknown): string {
+  const response = err as { error?: { message?: string } };
+  return response?.error?.message ?? 'Could not verify your email. Please try again.';
+}
 
 function VerifyEmailPage() {
   const { verifyEmailWithToken } = useAuth();
   const [searchParams] = useSearchParams();
-  const oobCode = searchParams.get('oobCode') ?? '';
+  const oobCode = getVerificationParam(searchParams, 'oobCode');
+  const accountEmailToken = getVerificationParam(searchParams, 'accountEmailToken');
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [error, setError] = useState<string | null>(null);
   const hasRun = useRef(false);
@@ -17,22 +28,33 @@ function VerifyEmailPage() {
     if (hasRun.current) return;
     hasRun.current = true;
 
-    if (!oobCode) {
+    if (!oobCode && !accountEmailToken) {
       setStatus('error');
       setError('This verification link is missing or invalid.');
       return;
     }
 
     (async () => {
-      const result = await verifyEmailWithToken(oobCode);
-      if (result.success) {
-        setStatus('success');
-      } else {
+      try {
+        if (accountEmailToken) {
+          await verifyAccountEmailToken(accountEmailToken);
+          setStatus('success');
+          return;
+        }
+
+        const result = await verifyEmailWithToken(oobCode);
+        if (result.success) {
+          setStatus('success');
+        } else {
+          setStatus('error');
+          setError(result.error ?? 'Could not verify your email. Please try again.');
+        }
+      } catch (err) {
         setStatus('error');
-        setError(result.error ?? 'Could not verify your email. Please try again.');
+        setError(verificationError(err));
       }
     })();
-  }, [oobCode, verifyEmailWithToken]);
+  }, [accountEmailToken, oobCode, verifyEmailWithToken]);
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-secondary/40 p-4">

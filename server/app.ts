@@ -4,7 +4,7 @@ import { requireStagingAccess } from './auth';
 import { config } from './config';
 import { actionsRouter } from './routes/actions';
 import { billingRouter, billingWebhookRouter } from './routes/billing';
-import { emailRouter } from './routes/email';
+import { emailRouter, publicEmailRouter } from './routes/email';
 import { stagingAccessRouter } from './routes/stagingAccess';
 
 export function createApp() {
@@ -24,6 +24,7 @@ export function createApp() {
   app.get('/api/staging-access/config', (_req, res) => {
     res.json({ enabled: config.stagingAccessControlEnabled });
   });
+  app.use('/api/email', publicEmailRouter);
 
   app.use('/api', requireStagingAccess);
   app.use('/api/staging-access', stagingAccessRouter);
