@@ -49,6 +49,22 @@ Useful checks:
 npm run lint
 npx tsc --noEmit
 npm run build
+npm run test:e2e
+```
+
+## End-to-End Tests
+
+Playwright tests live in `e2e/`. Install the browser runtime once before running them locally or in a fresh CI image:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+By default, Playwright starts the Vite client on `http://127.0.0.1:5173`. To run against an already running app or deployed environment, set `PLAYWRIGHT_BASE_URL`:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://dev.untitledmanagementsoftware.com npm run test:e2e
 ```
 
 ## Staging Deploy
