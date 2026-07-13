@@ -9,8 +9,19 @@ export type StagingAccessStatus = 'active' | 'disabled' | 'pending';
 
 export interface AuthenticatedUser {
   uid: string;
+  loginUid?: string;
   email: string;
+  loginEmail?: string;
   role: StagingAccessRole;
+}
+
+export interface FirebaseUserProfile {
+  uid: string;
+  email: string;
+  displayName?: string;
+  emailVerified: boolean;
+  createdAt: string;
+  providerIds: string[];
 }
 
 declare module 'express-serve-static-core' {
@@ -108,6 +119,91 @@ async function grantForUser(uid: string, email: string) {
   return null;
 }
 
+function mapFirebaseAdminUser(user: admin.auth.UserRecord): FirebaseUserProfile | null {
+  const primaryEmail = user.providerData.find((provider) => provider.providerId === 'password')?.email ?? user.email;
+  if (!primaryEmail) {
+    return null;
+  }
+
+  return {
+    uid: user.uid,
+    email: primaryEmail.trim().toLowerCase(),
+    displayName: user.displayName,
+    emailVerified: user.emailVerified,
+    createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).toISOString() : new Date().toISOString(),
+    providerIds: user.providerData.map((provider) => provider.providerId).filter(Boolean),
+  };
+}
+
+function normalizeStoredEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export async function getAccountPrimaryEmail(uid: string): Promise<string | null> {
+  const result = await pool.query<{ email: string }>(
+    `
+      SELECT email
+      FROM account_primary_emails
+      WHERE firebase_uid = $1
+      LIMIT 1;
+    `,
+    [uid]
+  );
+
+  return result.rows[0]?.email ?? null;
+}
+
+export async function rememberAccountPrimaryEmail(uid: string, email: string, overwrite = false): Promise<string> {
+  const normalizedEmail = normalizeStoredEmail(email);
+  const result = await pool.query<{ email: string }>(
+    `
+      INSERT INTO account_primary_emails (firebase_uid, email)
+      VALUES ($1, $2)
+      ON CONFLICT (firebase_uid) DO UPDATE
+      SET email = CASE
+            WHEN $3 THEN EXCLUDED.email
+            ELSE account_primary_emails.email
+          END,
+          updated_at = CASE
+            WHEN $3 THEN NOW()
+            ELSE account_primary_emails.updated_at
+          END
+      RETURNING email;
+    `,
+    [uid, normalizedEmail, overwrite]
+  );
+
+  return result.rows[0]?.email ?? normalizedEmail;
+}
+
+export async function resolvePrimaryUidForEmail(email: string, fallbackUid: string): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const result = await pool.query<{ firebase_uid: string }>(
+    `
+      SELECT firebase_uid
+      FROM account_email_addresses
+      WHERE lower(email) = $1
+        AND verified_at IS NOT NULL
+      ORDER BY updated_at DESC, created_at DESC
+      LIMIT 1;
+    `,
+    [normalizedEmail]
+  );
+
+  return result.rows[0]?.firebase_uid ?? fallbackUid;
+}
+
+export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserProfile | null> {
+  const user = await firebaseApp().auth().getUser(uid);
+  const profile = mapFirebaseAdminUser(user);
+  if (!profile) {
+    return null;
+  }
+
+  const storedPrimaryEmail = await getAccountPrimaryEmail(uid).catch(() => null);
+  return storedPrimaryEmail ? { ...profile, email: storedPrimaryEmail } : profile;
+}
+
 export async function requireStagingAccess(req: Request, res: Response, next: NextFunction) {
   if (!config.stagingAccessControlEnabled) {
     return next();
@@ -125,14 +221,18 @@ export async function requireStagingAccess(req: Request, res: Response, next: Ne
       return res.status(403).json({ error: { message: 'EMAIL_REQUIRED' } });
     }
 
-    const grant = await grantForUser(decoded.uid, email);
+    const primaryUid = await resolvePrimaryUidForEmail(email, decoded.uid);
+    const primaryProfile = primaryUid !== decoded.uid ? await getFirebaseUserProfile(primaryUid).catch(() => null) : null;
+    const grant = await grantForUser(primaryUid, email);
     if (!grant || grant.status !== 'active') {
       return res.status(403).json({ error: { message: 'STAGING_ACCESS_DENIED' } });
     }
 
     req.auth = {
-      uid: decoded.uid,
-      email,
+      uid: primaryUid,
+      loginUid: decoded.uid,
+      email: primaryProfile?.email ?? email,
+      loginEmail: email,
       role: grant.role,
     };
     return next();

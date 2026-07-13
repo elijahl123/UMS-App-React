@@ -54,6 +54,7 @@ export interface CalendarEvent {
 export interface AppUser {
   id: string;
   email: string;
+  loginEmail?: string;
   firstName: string;
   lastName: string;
   createdAt: string;
