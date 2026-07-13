@@ -37,6 +37,23 @@ const parsedRows = [
 ];
 
 describe('BrightspacePdfImportCard', () => {
+  it('opens the Brightspace walkthrough modal', async () => {
+    const user = userEvent.setup();
+
+    render(<BrightspacePdfImportCard />);
+
+    await user.click(screen.getByRole('button', { name: /view walkthrough/i }));
+
+    expect(screen.getByRole('heading', { name: /how to download the brightspace calendar pdf/i })).toBeInTheDocument();
+    expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/brightspace home page with the calendar panel visible/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /next/i }));
+
+    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/brightspace calendar page in agenda view/i)).toBeInTheDocument();
+  });
+
   it('previews parsed rows, imports only selected rows, and shows success', async () => {
     const user = userEvent.setup();
     vi.mocked(parseBrightspacePdfFile).mockResolvedValue(parsedRows);

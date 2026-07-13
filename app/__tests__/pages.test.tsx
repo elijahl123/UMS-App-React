@@ -44,6 +44,21 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /homework/i })).toBeInTheDocument();
     expect(screen.getByText(/derivative quiz/i)).toBeInTheDocument();
     expect(screen.getByText(/limits worksheet/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /import brightspace pdf/i })).toBeInTheDocument();
+  });
+
+  it('opens the Brightspace import guide from the homework page', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    await user.click(screen.getByRole('button', { name: /import brightspace pdf/i }));
+    await user.click(screen.getByRole('button', { name: /view walkthrough/i }));
+
+    expect(screen.getByText(/how to download the brightspace calendar pdf/i)).toBeInTheDocument();
+    expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/brightspace calendar page in agenda view/i)).toBeInTheDocument();
   });
 
   it('collapses completed assignments by default', async () => {
@@ -129,6 +144,7 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view walkthrough/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
   });

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw, FileUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
+import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
 import { mapCourse, mapAssignment } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import { formatAssignmentDue, formatDueTime, formatTimeZoneLabel } from '@/app/data/assignmentDates';
@@ -40,6 +41,7 @@ function HomeworkPage() {
     const status = searchParams.get('status');
     return status && statusValues.has(status) ? status : 'all';
   });
+  const [showImportPanel, setShowImportPanel] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
@@ -261,6 +263,10 @@ function HomeworkPage() {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
+            <Button type="button" variant="outline" className="gap-2" onClick={() => setShowImportPanel((current) => !current)}>
+              <FileUp className="h-4 w-4" />
+              {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+            </Button>
             <Button onClick={openAddDialog} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Assignment
@@ -268,6 +274,14 @@ function HomeworkPage() {
           </div>
         </CardHeader>
         <CardContent className="min-h-0 flex-1 overflow-auto px-2 sm:px-6">
+          {showImportPanel && (
+            <div className="mb-6">
+              <BrightspacePdfImportCard
+                title="Import Brightspace Assignments"
+                description="Download the Brightspace calendar as a PDF, preview the parsed rows, and import the items you want into Homework and Calendar."
+              />
+            </div>
+          )}
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
               <p className="text-sm font-semibold text-primary">No assignments found</p>
