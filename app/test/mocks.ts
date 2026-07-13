@@ -71,6 +71,43 @@ export const accountEmailActions = {
   })),
 };
 
+export const accountEmailState = {
+  emails: [] as AccountEmailAddress[],
+};
+
+export const accountEmailActions = {
+  listAccountEmails: vi.fn(async () => ({ emails: accountEmailState.emails })),
+  addAccountEmail: vi.fn(async (email: string) => {
+    const nextEmail: AccountEmailAddress = {
+      id: `email-${accountEmailState.emails.length + 1}`,
+      email: email.trim().toLowerCase(),
+      verified: false,
+      verifiedAt: null,
+      verificationExpiresAt: '2026-07-13T00:00:00.000Z',
+      createdAt: '2026-07-12T00:00:00.000Z',
+    };
+    accountEmailState.emails = [nextEmail, ...accountEmailState.emails];
+    return { email: nextEmail };
+  }),
+  resendAccountEmailVerification: vi.fn(async (id: string) => {
+    const email = accountEmailState.emails.find((candidate) => candidate.id === id);
+    if (!email) {
+      throw { error: { message: 'Email address was not found or is already verified.' } };
+    }
+    return { email };
+  }),
+  verifyAccountEmailToken: vi.fn(async () => ({
+    email: {
+      id: 'email-verified',
+      email: 'alt@example.com',
+      verified: true,
+      verifiedAt: '2026-07-12T00:00:00.000Z',
+      verificationExpiresAt: null,
+      createdAt: '2026-07-12T00:00:00.000Z',
+    } satisfies AccountEmailAddress,
+  })),
+};
+
 export const apiState = {
   loads: { ...dbRows } as Record<string, unknown>,
   mutations: [] as Array<{ name: string; params?: Record<string, unknown> }>,
