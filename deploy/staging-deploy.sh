@@ -11,7 +11,7 @@ sudo systemctl stop ums-app-react
 git fetch origin staging
 git reset --hard origin/staging
 
-npm ci
+npm ci --no-audit --no-fund
 
 set -a
 source "$ENV_FILE"
