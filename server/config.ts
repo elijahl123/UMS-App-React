@@ -52,6 +52,7 @@ export const config = {
   firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   firebasePrivateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   firebaseWebApiKey: process.env.VITE_FIREBASE_API_KEY,
+  googleClientId: process.env.VITE_GOOGLE_CLIENT_ID,
   sendgridApiKey: process.env.SENDGRID_API_KEY,
   sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL ?? 'noreply@untitledmanagementsoftware.com',
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,

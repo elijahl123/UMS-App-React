@@ -63,6 +63,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const dueTodayCount = assignments.filter((a) => a.status === 'due_today').length;
   const classFocus = getTodayClassFocus(sessions, courses, now);
   const classFocusColors = getCourseColor(classFocus?.course?.color);
+  const displayEmail = user?.loginEmail ?? user?.email;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
@@ -349,7 +350,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
               <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-foreground">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{user.email}</p>
+              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{displayEmail}</p>
             </div>
           </NavLink>
         )}

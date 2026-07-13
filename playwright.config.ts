@@ -31,6 +31,7 @@ export default defineConfig({
           command: `node ./node_modules/vite/bin/vite.js --config vite.config.ts --host 127.0.0.1 --port ${port}`,
           env: {
             VITE_FIREBASE_API_KEY: 'e2e-firebase-api-key',
+            VITE_GOOGLE_CLIENT_ID: 'e2e-google-client-id.apps.googleusercontent.com',
           },
           url: baseURL,
           reuseExistingServer: !process.env.CI,
