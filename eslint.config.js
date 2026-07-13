@@ -8,8 +8,6 @@ export default tseslint.config(
   {
     ignores: [
       'dist',
-      'android',
-      'ios',
       'node_modules',
       '.vite',
       '*.tsbuildinfo',

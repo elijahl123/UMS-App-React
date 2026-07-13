@@ -17,12 +17,9 @@ jobs:
     - name: Install dependencies
       run: npm ci
     - name: Install Playwright Browsers
-      run: npx playwright install --with-deps chromium webkit
+      run: npx playwright install --with-deps chromium
     - name: Run Playwright tests
       run: npm run test:e2e
-      env:
-        VITE_FIREBASE_API_KEY: ${{ secrets.PLAYWRIGHT_FIREBASE_API_KEY }}
-        VITE_GOOGLE_CLIENT_ID: ${{ secrets.PLAYWRIGHT_GOOGLE_CLIENT_ID }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

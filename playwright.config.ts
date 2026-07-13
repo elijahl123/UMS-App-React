@@ -21,18 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /.*\.mobile\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'mobile-chromium',
-      testMatch: /.*\.mobile\.spec\.ts/,
-      use: { ...devices['Pixel 5'] },
-    },
-    {
-      name: 'mobile-webkit',
-      testMatch: /.*\.mobile\.spec\.ts/,
-      use: { ...devices['iPhone 13'] },
     },
   ],
   ...(process.env.PLAYWRIGHT_BASE_URL
@@ -40,6 +29,9 @@ export default defineConfig({
     : {
         webServer: {
           command: `node ./node_modules/vite/bin/vite.js --config vite.config.ts --host 127.0.0.1 --port ${port}`,
+          env: {
+            VITE_FIREBASE_API_KEY: 'e2e-firebase-api-key',
+          },
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

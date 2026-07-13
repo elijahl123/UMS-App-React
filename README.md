@@ -22,10 +22,7 @@ SENDGRID_API_KEY=SG.xxxx
 SENDGRID_FROM_EMAIL=noreply@untitledmanagementsoftware.com
 VITE_FIREBASE_API_KEY=xxxx
 VITE_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
-VITE_API_BASE_URL=
-VITE_GOOGLE_REDIRECT_URI=
 APP_ORIGIN=http://localhost:5173
-APP_ORIGINS=
 APP_BASE_URL=http://localhost:5173
 PORT=3001
 VITE_DEV_ORIGIN=http://localhost:5173
@@ -45,8 +42,6 @@ npm run dev
 ```
 
 Vite serves the React app at `http://localhost:5173` and proxies `/api` requests to the Express API on `http://127.0.0.1:3001`.
-
-Leave `VITE_API_BASE_URL` blank for same-origin web builds. Native Capacitor builds should set it to the public API root, for example `https://app.untitledmanagementsoftware.com/api`.
 
 Useful checks:
 
@@ -72,6 +67,8 @@ By default, Playwright starts the Vite client on `http://127.0.0.1:5173`. To run
 PLAYWRIGHT_BASE_URL=https://dev.untitledmanagementsoftware.com npm run test:e2e
 ```
 
+The e2e suite mocks Firebase, billing, and app API calls so it can cover critical browser workflows without depending on real service credentials.
+
 ## Staging Deploy
 
 For the DigitalOcean staging host, build the client and run the API on the droplet, with Nginx serving `dist/` and proxying `/api` to `127.0.0.1:3001`.
@@ -86,7 +83,6 @@ Set the staging origin to your public URL:
 
 ```sh
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
-APP_ORIGINS=https://dev.untitledmanagementsoftware.com
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
 PORT=3001
 ```
