@@ -6,7 +6,21 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'node_modules', '.vite', '*.tsbuildinfo', 'vite.config.d.ts', 'vite.config.js', 'tailwind.config.js', 'postcss.config.js'],
+    ignores: [
+      'dist',
+      'node_modules',
+      '.vite',
+      '*.tsbuildinfo',
+      'vite.config.d.ts',
+      'vite.config.js',
+      'tailwind.config.js',
+      'postcss.config.js',
+      'playwright-report',
+      'test-results',
+      'blob-report',
+      'playwright/.cache',
+      'playwright/.auth',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
