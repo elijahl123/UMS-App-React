@@ -3,7 +3,6 @@ import { getApiAuthHeaders } from '@/app/lib/api/client';
 export interface AccountEmailAddress {
   id: string;
   email: string;
-  source: 'email' | 'google';
   verified: boolean;
   verifiedAt: string | null;
   verificationExpiresAt: string | null;
@@ -28,7 +27,7 @@ async function accountEmailRequest<TResult>(path: string, init?: RequestInit): P
   return payload as TResult;
 }
 
-export async function listAccountEmails(): Promise<{ primaryEmail?: string; loginEmail?: string; emails: AccountEmailAddress[] }> {
+export async function listAccountEmails(): Promise<{ emails: AccountEmailAddress[] }> {
   return accountEmailRequest('');
 }
 
@@ -42,19 +41,6 @@ export async function addAccountEmail(email: string): Promise<{ email: AccountEm
 export async function resendAccountEmailVerification(id: string): Promise<{ email: AccountEmailAddress }> {
   return accountEmailRequest(`/${encodeURIComponent(id)}/resend`, {
     method: 'POST',
-  });
-}
-
-export async function connectGoogleAccountEmail(idToken: string): Promise<{ email: AccountEmailAddress | null; primary: boolean }> {
-  return accountEmailRequest('/google', {
-    method: 'POST',
-    body: JSON.stringify({ idToken }),
-  });
-}
-
-export async function deleteAccountEmail(id: string): Promise<{ email: AccountEmailAddress }> {
-  return accountEmailRequest(`/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
   });
 }
 

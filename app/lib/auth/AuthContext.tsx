@@ -2,10 +2,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { mapFirebaseUser } from '@/app/data/mappers';
 import type { AppUser, StagingAccessUser } from '@/app/data/types';
 import { setApiAuthToken } from '@/app/lib/api/client';
-import { connectGoogleAccountEmail } from '@/app/lib/accountEmails/client';
 import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo } from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
-import { resolveAuthSession } from '@/app/lib/auth/session';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 
@@ -93,11 +91,6 @@ function friendlyFirebaseError(code: string): string {
 function extractErrorCode(err: unknown): string {
   const response = (err as { response?: FirebaseErrorResponse })?.response ?? (err as FirebaseErrorResponse);
   return response?.error?.message ?? 'UNKNOWN_ERROR';
-}
-
-function requestErrorMessage(err: unknown, fallback: string): string {
-  const response = err as { error?: { message?: string } };
-  return response?.error?.message ?? (err instanceof Error ? err.message : fallback);
 }
 
 interface AuthContextValue {
@@ -189,8 +182,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
             emailVerified: result.emailVerified ?? true,
             connectedProviders: [result.providerId ?? 'google.com'],
       };
-      const resolvedUser = await resolveSessionUser(result.idToken, nextUser);
-      persistSession(result.idToken, resolvedUser);
+      persistSession(result.idToken, nextUser);
       await refreshStagingAccess(result.idToken, accessControlEnabled);
       console.log('[Auth] Google id_token exchanged for Firebase session');
       return { success: true };
@@ -218,44 +210,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[Auth] Found Google id_token from local OAuth redirect');
         setIsProcessingGoogleRedirect(true);
         const storedSession = readStoredSession();
-        if (storedSession) {
-          try {
-            setApiAuthToken(storedSession.idToken);
-            const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: storedSession.idToken });
-            const freshUser = lookup?.users?.[0];
-            if (!freshUser) {
-              throw new Error('Could not refresh your current session.');
-            }
-
-            const resolvedUser = await resolveSessionUser(storedSession.idToken, mapFirebaseUser(freshUser));
-            persistSession(storedSession.idToken, resolvedUser);
-            await refreshStagingAccess(storedSession.idToken, accessControlEnabled);
-
-            const hasGoogleProvider = freshUser.providerUserInfo?.some((provider) => provider.providerId === 'google.com') ?? false;
-            if (!hasGoogleProvider) {
-              const linkResult = await loginWithGoogle(googleIdToken, storedSession.idToken, accessControlEnabled);
-              if (!linkResult.success) {
-                console.warn('[Auth] Google provider link failed; continuing with verified email connection:', linkResult.error);
-                setApiAuthToken(storedSession.idToken);
-              }
-            }
-
-            await connectGoogleAccountEmail(googleIdToken);
-            console.log('[Auth] Google account email connected');
-          } catch (err) {
-            const message = requestErrorMessage(err, 'Failed to connect that Google account. Please try again.');
-            setGoogleSignInError(message);
-            console.error('[Auth] Google account connection failed:', err);
-          }
-        } else {
-          const result = await loginWithGoogle(googleIdToken, undefined, accessControlEnabled);
-          if (!result.success) {
-            setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
-            console.error('[Auth] Google redirect sign-in failed:', result.error);
-          }
-          if (result.success) {
-            console.log('[Auth] Google redirect sign-in completed');
-          }
+        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
+        if (!result.success) {
+          setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
+          console.error('[Auth] Google redirect sign-in failed:', result.error);
+        }
+        if (result.success) {
+          console.log('[Auth] Google redirect sign-in completed');
         }
         setIsProcessingGoogleRedirect(false);
         setIsLoading(false);
@@ -275,8 +236,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
             console.log('[Auth] Successfully logged in user:', freshUser.email);
-            const resolvedUser = await resolveSessionUser(sessionToken, mapFirebaseUser(freshUser));
-            persistSession(sessionToken, resolvedUser);
+            persistSession(sessionToken, mapFirebaseUser(freshUser));
             await refreshStagingAccess(sessionToken, accessControlEnabled);
             // Clean URL
             const previousUrl = window.location.href;
@@ -300,8 +260,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
           const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
           const freshUser = lookup?.users?.[0];
           if (freshUser) {
-            const resolvedUser = await resolveSessionUser(session.idToken, mapFirebaseUser(freshUser));
-            persistSession(session.idToken, resolvedUser);
+            persistSession(session.idToken, mapFirebaseUser(freshUser));
             await refreshStagingAccess(session.idToken, accessControlEnabled);
           } else {
             setApiAuthToken(null);
@@ -332,30 +291,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
   };
 
-  const resolveSessionUser = async (nextIdToken: string, nextUser: AppUser): Promise<AppUser> => {
-    setApiAuthToken(nextIdToken);
-    try {
-      const resolution = await resolveAuthSession();
-      if (resolution.user) {
-        return {
-          ...resolution.user,
-          loginEmail: resolution.email,
-          connectedProviders:
-            resolution.user.connectedProviders.length > 0 ? resolution.user.connectedProviders : nextUser.connectedProviders,
-        };
-      }
-
-      return {
-        ...nextUser,
-        id: resolution.userId,
-        loginEmail: resolution.email,
-      };
-    } catch (err) {
-      console.warn('[Auth] Unable to resolve primary account for session:', err);
-      return nextUser;
-    }
-  };
-
   const login = async (email: string, password: string) => {
     try {
       const result: FirebaseAuthResult = await firebaseAuth.signIn({ email, password });
@@ -364,8 +299,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       if (!freshUser) {
         return { success: false, error: 'Could not log in. Please try again.' };
       }
-      const resolvedUser = await resolveSessionUser(result.idToken, mapFirebaseUser(freshUser));
-      persistSession(result.idToken, resolvedUser);
+      persistSession(result.idToken, mapFirebaseUser(freshUser));
       await refreshStagingAccess(result.idToken);
       return { success: true };
     } catch (err) {
@@ -378,7 +312,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const displayName = `${values.firstName} ${values.lastName}`.trim();
       const result: FirebaseAuthResult = await firebaseAuth.signUp({ email: values.email, password: values.password });
       await firebaseAuth.updateProfile({ idToken: result.idToken, email: values.email, displayName });
-      const nextUser = await resolveSessionUser(result.idToken, {
+      persistSession(result.idToken, {
         id: result.localId,
         email: values.email,
         firstName: values.firstName,
@@ -387,7 +321,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: false,
         connectedProviders: ['password'],
       });
-      persistSession(result.idToken, nextUser);
       await refreshStagingAccess(result.idToken);
       await firebaseAuth.sendOobCode({
         requestType: 'VERIFY_EMAIL',
@@ -425,10 +358,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
         firstName: values.firstName,
         lastName: values.lastName,
       };
-      const nextIdToken = result.idToken ?? idToken;
-      const resolvedUser = await resolveSessionUser(nextIdToken, nextUser);
-      persistSession(nextIdToken, resolvedUser);
-      await refreshStagingAccess(nextIdToken);
+      persistSession(result.idToken ?? idToken, nextUser);
+      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -443,10 +374,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       // Re-authenticate by signing in with the current password before changing it.
       await firebaseAuth.signIn({ email: user.email, password: values.currentPassword });
       const result: FirebaseAuthResult = await firebaseAuth.changePassword({ idToken, password: values.newPassword });
-      const nextIdToken = result.idToken ?? idToken;
-      const resolvedUser = await resolveSessionUser(nextIdToken, user);
-      persistSession(nextIdToken, resolvedUser);
-      await refreshStagingAccess(nextIdToken);
+      persistSession(result.idToken ?? idToken, user);
+      await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
       const code = extractErrorCode(err);
@@ -483,8 +412,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken });
         const freshUser = lookup?.users?.[0];
         if (freshUser) {
-          const resolvedUser = await resolveSessionUser(idToken, mapFirebaseUser(freshUser));
-          persistSession(idToken, resolvedUser);
+          persistSession(idToken, mapFirebaseUser(freshUser));
         }
       }
       return { success: true };
