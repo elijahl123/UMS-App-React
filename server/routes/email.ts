@@ -14,6 +14,7 @@ export const publicEmailRouter = Router();
 type AccountEmailRow = {
   id: string | number;
   email: string;
+  source?: string;
   verified_at: string | null;
   verification_expires_at: string | null;
   created_at: string;
@@ -47,6 +48,7 @@ function mapAccountEmail(row: AccountEmailRow) {
   return {
     id: String(row.id),
     email: row.email,
+    source: row.source ?? 'email',
     verified: Boolean(row.verified_at),
     verifiedAt: row.verified_at,
     verificationExpiresAt: row.verification_expires_at,
@@ -159,9 +161,18 @@ emailRouter.post('/send', async (req: Request, res: Response) => {
 emailRouter.get('/account-addresses', async (req: Request, res: Response) => {
   try {
     const firebaseUser = await authenticatedFirebaseUser(req);
+    const primaryEmailResult = await pool.query<{ email: string }>(
+      `
+        SELECT email
+        FROM account_primary_emails
+        WHERE firebase_uid = $1
+        LIMIT 1;
+      `,
+      [firebaseUser.uid]
+    );
     const result = await pool.query<AccountEmailRow>(
       `
-        SELECT id, email, verified_at, verification_expires_at, created_at
+        SELECT id, email, source, verified_at, verification_expires_at, created_at
         FROM account_email_addresses
         WHERE firebase_uid = $1
         ORDER BY verified_at NULLS LAST, created_at DESC;
@@ -169,7 +180,11 @@ emailRouter.get('/account-addresses', async (req: Request, res: Response) => {
       [firebaseUser.uid]
     );
 
-    return res.json({ emails: result.rows.map(mapAccountEmail) });
+    return res.json({
+      primaryEmail: primaryEmailResult.rows[0]?.email ?? firebaseUser.email,
+      loginEmail: firebaseUser.email,
+      emails: result.rows.map(mapAccountEmail),
+    });
   } catch (err) {
     return handleRouteError(res, err);
   }

@@ -13,6 +13,15 @@ export interface AuthenticatedUser {
   role: StagingAccessRole;
 }
 
+export interface FirebaseUserProfile {
+  uid: string;
+  email: string;
+  displayName?: string;
+  emailVerified: boolean;
+  createdAt: string;
+  providerIds: string[];
+}
+
 declare module 'express-serve-static-core' {
   interface Request {
     auth?: AuthenticatedUser;
@@ -106,6 +115,72 @@ async function grantForUser(uid: string, email: string) {
   }
 
   return null;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserProfile> {
+  const user = await firebaseApp().auth().getUser(uid);
+  return {
+    uid: user.uid,
+    email: normalizeEmail(user.email ?? ''),
+    displayName: user.displayName,
+    emailVerified: user.emailVerified,
+    createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).toISOString() : new Date().toISOString(),
+    providerIds: user.providerData.map((provider) => provider.providerId).filter(Boolean),
+  };
+}
+
+export async function getAccountPrimaryEmail(uid: string): Promise<string | null> {
+  const result = await pool.query<{ email: string }>(
+    `
+      SELECT email
+      FROM account_primary_emails
+      WHERE firebase_uid = $1
+      LIMIT 1;
+    `,
+    [uid]
+  );
+
+  return result.rows[0]?.email ?? null;
+}
+
+export async function rememberAccountPrimaryEmail(uid: string, email: string): Promise<string> {
+  const normalizedEmail = normalizeEmail(email);
+  await pool.query(
+    `
+      INSERT INTO account_primary_emails (firebase_uid, email)
+      VALUES ($1, $2)
+      ON CONFLICT (firebase_uid) DO UPDATE
+      SET email = EXCLUDED.email,
+          updated_at = NOW();
+    `,
+    [uid, normalizedEmail]
+  );
+
+  return normalizedEmail;
+}
+
+export async function resolvePrimaryUidForEmail(email: string, fallbackUid: string): Promise<string> {
+  const normalizedEmail = normalizeEmail(email);
+  const result = await pool.query<{ firebase_uid: string }>(
+    `
+      SELECT firebase_uid
+      FROM account_primary_emails
+      WHERE lower(email) = $1
+      UNION ALL
+      SELECT firebase_uid
+      FROM account_email_addresses
+      WHERE lower(email) = $1
+        AND verified_at IS NOT NULL
+      LIMIT 1;
+    `,
+    [normalizedEmail]
+  );
+
+  return result.rows[0]?.firebase_uid ?? fallbackUid;
 }
 
 export async function requireStagingAccess(req: Request, res: Response, next: NextFunction) {

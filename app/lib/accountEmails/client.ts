@@ -3,10 +3,17 @@ import { getApiAuthHeaders } from '@/app/lib/api/client';
 export interface AccountEmailAddress {
   id: string;
   email: string;
+  source?: 'email' | 'google';
   verified: boolean;
   verifiedAt: string | null;
   verificationExpiresAt: string | null;
   createdAt: string;
+}
+
+export interface AccountEmailListResponse {
+  primaryEmail?: string;
+  loginEmail?: string;
+  emails: AccountEmailAddress[];
 }
 
 async function accountEmailRequest<TResult>(path: string, init?: RequestInit): Promise<TResult> {
@@ -27,7 +34,7 @@ async function accountEmailRequest<TResult>(path: string, init?: RequestInit): P
   return payload as TResult;
 }
 
-export async function listAccountEmails(): Promise<{ emails: AccountEmailAddress[] }> {
+export async function listAccountEmails(): Promise<AccountEmailListResponse> {
   return accountEmailRequest('');
 }
 

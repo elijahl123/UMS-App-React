@@ -75,6 +75,8 @@ function AccountPage() {
   const [googleConnectError, setGoogleConnectError] = useState<string | null>(null);
 
   const [accountEmails, setAccountEmails] = useState<AccountEmailAddress[]>([]);
+  const [accountPrimaryEmail, setAccountPrimaryEmail] = useState<string | null>(null);
+  const [accountLoginEmail, setAccountLoginEmail] = useState<string | null>(null);
   const [accountEmailsLoading, setAccountEmailsLoading] = useState(false);
   const [accountEmailInput, setAccountEmailInput] = useState('');
   const [accountEmailSubmitting, setAccountEmailSubmitting] = useState(false);
@@ -105,6 +107,8 @@ function AccountPage() {
       .then((result) => {
         if (isMounted) {
           setAccountEmails(result.emails);
+          setAccountPrimaryEmail(result.primaryEmail ?? user.email);
+          setAccountLoginEmail(result.loginEmail ?? user.email);
           setAccountEmailError(null);
         }
       })
@@ -123,6 +127,12 @@ function AccountPage() {
       isMounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const primaryEmail = accountPrimaryEmail ?? user.email;
+    profileForm.setValue('email', primaryEmail);
+  }, [accountPrimaryEmail, profileForm, user]);
 
   const handleProfileSubmit = async (values: ProfileFormValues) => {
     setProfileError(null);
@@ -231,6 +241,10 @@ function AccountPage() {
   }
 
   const googleConnected = user.connectedProviders.includes('google.com');
+  const displayedPrimaryEmail = accountPrimaryEmail ?? user.email;
+  const googleAccountEmails = accountEmails.filter((email) => email.source === 'google');
+  const additionalEmailAccounts = accountEmails.filter((email) => email.source !== 'google');
+  const googleAccountEmail = googleAccountEmails[0]?.email ?? accountLoginEmail ?? user.email;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -305,13 +319,13 @@ function AccountPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Email</p>
-                <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                <p className="truncate text-sm text-muted-foreground">{displayedPrimaryEmail}</p>
               </div>
             </div>
             <Badge variant="secondary" className="w-fit">Primary</Badge>
           </div>
 
-          {accountEmails.map((email) => (
+          {additionalEmailAccounts.map((email) => (
             <div key={email.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
@@ -382,9 +396,9 @@ function AccountPage() {
                 <FcGoogle className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Google</p>
+                <p className="text-sm font-medium text-foreground">Google account</p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {googleConnected ? user.email : 'Connect Google for one-click sign in.'}
+                  {googleConnected ? googleAccountEmail : 'Connect Google for one-click sign in.'}
                 </p>
               </div>
             </div>
@@ -409,6 +423,11 @@ function AccountPage() {
           )}
           {(googleConnectError || googleSignInError) && (
             <p className="px-4 pb-4 text-sm font-medium text-destructive">{googleConnectError ?? googleSignInError}</p>
+          )}
+          {googleAccountEmails.length > 0 && (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">
+              {googleAccountEmails.length} Google {googleAccountEmails.length === 1 ? 'account' : 'accounts'} connected.
+            </p>
           )}
         </CardContent>
       </Card>
