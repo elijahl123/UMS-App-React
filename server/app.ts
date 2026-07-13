@@ -4,6 +4,7 @@ import { requireStagingAccess } from './auth';
 import { config } from './config';
 import { actionsRouter } from './routes/actions';
 import { billingRouter, billingWebhookRouter } from './routes/billing';
+import { brightspaceCalendarRouter } from './routes/brightspaceCalendar';
 import { emailRouter, publicEmailRouter } from './routes/email';
 import { stagingAccessRouter } from './routes/stagingAccess';
 
@@ -29,6 +30,7 @@ export function createApp() {
   app.use('/api', requireStagingAccess);
   app.use('/api/staging-access', stagingAccessRouter);
   app.use('/api/actions', actionsRouter);
+  app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/email', emailRouter);
 
