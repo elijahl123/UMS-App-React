@@ -58,4 +58,26 @@ export interface AppUser {
   lastName: string;
   createdAt: string;
   emailVerified: boolean;
+  connectedProviders: string[];
+}
+
+export type StagingAccessRole = 'admin' | 'viewer';
+export type StagingAccessStatus = 'active' | 'disabled' | 'pending';
+
+export interface StagingAccessUser {
+  uid: string;
+  email: string;
+  role: StagingAccessRole;
+}
+
+export interface StagingAccessGrant {
+  id: string | number;
+  email: string;
+  firebase_uid: string | null;
+  role: StagingAccessRole;
+  status: StagingAccessStatus;
+  invited_by: string | null;
+  created_at: string;
+  updated_at: string;
+  last_seen_at: string | null;
 }

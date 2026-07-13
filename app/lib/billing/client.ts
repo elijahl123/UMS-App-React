@@ -1,3 +1,5 @@
+import { getApiAuthHeaders } from '@/app/lib/api/client';
+
 export type BillingInterval = 'monthly' | 'yearly';
 
 export interface BillingStatus {
@@ -33,6 +35,7 @@ async function billingRequest<TResult>(path: string, options?: RequestInit): Pro
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...getApiAuthHeaders(),
       ...(options?.headers ?? {}),
     },
   });

@@ -2,6 +2,7 @@
 // http://localhost:5173 to the Google OAuth client's authorized redirect URIs
 // and JavaScript origins while running the standalone dev app.
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_OAUTH_CLIENT_ID';
+const GOOGLE_AUTH_RETURN_TO_KEY = 'schoolwork_google_auth_return_to';
 
 function isGoogleSignInConfigured(): boolean {
   const configured = !GOOGLE_CLIENT_ID.startsWith('YOUR_GOOGLE_OAUTH_CLIENT_ID');
@@ -63,6 +64,10 @@ function replaceHashRoute(nextHashRoute: string) {
   window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: window.location.href }));
 }
 
+function setGoogleAuthReturnTo(nextHashRoute: string) {
+  sessionStorage.setItem(GOOGLE_AUTH_RETURN_TO_KEY, nextHashRoute);
+}
+
 function consumeGoogleRedirectIdToken(): string | null {
   const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
   const hash = rawHash.startsWith('/') ? rawHash.slice(1) : rawHash;
@@ -70,10 +75,12 @@ function consumeGoogleRedirectIdToken(): string | null {
   const idToken = params.get('id_token');
 
   if (idToken) {
-    replaceHashRoute('/');
+    const returnTo = sessionStorage.getItem(GOOGLE_AUTH_RETURN_TO_KEY) ?? '/';
+    sessionStorage.removeItem(GOOGLE_AUTH_RETURN_TO_KEY);
+    replaceHashRoute(returnTo);
   }
 
   return idToken;
 }
 
-export { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured };
+export { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo };

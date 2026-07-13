@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import React from 'react';
-import { apiState, authActions, authState, billingState, resetMockState } from '@/app/test/mocks';
+import { accountEmailActions, apiState, authActions, authState, billingState, resetMockState } from '@/app/test/mocks';
 
 afterEach(() => {
   cleanup();
@@ -33,6 +33,10 @@ vi.doMock('@/app/lib/auth/AuthContext', () => ({
     ...authState,
     ...authActions,
   }),
+}));
+
+vi.doMock('@/app/lib/accountEmails/client', () => ({
+  ...accountEmailActions,
 }));
 
 vi.doMock('@/app/lib/api/hooks', () => ({
@@ -92,6 +96,27 @@ vi.doMock('@/app/lib/billing/client', () => ({
     ...billingState.status,
     stripePriceId: interval === 'yearly' ? 'price_yearly' : 'price_monthly',
   })),
+}));
+
+vi.doMock('@/app/lib/stagingAccess/client', () => ({
+  getStagingAccessConfig: vi.fn(async () => ({ enabled: authState.isStagingAccessControlEnabled })),
+  getMyStagingAccess: vi.fn(async () => ({ enabled: authState.isStagingAccessControlEnabled, user: authState.stagingAccess })),
+  listStagingAccessUsers: vi.fn(async () => [
+    {
+      id: 1,
+      email: 'admin@example.com',
+      firebase_uid: 'mock-user-id',
+      role: 'admin',
+      status: 'active',
+      invited_by: null,
+      created_at: '2026-07-10T16:30:00.000Z',
+      updated_at: '2026-07-10T16:30:00.000Z',
+      last_seen_at: '2026-07-10T16:30:00.000Z',
+    },
+  ]),
+  upsertStagingAccessUser: vi.fn(async () => ({})),
+  updateStagingAccessUser: vi.fn(async () => ({})),
+  deleteStagingAccessUser: vi.fn(async () => ({ success: true })),
 }));
 
 vi.doMock('@stripe/stripe-js', () => ({

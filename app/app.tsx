@@ -1,7 +1,8 @@
 'use client';
 
 import '@/index.css';
-import { HashRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useEffect, type ReactNode } from 'react';
+import { HashRouter, Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppLayout from '@/app/components/AppLayout';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import SubscriptionRoute from '@/app/components/SubscriptionRoute';
@@ -21,6 +22,7 @@ import CoursePage from '@/app/pages/CoursePage';
 import NotesPage from '@/app/pages/NotesPage';
 import NotesEditorPage from '@/app/pages/NotesEditorPage';
 import AccountPage from '@/app/pages/AccountPage';
+import StagingAccessPage from '@/app/pages/StagingAccessPage';
 
 function FallbackRoute() {
   const location = useLocation();
@@ -42,10 +44,41 @@ function FallbackRoute() {
   return <Navigate to="/" replace />;
 }
 
+function AuthActionRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const browserParams = new URLSearchParams(window.location.search);
+    const oobCode = browserParams.get('oobCode');
+    const mode = browserParams.get('mode');
+
+    if (!oobCode || location.pathname === '/verify-email' || location.pathname === '/reset-password') {
+      return;
+    }
+
+    const targetPath = mode === 'resetPassword' ? '/reset-password' : '/verify-email';
+    navigate(`${targetPath}${window.location.search}`, { replace: true });
+  }, [location.pathname, navigate]);
+
+  return null;
+}
+
+function StagingAdminRoute({ children }: { children: ReactNode }) {
+  const { stagingAccess, isStagingAccessControlEnabled } = useAuth();
+
+  if (!isStagingAccessControlEnabled || stagingAccess?.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <HashRouter>
       <AuthProvider>
+        <AuthActionRedirect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -66,6 +99,14 @@ function App() {
                 <Route path="/courses" element={<CoursesPage />} />
                 <Route path="/courses/:courseId" element={<CoursePage />} />
                 <Route path="/account" element={<AccountPage />} />
+                <Route
+                  path="/admin/staging-access"
+                  element={
+                    <StagingAdminRoute>
+                      <StagingAccessPage />
+                    </StagingAdminRoute>
+                  }
+                />
               </Route>
             </Route>
           </Route>

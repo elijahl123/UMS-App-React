@@ -19,6 +19,7 @@ Use the same `.env` values as the original app:
 ```sh
 DATABASE_URL=postgres://user:password@localhost:5432/dbname
 SENDGRID_API_KEY=SG.xxxx
+SENDGRID_FROM_EMAIL=noreply@untitledmanagementsoftware.com
 VITE_FIREBASE_API_KEY=xxxx
 VITE_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 APP_ORIGIN=http://localhost:5173
@@ -48,6 +49,22 @@ Useful checks:
 npm run lint
 npx tsc --noEmit
 npm run build
+npm run test:e2e
+```
+
+## End-to-End Tests
+
+Playwright tests live in `e2e/`. Install the browser runtime once before running them locally or in a fresh CI image:
+
+```sh
+npx playwright install chromium
+npm run test:e2e
+```
+
+By default, Playwright starts the Vite client on `http://127.0.0.1:5173`. To run against an already running app or deployed environment, set `PLAYWRIGHT_BASE_URL`:
+
+```sh
+PLAYWRIGHT_BASE_URL=https://dev.untitledmanagementsoftware.com npm run test:e2e
 ```
 
 ## Staging Deploy
