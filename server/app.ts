@@ -26,6 +26,7 @@ export function createApp() {
   });
   app.use('/api/auth', authSessionRouter);
   app.use('/api/email', publicEmailRouter);
+  app.use('/api/auth', authSessionRouter);
 
   app.use('/api', requireStagingAccess);
   app.use('/api/staging-access', stagingAccessRouter);
