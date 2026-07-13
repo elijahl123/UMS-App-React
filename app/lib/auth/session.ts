@@ -1,4 +1,4 @@
-import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
+import { getApiAuthHeaders } from '@/app/lib/api/client';
 import type { AppUser } from '@/app/data/types';
 
 export interface AuthSessionResolution {
@@ -10,7 +10,7 @@ export interface AuthSessionResolution {
 }
 
 export async function resolveAuthSession(): Promise<AuthSessionResolution> {
-  const response = await apiFetch('/auth/session', {
+  const response = await fetch('/api/auth/session', {
     headers: {
       'Content-Type': 'application/json',
       ...getApiAuthHeaders(),

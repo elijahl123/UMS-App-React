@@ -1,18 +1,13 @@
 import { Router, type Request, type Response } from 'express';
 import { config } from '../config';
 import {
-  authenticatedFirebaseUser,
-  deleteCurrentFirebaseAuthUser,
-  deleteFirebaseAuthUsers,
   getAccountPrimaryEmail,
   getFirebaseUserProfile,
   rememberAccountPrimaryEmail,
   resolvePrimaryUidForEmail,
   type FirebaseUserProfile,
 } from '../auth';
-import { deleteAccountCascade } from '../accountDeletion';
 import { pool } from '../db';
-import { ApiError } from '../errors';
 
 export const authSessionRouter = Router();
 
@@ -31,10 +26,6 @@ type FirebaseLookupResult = {
 };
 
 type FirebaseLookupUser = NonNullable<FirebaseLookupResult['users']>[number];
-
-type AccountEmailForDeletion = {
-  email: string;
-};
 
 function displayNameParts(displayName?: string) {
   const [firstName = '', ...rest] = (displayName ?? '').trim().split(' ').filter(Boolean);
@@ -104,12 +95,6 @@ function bearerToken(req: Request): string | null {
   return header.slice('Bearer '.length).trim();
 }
 
-function routeError(res: Response, err: unknown) {
-  const message = err instanceof Error ? err.message : 'REQUEST_FAILED';
-  const status = err instanceof ApiError ? err.status : 500;
-  return res.status(status).json({ error: { message } });
-}
-
 authSessionRouter.get('/session', async (req: Request, res: Response) => {
   const token = bearerToken(req);
   if (!token) {
@@ -161,50 +146,5 @@ authSessionRouter.get('/session', async (req: Request, res: Response) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'REQUEST_FAILED';
     return res.status(400).json({ error: { message } });
-  }
-});
-
-authSessionRouter.delete('/account', async (req: Request, res: Response) => {
-  try {
-    const token = bearerToken(req);
-    if (!token) {
-      throw new ApiError('AUTH_TOKEN_REQUIRED', 401);
-    }
-    const firebaseUser = await authenticatedFirebaseUser(req);
-    const userId = await resolvePrimaryUidForEmail(firebaseUser.email, firebaseUser.uid);
-    const primaryEmail = (await getAccountPrimaryEmail(userId).catch(() => null)) ?? firebaseUser.email;
-    const confirmationEmail = String(req.body?.confirmationEmail ?? '').trim().toLowerCase();
-
-    const accountEmails = await pool.query<AccountEmailForDeletion>(
-      `
-        SELECT email
-        FROM account_email_addresses
-        WHERE firebase_uid = $1
-        UNION
-        SELECT email
-        FROM account_primary_emails
-        WHERE firebase_uid = $1;
-      `,
-      [userId]
-    );
-    const emails = [firebaseUser.email, primaryEmail, ...accountEmails.rows.map((row) => row.email)];
-    const acceptableConfirmationEmails = new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean));
-
-    if (!acceptableConfirmationEmails.has(confirmationEmail)) {
-      throw new ApiError('Type one of your account email addresses to confirm deletion.', 400);
-    }
-
-    await deleteAccountCascade({ userId, emails });
-    await deleteCurrentFirebaseAuthUser(token);
-
-    if (userId !== firebaseUser.uid) {
-      await deleteFirebaseAuthUsers([userId]).catch((err) => {
-        console.warn('[auth] Primary Firebase user cleanup failed after account deletion:', err);
-      });
-    }
-
-    return res.json({ success: true });
-  } catch (err) {
-    return routeError(res, err);
   }
 });
