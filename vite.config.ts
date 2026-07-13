@@ -11,7 +11,6 @@ export default defineConfig({
     globals: true,
     setupFiles: './app/test/setup.ts',
     css: true,
-    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
   server: {
     host: '127.0.0.1',
