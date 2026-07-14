@@ -1,6 +1,31 @@
 import { parseBrightspaceCalendarPages, type BrightspaceCalendarPreviewRow } from './parser';
 
+function ensurePdfJsBrowserCompatibility() {
+  type PromiseWithResolvers = typeof Promise & {
+    withResolvers?: <T>() => {
+      promise: Promise<T>;
+      resolve: (value: T | PromiseLike<T>) => void;
+      reject: (reason?: unknown) => void;
+    };
+  };
+
+  const promiseConstructor = Promise as PromiseWithResolvers;
+  if (promiseConstructor.withResolvers) return;
+
+  promiseConstructor.withResolvers = function withResolvers<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((promiseResolve, promiseReject) => {
+      resolve = promiseResolve;
+      reject = promiseReject;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 export async function extractBrightspacePdfText(file: File): Promise<string[]> {
+  ensurePdfJsBrowserCompatibility();
+
   const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
     import('pdfjs-dist'),
     import('pdfjs-dist/build/pdf.worker.min.mjs?url'),

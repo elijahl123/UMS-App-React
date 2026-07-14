@@ -171,6 +171,13 @@ server {
     proxy_set_header X-Forwarded-Proto $scheme;
   }
 
+  location ~* \.mjs$ {
+    types {
+      application/javascript mjs;
+    }
+    try_files $uri =404;
+  }
+
   location / {
     try_files $uri $uri/ /index.html;
   }
@@ -426,6 +433,21 @@ sudo tail -n 100 /var/log/nginx/error.log
 ```
 
 If `/api/health` works locally but the browser gets `502 Bad Gateway`, check the Nginx upstream and service port.
+
+The Brightspace PDF import uses a Vite-built PDF.js worker like `/assets/pdf.worker.min-<hash>.mjs`. Browser module workers require a JavaScript MIME type, so production must not serve this file as `application/octet-stream`.
+
+Check the deployed worker header:
+
+```sh
+curl -I https://app.untitledmanagementsoftware.com/assets/pdf.worker.min-<hash>.mjs
+```
+
+If the response is not `Content-Type: application/javascript` or `Content-Type: text/javascript`, add the `.mjs` location from the Nginx example to the active production HTTPS server block, then reload Nginx:
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
 
 If the frontend has stale Google, Firebase, or Stripe client values, source `production.env`, rebuild, and restart:
 
