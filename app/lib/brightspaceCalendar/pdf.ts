@@ -23,6 +23,17 @@ function ensurePdfJsBrowserCompatibility() {
   };
 }
 
+function shouldDisablePdfWorker(): boolean {
+  if (typeof navigator === 'undefined') return false;
+
+  const userAgent = navigator.userAgent;
+  const platform = navigator.platform;
+  const iOSDevice = /iPad|iPhone|iPod/.test(userAgent);
+  const iPadDesktopMode = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+
+  return iOSDevice || iPadDesktopMode;
+}
+
 export async function extractBrightspacePdfText(file: File): Promise<string[]> {
   ensurePdfJsBrowserCompatibility();
 
@@ -32,7 +43,12 @@ export async function extractBrightspacePdfText(file: File): Promise<string[]> {
   ]);
   GlobalWorkerOptions.workerSrc = workerUrl.default;
 
-  const data = await file.arrayBuffer();
+  if (shouldDisablePdfWorker()) {
+    const workerModule = await import(/* @vite-ignore */ workerUrl.default);
+    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker = workerModule;
+  }
+
+  const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await getDocument({ data }).promise;
   const pages: string[] = [];
 
