@@ -1,5 +1,28 @@
 import { parseBrightspaceCalendarPages, type BrightspaceCalendarPreviewRow } from './parser';
 
+export type BrightspacePdfDiagnostic = {
+  phase: string;
+  name: string;
+  message: string;
+  stack?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  userAgent?: string;
+  platform?: string;
+  maxTouchPoints?: number;
+};
+
+export class BrightspacePdfExtractionError extends Error {
+  diagnostic: BrightspacePdfDiagnostic;
+
+  constructor(message: string, diagnostic: BrightspacePdfDiagnostic) {
+    super(message);
+    this.name = 'BrightspacePdfExtractionError';
+    this.diagnostic = diagnostic;
+  }
+}
+
 function ensurePdfJsBrowserCompatibility() {
   type PromiseWithResolvers = typeof Promise & {
     withResolvers?: <T>() => {
@@ -87,6 +110,58 @@ function ensurePdfJsBrowserCompatibility() {
   }
 }
 
+function describeError(err: unknown): Pick<BrightspacePdfDiagnostic, 'name' | 'message' | 'stack'> {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    };
+  }
+
+  return {
+    name: typeof err,
+    message: String(err),
+  };
+}
+
+function buildPdfDiagnostic(file: File, phase: string, err: unknown): BrightspacePdfDiagnostic {
+  const base = describeError(err);
+  const browser =
+    typeof navigator === 'undefined'
+      ? {}
+      : {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          maxTouchPoints: navigator.maxTouchPoints,
+        };
+
+  return {
+    phase,
+    ...base,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+    ...browser,
+  };
+}
+
+export function formatBrightspacePdfDiagnostic(err: unknown): string | null {
+  if (!(err instanceof BrightspacePdfExtractionError)) return null;
+
+  const details = err.diagnostic;
+  return [
+    `phase: ${details.phase}`,
+    `error: ${details.name}: ${details.message}`,
+    `file: ${details.fileName ?? 'unknown'} (${details.fileType || 'unknown type'}, ${details.fileSize ?? 'unknown'} bytes)`,
+    `platform: ${details.platform ?? 'unknown'} / touch points: ${details.maxTouchPoints ?? 'unknown'}`,
+    `userAgent: ${details.userAgent ?? 'unknown'}`,
+    details.stack ? `stack:\n${details.stack}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 function shouldDisablePdfWorker(): boolean {
   if (typeof navigator === 'undefined') return false;
 
@@ -99,38 +174,51 @@ function shouldDisablePdfWorker(): boolean {
 }
 
 export async function extractBrightspacePdfText(file: File): Promise<string[]> {
-  ensurePdfJsBrowserCompatibility();
+  let phase = 'installing PDF.js compatibility shims';
 
-  const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
-    import('pdfjs-dist/legacy/build/pdf.min.mjs'),
-    import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
-  ]);
-  GlobalWorkerOptions.workerSrc = workerUrl.default;
+  try {
+    ensurePdfJsBrowserCompatibility();
 
-  if (shouldDisablePdfWorker()) {
-    const workerModule = await import(/* @vite-ignore */ workerUrl.default);
-    (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker = workerModule;
+    phase = 'loading PDF.js modules';
+    const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
+      import('pdfjs-dist/legacy/build/pdf.min.mjs'),
+      import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
+    ]);
+    GlobalWorkerOptions.workerSrc = workerUrl.default;
+
+    if (shouldDisablePdfWorker()) {
+      phase = 'loading PDF.js fake worker for iOS';
+      const workerModule = await import(/* @vite-ignore */ workerUrl.default);
+      (globalThis as typeof globalThis & { pdfjsWorker?: unknown }).pdfjsWorker = workerModule;
+    }
+
+    phase = 'reading uploaded PDF bytes';
+    const data = new Uint8Array(await file.arrayBuffer());
+
+    phase = 'opening PDF document';
+    const pdf = await getDocument({ data }).promise;
+    const pages: string[] = [];
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      phase = `reading PDF page ${pageNumber}`;
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const text = content.items
+        .map((item) => ('str' in item ? item.str : ''))
+        .filter(Boolean)
+        .join('\n');
+      pages.push(text);
+    }
+
+    phase = 'validating extracted PDF text';
+    if (!pages.join('').trim()) {
+      throw new Error('Could not read text from this PDF. Image-only Brightspace PDFs are not supported yet.');
+    }
+
+    return pages;
+  } catch (err) {
+    throw new BrightspacePdfExtractionError('Unable to read that Brightspace PDF.', buildPdfDiagnostic(file, phase, err));
   }
-
-  const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await getDocument({ data }).promise;
-  const pages: string[] = [];
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((item) => ('str' in item ? item.str : ''))
-      .filter(Boolean)
-      .join('\n');
-    pages.push(text);
-  }
-
-  if (!pages.join('').trim()) {
-    throw new Error('Could not read text from this PDF. Image-only Brightspace PDFs are not supported yet.');
-  }
-
-  return pages;
 }
 
 export async function parseBrightspacePdfFile(file: File): Promise<BrightspaceCalendarPreviewRow[]> {

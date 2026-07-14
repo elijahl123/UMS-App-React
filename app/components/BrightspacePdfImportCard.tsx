@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { importBrightspaceCalendarRows, type BrightspaceImportResponse } from '@/app/lib/brightspaceCalendar/client';
-import { parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
+import { formatBrightspacePdfDiagnostic, parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
 import type { BrightspaceCalendarPreviewRow } from '@/app/lib/brightspaceCalendar/parser';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
@@ -69,6 +69,7 @@ export default function BrightspacePdfImportCard({
   const [parseLoading, setParseLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [parseDiagnostic, setParseDiagnostic] = useState<string | null>(null);
   const [result, setResult] = useState<BrightspaceImportResponse | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideStepIndex, setGuideStepIndex] = useState(0);
@@ -88,6 +89,7 @@ export default function BrightspacePdfImportCard({
 
     setParseLoading(true);
     setError(null);
+    setParseDiagnostic(null);
     setResult(null);
     try {
       const parsedRows = await parseBrightspacePdfFile(file);
@@ -97,6 +99,7 @@ export default function BrightspacePdfImportCard({
       setRows([]);
       setSelected(new Set());
       setError(requestError(err, 'Unable to parse that Brightspace PDF.'));
+      setParseDiagnostic(formatBrightspacePdfDiagnostic(err));
     } finally {
       setParseLoading(false);
       if (fileInputRef.current) {
@@ -184,10 +187,18 @@ export default function BrightspacePdfImportCard({
         </div>
 
         {error && (
-          <p className="flex min-w-0 items-start gap-2 break-words text-sm font-medium text-destructive">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="min-w-0">{error}</span>
-          </p>
+          <div className="grid min-w-0 gap-2">
+            <p className="flex min-w-0 items-start gap-2 break-words text-sm font-medium text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0">{error}</span>
+            </p>
+            {parseDiagnostic && (
+              <details className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <summary className="cursor-pointer font-medium text-foreground">Technical details</summary>
+                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">{parseDiagnostic}</pre>
+              </details>
+            )}
+          </div>
         )}
 
         {result && (
