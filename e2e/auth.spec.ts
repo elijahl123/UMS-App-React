@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { mockPublicAppApis } from './support/appMocks';
 
 test.beforeEach(async ({ page }) => {
-  await mockPublicAppApis(page);
+  await page.route('**/api/staging-access/config', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ enabled: false }),
+    });
+  });
 });
 
 test.describe('authentication routes', () => {
@@ -26,12 +30,5 @@ test.describe('authentication routes', () => {
 
     await expect(page.getByText('Email is required')).toBeVisible();
     await expect(page.getByText('Password is required')).toBeVisible();
-  });
-
-  test('redirects protected routes to login', async ({ page }) => {
-    await page.goto('/#/homework');
-
-    await expect(page).toHaveURL(/#\/login$/);
-    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   });
 });

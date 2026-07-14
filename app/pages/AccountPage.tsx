@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FcGoogle } from 'react-icons/fc';
-import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard, Link2, Mail, Plus, Send, Trash2 } from 'lucide-react';
+import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard, Link2, Mail, Plus, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -13,11 +13,11 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import {
   addAccountEmail,
-  deleteAccountEmail,
   listAccountEmails,
   resendAccountEmailVerification,
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
+import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -76,11 +76,11 @@ function AccountPage() {
 
   const [accountEmails, setAccountEmails] = useState<AccountEmailAddress[]>([]);
   const [accountPrimaryEmail, setAccountPrimaryEmail] = useState<string | null>(null);
+  const [accountLoginEmail, setAccountLoginEmail] = useState<string | null>(null);
   const [accountEmailsLoading, setAccountEmailsLoading] = useState(false);
   const [accountEmailInput, setAccountEmailInput] = useState('');
   const [accountEmailSubmitting, setAccountEmailSubmitting] = useState(false);
   const [accountEmailResendingId, setAccountEmailResendingId] = useState<string | null>(null);
-  const [accountEmailRemovingId, setAccountEmailRemovingId] = useState<string | null>(null);
   const [accountEmailError, setAccountEmailError] = useState<string | null>(null);
   const [accountEmailSuccess, setAccountEmailSuccess] = useState<string | null>(null);
 
@@ -108,6 +108,7 @@ function AccountPage() {
         if (isMounted) {
           setAccountEmails(result.emails);
           setAccountPrimaryEmail(result.primaryEmail ?? user.email);
+          setAccountLoginEmail(result.loginEmail ?? user.email);
           setAccountEmailError(null);
         }
       })
@@ -126,6 +127,12 @@ function AccountPage() {
       isMounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const primaryEmail = accountPrimaryEmail ?? user.email;
+    profileForm.setValue('email', primaryEmail);
+  }, [accountPrimaryEmail, profileForm, user]);
 
   const handleProfileSubmit = async (values: ProfileFormValues) => {
     setProfileError(null);
@@ -229,32 +236,15 @@ function AccountPage() {
     }
   };
 
-  const handleRemoveAccountEmail = async (email: AccountEmailAddress) => {
-    if (!window.confirm(`Remove ${email.email} from your account?`)) {
-      return;
-    }
-
-    setAccountEmailError(null);
-    setAccountEmailSuccess(null);
-    setAccountEmailRemovingId(email.id);
-    try {
-      await deleteAccountEmail(email.id);
-      setAccountEmails((emails) => emails.filter((existing) => existing.id !== email.id));
-      setAccountEmailSuccess(`${email.email} was removed.`);
-    } catch (err) {
-      setAccountEmailError(requestError(err, 'Unable to remove that email address.'));
-    } finally {
-      setAccountEmailRemovingId(null);
-    }
-  };
-
   if (!user) {
     return null;
   }
 
   const googleConnected = user.connectedProviders.includes('google.com');
-  const connectedGoogleEmails = accountEmails.filter((email) => email.source === 'google');
-  const primaryEmail = accountPrimaryEmail ?? user.email;
+  const displayedPrimaryEmail = accountPrimaryEmail ?? user.email;
+  const googleAccountEmails = accountEmails.filter((email) => email.source === 'google');
+  const additionalEmailAccounts = accountEmails.filter((email) => email.source !== 'google');
+  const googleAccountEmail = googleAccountEmails[0]?.email ?? accountLoginEmail ?? user.email;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -311,6 +301,8 @@ function AccountPage() {
         </CardContent>
       </Card>
 
+      <BrightspacePdfImportCard />
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -327,20 +319,20 @@ function AccountPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Email</p>
-                <p className="truncate text-sm text-muted-foreground">{primaryEmail}</p>
+                <p className="truncate text-sm text-muted-foreground">{displayedPrimaryEmail}</p>
               </div>
             </div>
             <Badge variant="secondary" className="w-fit">Primary</Badge>
           </div>
 
-          {accountEmails.map((email) => (
+          {additionalEmailAccounts.map((email) => (
             <div key={email.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-                  {email.source === 'google' ? <FcGoogle className="h-5 w-5" /> : <Mail className="h-4 w-4 text-secondary-foreground" />}
+                  <Mail className="h-4 w-4 text-secondary-foreground" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">{email.source === 'google' ? 'Google account' : 'Additional email'}</p>
+                  <p className="text-sm font-medium text-foreground">Additional email</p>
                   <p className="truncate text-sm text-muted-foreground">{email.email}</p>
                 </div>
               </div>
@@ -348,32 +340,19 @@ function AccountPage() {
                 <Badge variant={email.verified ? 'secondary' : 'outline'} className="w-fit">
                   {email.verified ? 'Verified' : 'Pending'}
                 </Badge>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  {!email.verified && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2 sm:w-auto"
-                      disabled={accountEmailResendingId === email.id || accountEmailRemovingId === email.id}
-                      onClick={() => handleResendAccountEmail(email)}
-                    >
-                      {accountEmailResendingId === email.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Resend
-                    </Button>
-                  )}
+                {!email.verified && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="w-full gap-2 sm:w-auto"
-                    disabled={accountEmailRemovingId === email.id || accountEmailResendingId === email.id}
-                    onClick={() => handleRemoveAccountEmail(email)}
+                    disabled={accountEmailResendingId === email.id}
+                    onClick={() => handleResendAccountEmail(email)}
                   >
-                    {accountEmailRemovingId === email.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    Remove
+                    {accountEmailResendingId === email.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Resend
                   </Button>
-                </div>
+                )}
               </div>
             </div>
           ))}
@@ -417,18 +396,15 @@ function AccountPage() {
                 <FcGoogle className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Google</p>
+                <p className="text-sm font-medium text-foreground">Google account</p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {connectedGoogleEmails.length > 0
-                    ? `${connectedGoogleEmails.length} Google ${connectedGoogleEmails.length === 1 ? 'account' : 'accounts'} connected.`
-                    : googleConnected
-                      ? `${primaryEmail} is connected for Google sign-in.`
-                      : 'Connect Google for one-click sign in.'}
+                  {googleConnected ? googleAccountEmail : 'Connect Google for one-click sign in.'}
                 </p>
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:items-end">
-              {googleConnected && <Badge variant="secondary" className="w-fit">Connected</Badge>}
+            {googleConnected ? (
+              <Badge variant="secondary" className="w-fit">Connected</Badge>
+            ) : (
               <Button
                 type="button"
                 variant="outline"
@@ -438,15 +414,20 @@ function AccountPage() {
                 onClick={handleGoogleConnect}
               >
                 {isProcessingGoogleRedirect || googleConnectSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FcGoogle className="h-4 w-4" />}
-                {googleConnected || connectedGoogleEmails.length > 0 ? 'Connect another Google' : 'Connect Google'}
+                Connect Google
               </Button>
-            </div>
+            )}
           </div>
-          {!isGoogleSignInAvailable && (
+          {!googleConnected && !isGoogleSignInAvailable && (
             <p className="px-4 pb-4 text-sm text-muted-foreground">Google sign-in is not configured yet for this app.</p>
           )}
           {(googleConnectError || googleSignInError) && (
             <p className="px-4 pb-4 text-sm font-medium text-destructive">{googleConnectError ?? googleSignInError}</p>
+          )}
+          {googleAccountEmails.length > 0 && (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">
+              {googleAccountEmails.length} Google {googleAccountEmails.length === 1 ? 'account' : 'accounts'} connected.
+            </p>
           )}
         </CardContent>
       </Card>

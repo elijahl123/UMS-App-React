@@ -55,8 +55,6 @@ function isIgnorableLine(line: string): boolean {
   return (
     !line ||
     /^page\s+\d+(\s+of\s+\d+)?$/i.test(line) ||
-    /^\d{1,2}\/\d{1,2}\/\d{2,4},\s+\d{1,2}:\d{2}\s*(AM|PM)\s+Print\b/i.test(line) ||
-    /^https?:\/\//i.test(line) ||
     /^printed\b/i.test(line) ||
     /^calendar$/i.test(line) ||
     /^agenda$/i.test(line) ||
@@ -91,30 +89,21 @@ function toTwentyFourHour(hour: string, minute: string, meridiem: string): strin
   return `${String(adjusted).padStart(2, '0')}:${minute}`;
 }
 
-function inferEntryKind(title: string, sourceLabel: string): BrightspaceEntryKind {
-  if (sourceLabel.toLowerCase() === 'due') return 'homework';
-  if (/^(homework|practical)\b/i.test(title.trim())) return 'homework';
-  return 'event';
-}
-
 function parseEntryLine(line: string): Omit<EntryToken, 'type' | 'lineIndex'> | null {
   const match = compactLine(line).match(
-    /^(.+?)\s+(?:-|–|—|â€“|â€”)\s+(Due|Available|Availability Ends)\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM))?$/i
+    /^(.+?)\s+-\s+(Due|Available)\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*(AM|PM))?$/i
   );
   if (!match) return null;
 
   const date = toIsoDate(match[3], match[4], match[5]);
   if (!date) return null;
 
-  const sourceLabel = match[2].replace(/\b\w/g, (letter) => letter.toUpperCase());
-  const title = match[1].trim();
-
   return {
-    title,
-    entryKind: inferEntryKind(title, sourceLabel),
+    title: match[1].trim(),
+    entryKind: match[2].toLowerCase() === 'due' ? 'homework' : 'event',
     date,
     time: match[6] && match[7] && match[8] ? toTwentyFourHour(match[6], match[7], match[8]) : undefined,
-    sourceLabel,
+    sourceLabel: match[2][0].toUpperCase() + match[2].slice(1).toLowerCase(),
     raw: compactLine(line),
   };
 }
@@ -156,7 +145,7 @@ function tokenizeBrightspaceText(text: string): Token[] {
     if (entryBuffer) {
       entryBuffer = `${entryBuffer} ${line}`;
       flushEntry();
-    } else if (/\s+(?:-|–|—|â€“|â€”)\s+(Due|Available|Availability Ends)\b/i.test(line)) {
+    } else if (/\s+-\s+(Due|Available)\b/i.test(line)) {
       entryBuffer = line;
       entryStartIndex = lineIndex;
       flushEntry();
@@ -174,9 +163,8 @@ function nearestCourseForEntry(tokens: Token[], entryIndex: number): CourseToken
     .reverse()
     .find((token): token is CourseToken => token.type === 'course');
   const next = tokens.slice(entryIndex + 1).find((token): token is CourseToken => token.type === 'course');
-  const nextDistance = next ? next.lineIndex - entry.lineIndex : Number.POSITIVE_INFINITY;
 
-  if (next && (!previous || nextDistance <= 1 || (nextDistance <= 2 && entry.lineIndex - previous.lineIndex > 2))) {
+  if (next && (!previous || next.lineIndex - entry.lineIndex <= 2 && entry.lineIndex - previous.lineIndex > 2)) {
     return next;
   }
 
@@ -185,19 +173,12 @@ function nearestCourseForEntry(tokens: Token[], entryIndex: number): CourseToken
 
 export function parseBrightspaceCalendarText(text: string): BrightspaceCalendarPreviewRow[] {
   const tokens = tokenizeBrightspaceText(text);
-  const seenRows = new Set<string>();
 
   return tokens.flatMap((token, index) => {
     if (token.type !== 'entry') return [];
 
     const course = nearestCourseForEntry(tokens, index);
     if (!course) return [];
-
-    const rowKey = [course.code, token.title, token.entryKind, token.date, token.time ?? '']
-      .map((part) => part.toLowerCase().replace(/\s+/g, ' ').trim())
-      .join('|');
-    if (seenRows.has(rowKey)) return [];
-    seenRows.add(rowKey);
 
     return [
       {

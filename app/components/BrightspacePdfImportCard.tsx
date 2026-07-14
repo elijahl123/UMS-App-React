@@ -1,12 +1,13 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileQuestion, FileUp, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { importBrightspaceCalendarRows, type BrightspaceImportResponse } from '@/app/lib/brightspaceCalendar/client';
-import { formatBrightspacePdfDiagnostic, parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
+import { parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
 import type { BrightspaceCalendarPreviewRow } from '@/app/lib/brightspaceCalendar/parser';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
@@ -62,14 +63,12 @@ export default function BrightspacePdfImportCard({
   description = 'Choose a text-based UCD Brightspace calendar PDF and review the entries before saving them.',
 }: BrightspacePdfImportCardProps) {
   const { user } = useAuth();
-  const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [rows, setRows] = useState<BrightspaceCalendarPreviewRow[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [parseLoading, setParseLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [parseDiagnostic, setParseDiagnostic] = useState<string | null>(null);
   const [result, setResult] = useState<BrightspaceImportResponse | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideStepIndex, setGuideStepIndex] = useState(0);
@@ -89,7 +88,6 @@ export default function BrightspacePdfImportCard({
 
     setParseLoading(true);
     setError(null);
-    setParseDiagnostic(null);
     setResult(null);
     try {
       const parsedRows = await parseBrightspacePdfFile(file);
@@ -99,7 +97,6 @@ export default function BrightspacePdfImportCard({
       setRows([]);
       setSelected(new Set());
       setError(requestError(err, 'Unable to parse that Brightspace PDF.'));
-      setParseDiagnostic(formatBrightspacePdfDiagnostic(err));
     } finally {
       setParseLoading(false);
       if (fileInputRef.current) {
@@ -140,45 +137,41 @@ export default function BrightspacePdfImportCard({
     }
   };
 
-  const filePickerDisabled = parseLoading || importLoading;
-
   return (
-    <Card className="h-auto">
-      <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-4">
-        <div className="flex min-w-0 items-center gap-2">
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
           <FileUp className="h-5 w-5 text-primary" />
-          <CardTitle className="min-w-0 break-words text-lg leading-snug sm:text-2xl">{title}</CardTitle>
+          <CardTitle>{title}</CardTitle>
         </div>
-        <CardDescription className="break-words">{description}</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex min-w-0 flex-col gap-4 px-4 pb-4 sm:px-6 sm:pb-6">
-        <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-          <div className="grid min-w-0 gap-1">
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid gap-1">
             <p className="text-sm font-semibold text-foreground">Need help downloading the PDF?</p>
             <p className="text-sm text-muted-foreground">Open a short screenshot walkthrough that shows exactly where to click in Brightspace.</p>
           </div>
-          <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setGuideOpen(true)}>
+          <Button type="button" variant="outline" className="gap-2 sm:w-auto" onClick={() => setGuideOpen(true)}>
             <FileQuestion className="h-4 w-4" />
             View walkthrough
           </Button>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            id={fileInputId}
+          <Input
             ref={fileInputRef}
             type="file"
             accept="application/pdf,.pdf"
             aria-label="Brightspace calendar PDF"
-            className="sr-only"
-            disabled={filePickerDisabled}
+            disabled={parseLoading || importLoading}
             onChange={handleFileChange}
           />
           <Button
             type="button"
             variant="outline"
-            className="w-full gap-2 sm:w-auto"
-            disabled={filePickerDisabled}
+            className="gap-2 sm:w-auto"
+            disabled={parseLoading || importLoading}
             onClick={() => fileInputRef.current?.click()}
           >
             {parseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
@@ -187,18 +180,10 @@ export default function BrightspacePdfImportCard({
         </div>
 
         {error && (
-          <div className="grid min-w-0 gap-2">
-            <p className="flex min-w-0 items-start gap-2 break-words text-sm font-medium text-destructive">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="min-w-0">{error}</span>
-            </p>
-            {parseDiagnostic && (
-              <details className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                <summary className="cursor-pointer font-medium text-foreground">Technical details</summary>
-                <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">{parseDiagnostic}</pre>
-              </details>
-            )}
-          </div>
+          <p className="flex items-start gap-2 text-sm font-medium text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </p>
         )}
 
         {result && (
@@ -264,7 +249,7 @@ export default function BrightspacePdfImportCard({
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.entryKind === 'homework' ? 'default' : 'secondary'}>
-                          {row.entryKind === 'homework' ? 'Assignment' : 'Event'}
+                          {row.entryKind === 'homework' ? 'Homework' : 'Event'}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{formatPreviewDate(row)}</TableCell>
@@ -282,17 +267,17 @@ export default function BrightspacePdfImportCard({
         )}
 
         <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
-          <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-4xl flex-col overflow-hidden p-0">
-            <DialogHeader className="shrink-0 border-b px-4 py-3 pr-12 sm:px-6 sm:py-4">
-              <DialogTitle className="text-base leading-snug sm:text-lg">How to download the Brightspace calendar PDF</DialogTitle>
-              <DialogDescription className="text-xs leading-5 sm:text-sm">
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden p-0">
+            <DialogHeader className="border-b px-5 py-4 sm:px-6">
+              <DialogTitle>How to download the Brightspace calendar PDF</DialogTitle>
+              <DialogDescription>
                 Follow these steps in Brightspace, then save the print output as a PDF and upload it here.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto px-4 py-4 sm:px-6">
-              <div className="flex items-start justify-between gap-4 text-sm text-muted-foreground">
+            <div className="grid max-h-[calc(90vh-5rem)] gap-4 overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{currentGuideStep.title}</span>
-                <span className="shrink-0 text-right">
+                <span>
                   Step {guideStepIndex + 1} of {brightspaceGuideSteps.length}
                 </span>
               </div>
@@ -300,11 +285,11 @@ export default function BrightspacePdfImportCard({
                 <img
                   src={currentGuideStep.imageSrc}
                   alt={currentGuideStep.imageAlt}
-                  className="max-h-[32dvh] w-full rounded-md border bg-muted/20 object-contain object-top sm:max-h-[58vh]"
+                  className="max-h-[58vh] w-full rounded-md border object-contain object-top bg-muted/20"
                   loading="lazy"
                 />
-                <div className="grid gap-2 rounded-md border bg-background p-3 sm:p-4">
-                  <p className="text-sm font-semibold text-foreground sm:text-base">{currentGuideStep.title}</p>
+                <div className="grid gap-2 rounded-md border bg-background p-4">
+                  <p className="text-base font-semibold text-foreground">{currentGuideStep.title}</p>
                   <p className="text-sm leading-6 text-muted-foreground">{currentGuideStep.body}</p>
                 </div>
               </div>
@@ -312,7 +297,7 @@ export default function BrightspacePdfImportCard({
                 <p className="text-sm text-muted-foreground">
                   Keep event details visible in the print preview. Image-only scans still will not import.
                 </p>
-                <div className="grid grid-cols-2 gap-2 sm:flex">
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"

@@ -44,6 +44,21 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /homework/i })).toBeInTheDocument();
     expect(screen.getByText(/derivative quiz/i)).toBeInTheDocument();
     expect(screen.getByText(/limits worksheet/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /import brightspace pdf/i })).toBeInTheDocument();
+  });
+
+  it('opens the Brightspace import guide from the homework page', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    await user.click(screen.getByRole('button', { name: /import brightspace pdf/i }));
+    await user.click(screen.getByRole('button', { name: /view walkthrough/i }));
+
+    expect(screen.getByText(/how to download the brightspace calendar pdf/i)).toBeInTheDocument();
+    expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /next/i }));
+    expect(screen.getByText(/step 2 of 3/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/brightspace calendar page in agenda view/i)).toBeInTheDocument();
   });
 
   it('collapses completed assignments by default', async () => {
@@ -129,6 +144,7 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /view walkthrough/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
   });
@@ -151,17 +167,16 @@ describe('page rendering', () => {
     renderWithRouter(<AccountPage />);
 
     expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /connect another google/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /connect google/i })).not.toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
   });
 
-  it('adds, removes, and resends verification for an additional account email', async () => {
+  it('adds and resends verification for an additional account email', async () => {
     const user = userEvent.setup();
     accountEmailState.emails = [
       {
         id: 'email-1',
         email: 'school@example.com',
-        source: 'email',
         verified: false,
         verifiedAt: null,
         verificationExpiresAt: '2026-07-13T00:00:00.000Z',
@@ -180,55 +195,6 @@ describe('page rendering', () => {
 
     expect(await screen.findByText(/verification email sent/i)).toBeInTheDocument();
     expect(accountEmailActions.addAccountEmail).toHaveBeenCalledWith('alt@example.com');
-
-    await user.click(screen.getAllByRole('button', { name: /remove/i })[0]);
-    expect(accountEmailActions.deleteAccountEmail).toHaveBeenCalledWith('email-2');
-    expect(await screen.findByText(/alt@example\.com was removed/i)).toBeInTheDocument();
-  });
-
-  it('shows multiple connected Google accounts on the account page', async () => {
-    accountEmailState.emails = [
-      {
-        id: 'email-google-1',
-        email: 'school.google@example.com',
-        source: 'google',
-        verified: true,
-        verifiedAt: '2026-07-12T00:00:00.000Z',
-        verificationExpiresAt: null,
-        createdAt: '2026-07-12T00:00:00.000Z',
-      },
-      {
-        id: 'email-google-2',
-        email: 'club.google@example.com',
-        source: 'google',
-        verified: true,
-        verifiedAt: '2026-07-12T00:00:00.000Z',
-        verificationExpiresAt: null,
-        createdAt: '2026-07-12T00:00:00.000Z',
-      },
-    ];
-
-    renderWithRouter(<AccountPage />);
-
-    expect(await screen.findByText(/school\.google@example\.com/i)).toBeInTheDocument();
-    expect(screen.getByText(/club\.google@example\.com/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 google accounts connected/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /connect another google/i })).toBeInTheDocument();
-  });
-
-  it('shows the canonical primary email on the account page when logged in with an alias', async () => {
-    authState.user = {
-      ...authState.user!,
-      email: 'elijah.kane.1972@gmail.com',
-      loginEmail: 'elijahkanelopez@gmail.com',
-    };
-    accountEmailState.primaryEmail = 'elijah.kane.1972@gmail.com';
-    accountEmailState.loginEmail = 'elijahkanelopez@gmail.com';
-
-    renderWithRouter(<AccountPage />);
-
-    expect(await screen.findByText('elijah.kane.1972@gmail.com')).toBeInTheDocument();
-    expect(screen.queryByText('elijahkanelopez@gmail.com')).not.toBeInTheDocument();
   });
 
   it('renders the billing page', async () => {

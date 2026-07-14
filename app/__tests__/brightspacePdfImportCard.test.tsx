@@ -6,7 +6,6 @@ import { importBrightspaceCalendarRows } from '@/app/lib/brightspaceCalendar/cli
 import { parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
 
 vi.mock('@/app/lib/brightspaceCalendar/pdf', () => ({
-  formatBrightspacePdfDiagnostic: vi.fn(() => null),
   parseBrightspacePdfFile: vi.fn(),
 }));
 
