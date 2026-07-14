@@ -8,19 +8,83 @@ function ensurePdfJsBrowserCompatibility() {
       reject: (reason?: unknown) => void;
     };
   };
+  type UrlWithParse = typeof URL & {
+    parse?: (url: string | URL, base?: string | URL) => URL | null;
+  };
+  type ResponseWithBytes = typeof Response.prototype & {
+    bytes?: () => Promise<Uint8Array>;
+  };
+  type ArrayPrototypeWithModernMethods = typeof Array.prototype & {
+    at?: <T>(this: T[], index: number) => T | undefined;
+    findLast?: <T>(this: T[], predicate: (value: T, index: number, array: T[]) => boolean) => T | undefined;
+  };
+  type ObjectConstructorWithHasOwn = ObjectConstructor & {
+    hasOwn?: (object: object, property: PropertyKey) => boolean;
+  };
 
   const promiseConstructor = Promise as PromiseWithResolvers;
-  if (promiseConstructor.withResolvers) return;
+  if (!promiseConstructor.withResolvers) {
+    promiseConstructor.withResolvers = function withResolvers<T>() {
+      let resolve!: (value: T | PromiseLike<T>) => void;
+      let reject!: (reason?: unknown) => void;
+      const promise = new Promise<T>((promiseResolve, promiseReject) => {
+        resolve = promiseResolve;
+        reject = promiseReject;
+      });
+      return { promise, resolve, reject };
+    };
+  }
 
-  promiseConstructor.withResolvers = function withResolvers<T>() {
-    let resolve!: (value: T | PromiseLike<T>) => void;
-    let reject!: (reason?: unknown) => void;
-    const promise = new Promise<T>((promiseResolve, promiseReject) => {
-      resolve = promiseResolve;
-      reject = promiseReject;
+  const arrayPrototype = Array.prototype as ArrayPrototypeWithModernMethods;
+  if (!arrayPrototype.at) {
+    Object.defineProperty(Array.prototype, 'at', {
+      value<T>(this: T[], index: number): T | undefined {
+        const offset = Math.trunc(index) || 0;
+        const resolvedIndex = offset < 0 ? this.length + offset : offset;
+        return this[resolvedIndex];
+      },
     });
-    return { promise, resolve, reject };
-  };
+  }
+
+  if (!arrayPrototype.findLast) {
+    Object.defineProperty(Array.prototype, 'findLast', {
+      value<T>(this: T[], predicate: (value: T, index: number, array: T[]) => boolean): T | undefined {
+        for (let index = this.length - 1; index >= 0; index -= 1) {
+          if (predicate(this[index], index, this)) return this[index];
+        }
+        return undefined;
+      },
+    });
+  }
+
+  const objectConstructor = Object as ObjectConstructorWithHasOwn;
+  if (!objectConstructor.hasOwn) {
+    Object.defineProperty(Object, 'hasOwn', {
+      value(object: object, property: PropertyKey): boolean {
+        return Object.prototype.hasOwnProperty.call(object, property);
+      },
+    });
+  }
+
+  const urlConstructor = URL as UrlWithParse;
+  if (!urlConstructor.parse) {
+    urlConstructor.parse = (url, base) => {
+      try {
+        return new URL(url, base);
+      } catch {
+        return null;
+      }
+    };
+  }
+
+  if (typeof Response !== 'undefined') {
+    const responsePrototype = Response.prototype as ResponseWithBytes;
+    if (!responsePrototype.bytes) {
+      responsePrototype.bytes = async function bytes() {
+        return new Uint8Array(await this.arrayBuffer());
+      };
+    }
+  }
 }
 
 function shouldDisablePdfWorker(): boolean {
@@ -38,7 +102,7 @@ export async function extractBrightspacePdfText(file: File): Promise<string[]> {
   ensurePdfJsBrowserCompatibility();
 
   const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
-    import('pdfjs-dist/legacy/build/pdf.mjs'),
+    import('pdfjs-dist/legacy/build/pdf.min.mjs'),
     import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
   ]);
   GlobalWorkerOptions.workerSrc = workerUrl.default;
