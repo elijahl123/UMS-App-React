@@ -72,22 +72,15 @@ export const accountEmailActions = {
 };
 
 export const accountEmailState = {
-  primaryEmail: null as string | null,
-  loginEmail: null as string | null,
   emails: [] as AccountEmailAddress[],
 };
 
 export const accountEmailActions = {
-  listAccountEmails: vi.fn(async () => ({
-    primaryEmail: accountEmailState.primaryEmail ?? undefined,
-    loginEmail: accountEmailState.loginEmail ?? undefined,
-    emails: accountEmailState.emails,
-  })),
+  listAccountEmails: vi.fn(async () => ({ emails: accountEmailState.emails })),
   addAccountEmail: vi.fn(async (email: string) => {
     const nextEmail: AccountEmailAddress = {
       id: `email-${accountEmailState.emails.length + 1}`,
       email: email.trim().toLowerCase(),
-      source: 'email',
       verified: false,
       verifiedAt: null,
       verificationExpiresAt: '2026-07-13T00:00:00.000Z',
@@ -103,32 +96,10 @@ export const accountEmailActions = {
     }
     return { email };
   }),
-  connectGoogleAccountEmail: vi.fn(async () => {
-    const nextEmail: AccountEmailAddress = {
-      id: `email-${accountEmailState.emails.length + 1}`,
-      email: `google-${accountEmailState.emails.length + 1}@example.com`,
-      source: 'google',
-      verified: true,
-      verifiedAt: '2026-07-12T00:00:00.000Z',
-      verificationExpiresAt: null,
-      createdAt: '2026-07-12T00:00:00.000Z',
-    };
-    accountEmailState.emails = [nextEmail, ...accountEmailState.emails];
-    return { email: nextEmail, primary: false };
-  }),
-  deleteAccountEmail: vi.fn(async (id: string) => {
-    const email = accountEmailState.emails.find((candidate) => candidate.id === id);
-    if (!email) {
-      throw { error: { message: 'Email address was not found.' } };
-    }
-    accountEmailState.emails = accountEmailState.emails.filter((candidate) => candidate.id !== id);
-    return { email };
-  }),
   verifyAccountEmailToken: vi.fn(async () => ({
     email: {
       id: 'email-verified',
       email: 'alt@example.com',
-      source: 'email',
       verified: true,
       verifiedAt: '2026-07-12T00:00:00.000Z',
       verificationExpiresAt: null,
@@ -185,8 +156,6 @@ export function resetMockState() {
   authState.isGoogleSignInAvailable = true;
   authState.isProcessingGoogleRedirect = false;
   authState.googleSignInError = null;
-  accountEmailState.primaryEmail = null;
-  accountEmailState.loginEmail = null;
   accountEmailState.emails = [];
   apiState.loads = { ...dbRows };
   apiState.mutations = [];
