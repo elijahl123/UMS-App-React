@@ -162,6 +162,50 @@ export function formatBrightspacePdfDiagnostic(err: unknown): string | null {
     .join('\n');
 }
 
+type PdfTextItem = {
+  str?: string;
+} | Record<string, unknown>;
+
+type PdfTextContentChunk = {
+  items?: PdfTextItem[];
+  styles?: Record<string, unknown>;
+  lang?: string | null;
+};
+
+type PdfReadableStream = {
+  getReader: () => {
+    read: () => Promise<{ done: boolean; value?: PdfTextContentChunk }>;
+    releaseLock?: () => void;
+  };
+};
+
+type PdfPageWithTextStream = {
+  getTextContent: () => Promise<PdfTextContentChunk>;
+  streamTextContent?: () => PdfReadableStream;
+};
+
+async function getPdfPageTextItems(page: PdfPageWithTextStream): Promise<PdfTextItem[]> {
+  if (!page.streamTextContent) {
+    const content = await page.getTextContent();
+    return content.items ?? [];
+  }
+
+  const reader = page.streamTextContent().getReader();
+  const items: PdfTextItem[] = [];
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      items.push(...(value?.items ?? []));
+    }
+  } finally {
+    reader.releaseLock?.();
+  }
+
+  return items;
+}
+
 function shouldDisablePdfWorker(): boolean {
   if (typeof navigator === 'undefined') return false;
 
@@ -202,8 +246,8 @@ export async function extractBrightspacePdfText(file: File): Promise<string[]> {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
       phase = `reading PDF page ${pageNumber}`;
       const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const text = content.items
+      const items = await getPdfPageTextItems(page);
+      const text = items
         .map((item) => ('str' in item ? item.str : ''))
         .filter(Boolean)
         .join('\n');
