@@ -29,10 +29,6 @@ export default defineConfig({
     : {
         webServer: {
           command: `node ./node_modules/vite/bin/vite.js --config vite.config.ts --host 127.0.0.1 --port ${port}`,
-          env: {
-            VITE_FIREBASE_API_KEY: process.env.PLAYWRIGHT_FIREBASE_API_KEY ?? 'FIREBASE_API_KEY',
-            VITE_GOOGLE_CLIENT_ID: process.env.PLAYWRIGHT_FIREBASE_CLIENT_ID ?? 'FIREBASE_CLIENT_ID',
-          },
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

@@ -5,6 +5,7 @@ import { config } from './config';
 import { actionsRouter } from './routes/actions';
 import { authSessionRouter } from './routes/authSession';
 import { billingRouter, billingWebhookRouter } from './routes/billing';
+import { brightspaceCalendarRouter } from './routes/brightspaceCalendar';
 import { emailRouter, publicEmailRouter } from './routes/email';
 import { stagingAccessRouter } from './routes/stagingAccess';
 
@@ -25,12 +26,13 @@ export function createApp() {
   app.get('/api/staging-access/config', (_req, res) => {
     res.json({ enabled: config.stagingAccessControlEnabled });
   });
-  app.use('/api/email', publicEmailRouter);
   app.use('/api/auth', authSessionRouter);
+  app.use('/api/email', publicEmailRouter);
 
   app.use('/api', requireStagingAccess);
   app.use('/api/staging-access', stagingAccessRouter);
   app.use('/api/actions', actionsRouter);
+  app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/email', emailRouter);
 
