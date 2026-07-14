@@ -12,7 +12,7 @@ function AppLayout() {
   });
 
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-background">
+    <div className="min-h-[100dvh] w-full overflow-x-hidden bg-background md:h-[100dvh] md:overflow-hidden">
       {/* Mobile hamburger button */}
       <div className="fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-5 z-40 md:hidden">
         <Button
@@ -43,7 +43,7 @@ function AppLayout() {
 
       {/* Main content */}
       <main
-        className={`flex h-[100dvh] min-w-0 flex-col overflow-hidden p-3 pb-20 sm:p-4 sm:pb-20 md:pb-4 xl:p-6 ${
+        className={`flex min-h-[100dvh] min-w-0 flex-col overflow-visible p-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-[calc(5.75rem+env(safe-area-inset-bottom))] md:h-[100dvh] md:overflow-hidden md:pb-4 xl:p-6 ${
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >
