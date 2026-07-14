@@ -1,8 +1,9 @@
-import { useRef, useState, type ChangeEvent } from 'react';
-import { AlertTriangle, CheckCircle2, FileUp, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileQuestion, FileUp, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { importBrightspaceCalendarRows, type BrightspaceImportResponse } from '@/app/lib/brightspaceCalendar/client';
@@ -11,6 +12,32 @@ import type { BrightspaceCalendarPreviewRow } from '@/app/lib/brightspaceCalenda
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 const mutationEvent = 'ums-api-action-mutated';
+
+type BrightspacePdfImportCardProps = {
+  title?: string;
+  description?: string;
+};
+
+const brightspaceGuideSteps = [
+  {
+    title: '1. Open Brightspace home',
+    body: 'From the Brightspace home page, use the Calendar panel on the right to open your calendar.',
+    imageSrc: '/brightspace-guide/brightspace-home.png',
+    imageAlt: 'Brightspace home page with the Calendar panel visible on the right side.',
+  },
+  {
+    title: '2. Switch to Agenda and choose Print',
+    body: 'In Calendar, switch to Agenda and use the Print action in the top-right toolbar to generate the agenda-style view this importer expects.',
+    imageSrc: '/brightspace-guide/brightspace-calendar.png',
+    imageAlt: 'Brightspace calendar page in Agenda view with the Print button in the top-right toolbar.',
+  },
+  {
+    title: '3. Keep event details on and save as PDF',
+    body: 'Leave Show event details checked, update the preview if needed, then print or save the page as a PDF from your browser.',
+    imageSrc: '/brightspace-guide/brightspace-print.png',
+    imageAlt: 'Brightspace print options with Show event details enabled and the Print button at the bottom.',
+  },
+] as const;
 
 function requestError(err: unknown, fallback: string): string {
   const response = err as { error?: { message?: string } };
@@ -31,7 +58,10 @@ function publishImportMutations() {
   });
 }
 
-export default function BrightspacePdfImportCard() {
+export default function BrightspacePdfImportCard({
+  title = 'Import Brightspace PDF',
+  description = 'Choose a text-based UCD Brightspace calendar PDF and review the entries before saving them.',
+}: BrightspacePdfImportCardProps) {
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [rows, setRows] = useState<BrightspaceCalendarPreviewRow[]>([]);
@@ -40,8 +70,17 @@ export default function BrightspacePdfImportCard() {
   const [importLoading, setImportLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BrightspaceImportResponse | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [guideStepIndex, setGuideStepIndex] = useState(0);
 
   const selectedRows = rows.filter((_, index) => selected.has(index));
+  const currentGuideStep = brightspaceGuideSteps[guideStepIndex];
+
+  useEffect(() => {
+    if (guideOpen) {
+      setGuideStepIndex(0);
+    }
+  }, [guideOpen]);
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -103,11 +142,22 @@ export default function BrightspacePdfImportCard() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <FileUp className="h-5 w-5 text-primary" />
-          <CardTitle>Import Brightspace PDF</CardTitle>
+          <CardTitle>{title}</CardTitle>
         </div>
-        <CardDescription>Choose a text-based UCD Brightspace calendar PDF and review the entries before saving them.</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="grid gap-1">
+            <p className="text-sm font-semibold text-foreground">Need help downloading the PDF?</p>
+            <p className="text-sm text-muted-foreground">Open a short screenshot walkthrough that shows exactly where to click in Brightspace.</p>
+          </div>
+          <Button type="button" variant="outline" className="gap-2 sm:w-auto" onClick={() => setGuideOpen(true)}>
+            <FileQuestion className="h-4 w-4" />
+            View walkthrough
+          </Button>
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             ref={fileInputRef}
@@ -117,7 +167,13 @@ export default function BrightspacePdfImportCard() {
             disabled={parseLoading || importLoading}
             onChange={handleFileChange}
           />
-          <Button type="button" variant="outline" className="gap-2 sm:w-auto" disabled={parseLoading || importLoading} onClick={() => fileInputRef.current?.click()}>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2 sm:w-auto"
+            disabled={parseLoading || importLoading}
+            onClick={() => fileInputRef.current?.click()}
+          >
             {parseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
             {parseLoading ? 'Reading...' : 'Choose PDF'}
           </Button>
@@ -209,6 +265,63 @@ export default function BrightspacePdfImportCard() {
             </Button>
           </div>
         )}
+
+        <Dialog open={guideOpen} onOpenChange={setGuideOpen}>
+          <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden p-0">
+            <DialogHeader className="border-b px-5 py-4 sm:px-6">
+              <DialogTitle>How to download the Brightspace calendar PDF</DialogTitle>
+              <DialogDescription>
+                Follow these steps in Brightspace, then save the print output as a PDF and upload it here.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid max-h-[calc(90vh-5rem)] gap-4 overflow-y-auto px-5 py-4 sm:px-6">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{currentGuideStep.title}</span>
+                <span>
+                  Step {guideStepIndex + 1} of {brightspaceGuideSteps.length}
+                </span>
+              </div>
+              <div className="grid gap-4">
+                <img
+                  src={currentGuideStep.imageSrc}
+                  alt={currentGuideStep.imageAlt}
+                  className="max-h-[58vh] w-full rounded-md border object-contain object-top bg-muted/20"
+                  loading="lazy"
+                />
+                <div className="grid gap-2 rounded-md border bg-background p-4">
+                  <p className="text-base font-semibold text-foreground">{currentGuideStep.title}</p>
+                  <p className="text-sm leading-6 text-muted-foreground">{currentGuideStep.body}</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Keep event details visible in the print preview. Image-only scans still will not import.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    disabled={guideStepIndex === 0}
+                    onClick={() => setGuideStepIndex((index) => Math.max(index - 1, 0))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back
+                  </Button>
+                  <Button
+                    type="button"
+                    className="gap-2"
+                    disabled={guideStepIndex === brightspaceGuideSteps.length - 1}
+                    onClick={() => setGuideStepIndex((index) => Math.min(index + 1, brightspaceGuideSteps.length - 1))}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

@@ -156,6 +156,30 @@ npm run build
 sudo systemctl restart ums-app-react
 ```
 
+## PDF Worker Troubleshooting
+
+The Brightspace PDF import uses a Vite-built PDF.js worker like `/assets/pdf.worker-<hash>.mjs`. Browser module workers require a JavaScript MIME type, so this file must not be served as `application/octet-stream`.
+
+Check the deployed header:
+
+```sh
+curl -I https://dev.untitledmanagementsoftware.com/assets/pdf.worker-<hash>.mjs
+```
+
+If the response has `Content-Type: application/octet-stream`, update the active nginx site config with the `.mjs` location from `deploy/nginx.conf.example`, then reload nginx:
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Also confirm you are checking the app directory on the droplet, not your local machine:
+
+```sh
+cd /var/www/ums-app-react
+ls -lah dist/assets | grep pdf.worker
+```
+
 ## Notes
 
 - Google OAuth and Firebase email-link redirects must use `https://dev.untitledmanagementsoftware.com`.

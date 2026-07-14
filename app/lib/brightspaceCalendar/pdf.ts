@@ -3,7 +3,7 @@ import { parseBrightspaceCalendarPages, type BrightspaceCalendarPreviewRow } fro
 export async function extractBrightspacePdfText(file: File): Promise<string[]> {
   const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
     import('pdfjs-dist'),
-    import('pdfjs-dist/build/pdf.worker.mjs?url'),
+    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
   ]);
   GlobalWorkerOptions.workerSrc = workerUrl.default;
 
