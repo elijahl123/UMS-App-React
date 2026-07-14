@@ -27,8 +27,8 @@ export async function extractBrightspacePdfText(file: File): Promise<string[]> {
   ensurePdfJsBrowserCompatibility();
 
   const [{ getDocument, GlobalWorkerOptions }, workerUrl] = await Promise.all([
-    import('pdfjs-dist'),
-    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+    import('pdfjs-dist/legacy/build/pdf.mjs'),
+    import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
   ]);
   GlobalWorkerOptions.workerSrc = workerUrl.default;
 
