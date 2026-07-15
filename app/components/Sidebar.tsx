@@ -118,7 +118,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         )}
       >
         <img
-          src="/storages/zwD6Awu5SX/static/UMSLogo.svg"
+          src="/app-icons/android/launchericon-192x192.png"
           alt="Untitled Management Software logo"
           className={cn('h-12 w-12 shrink-0 sm:h-14 sm:w-14', collapsed && 'md:h-10 md:w-10')}
         />
