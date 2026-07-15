@@ -9,6 +9,11 @@ export interface BillingStatus {
   cancelAtPeriodEnd: boolean;
   stripeSubscriptionId: string | null;
   stripePriceId?: string | null;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  trialActive: boolean;
+  trialDaysRemaining: number;
+  hasAccess: boolean;
 }
 
 export interface BillingPaymentMethod {
@@ -58,6 +63,13 @@ export function getBillingStatus(userId: string) {
 
 export function refreshBillingStatus(userId: string) {
   return billingRequest<BillingStatus>(`/status/refresh?userId=${encodeURIComponent(userId)}`);
+}
+
+export function startTrial(params: { userId: string; email: string }) {
+  return billingRequest<BillingStatus & { trialStartedNow: boolean }>('/trial/start', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }
 
 export function createSubscription(params: {

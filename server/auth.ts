@@ -22,6 +22,18 @@ export interface FirebaseUserProfile {
   providerIds: string[];
 }
 
+export interface AuthenticatedFirebaseUser {
+  uid: string;
+  email: string;
+}
+
+type FirebaseLookupResult = {
+  users?: Array<{
+    localId: string;
+    email?: string;
+  }>;
+};
+
 declare module 'express-serve-static-core' {
   interface Request {
     auth?: AuthenticatedUser;
@@ -131,6 +143,82 @@ export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserP
     createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).toISOString() : new Date().toISOString(),
     providerIds: user.providerData.map((provider) => provider.providerId).filter(Boolean),
   };
+}
+
+export async function authenticatedFirebaseUser(req: Request): Promise<AuthenticatedFirebaseUser> {
+  if (req.auth?.uid && req.auth.email) {
+    return { uid: req.auth.uid, email: req.auth.email };
+  }
+
+  const token = bearerToken(req);
+  if (!token) {
+    throw new ApiError('AUTH_TOKEN_REQUIRED', 401);
+  }
+
+  if (!config.firebaseWebApiKey) {
+    throw new ApiError('VITE_FIREBASE_API_KEY is required', 500);
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: token }),
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as FirebaseLookupResult | null;
+  const firebaseUser = payload?.users?.[0];
+  if (!response.ok || !firebaseUser?.email) {
+    throw new ApiError('INVALID_AUTH_TOKEN', 401);
+  }
+
+  return { uid: firebaseUser.localId, email: normalizeEmail(firebaseUser.email) };
+}
+
+function isMissingFirebaseUser(err: unknown): boolean {
+  return (err as { code?: string })?.code === 'auth/user-not-found';
+}
+
+export async function deleteFirebaseAuthUsers(uids: string[]) {
+  const uniqueUids = [...new Set(uids.map((uid) => uid.trim()).filter(Boolean))];
+  if (uniqueUids.length === 0) {
+    return;
+  }
+
+  if (uniqueUids.length === 1) {
+    try {
+      await firebaseApp().auth().deleteUser(uniqueUids[0]);
+    } catch (err) {
+      if (!isMissingFirebaseUser(err)) {
+        throw err;
+      }
+    }
+    return;
+  }
+
+  await firebaseApp().auth().deleteUsers(uniqueUids);
+}
+
+export async function deleteCurrentFirebaseAuthUser(idToken: string) {
+  if (!config.firebaseWebApiKey) {
+    throw new ApiError('VITE_FIREBASE_API_KEY is required', 500);
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    }
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+    throw new ApiError(payload?.error?.message ?? 'FIREBASE_ACCOUNT_DELETE_FAILED', 400);
+  }
 }
 
 export async function getAccountPrimaryEmail(uid: string): Promise<string | null> {

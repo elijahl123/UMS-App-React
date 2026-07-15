@@ -17,7 +17,7 @@ import NotesPage from '@/app/pages/NotesPage';
 import ResetPasswordPage from '@/app/pages/ResetPasswordPage';
 import SignupPage from '@/app/pages/SignupPage';
 import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
-import { accountEmailActions, accountEmailState, authActions, authState } from '@/app/test/mocks';
+import { accountEmailActions, accountEmailState, authActions, authState, billingState } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 
 function renderRoute(path: string, element: React.ReactElement, route = path) {
@@ -158,6 +158,17 @@ describe('page rendering', () => {
     expect(authActions.signInWithGoogle).toHaveBeenCalled();
   });
 
+  it('deletes an account after email confirmation', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<AccountPage />);
+
+    await user.type(screen.getByLabelText(/type jane@example\.com to confirm/i), 'jane@example.com');
+    await user.click(screen.getByRole('button', { name: /^delete account$/i }));
+
+    expect(window.confirm).toHaveBeenCalledWith('This permanently deletes your account and all app data. This cannot be undone.');
+    await waitFor(() => expect(authActions.deleteAccount).toHaveBeenCalledWith({ confirmationEmail: 'jane@example.com' }));
+  });
+
   it('shows Google as connected on the account page', async () => {
     authState.user = {
       ...authState.user!,
@@ -207,6 +218,54 @@ describe('page rendering', () => {
     expect(screen.getByRole('button', { name: /cancel at period end/i })).toBeInTheDocument();
   });
 
+  it('shows trial started billing state with app access and upgrade options', async () => {
+    cleanup();
+    billingState.status = {
+      ...billingState.status,
+      status: 'none',
+      subscribed: false,
+      currentPeriodEnd: null,
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+      trialStartedAt: '2026-07-15T00:00:00.000Z',
+      trialEndsAt: '2026-07-29T00:00:00.000Z',
+      trialActive: true,
+      trialDaysRemaining: 14,
+      hasAccess: true,
+    };
+    billingState.paymentMethod = null;
+
+    renderWithRouter(<BillingPage />, { route: '/billing?trial=started' });
+
+    expect(await screen.findByText(/your 14-day free trial has started/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue to app/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue to payment/i })).toBeInTheDocument();
+  });
+
+  it('shows expired trial billing state without a continue action', async () => {
+    cleanup();
+    billingState.status = {
+      ...billingState.status,
+      status: 'none',
+      subscribed: false,
+      currentPeriodEnd: null,
+      stripeSubscriptionId: null,
+      stripePriceId: null,
+      trialStartedAt: '2026-06-01T00:00:00.000Z',
+      trialEndsAt: '2026-06-15T00:00:00.000Z',
+      trialActive: false,
+      trialDaysRemaining: 0,
+      hasAccess: false,
+    };
+    billingState.paymentMethod = null;
+
+    renderWithRouter(<BillingPage />, { route: '/billing' });
+
+    expect(await screen.findByText(/your free trial has ended/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continue to app/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue to payment/i })).toBeInTheDocument();
+  });
+
   it('changes the payment method from the billing page', async () => {
     cleanup();
     const user = userEvent.setup();
@@ -235,6 +294,26 @@ describe('auth and recovery pages', () => {
     await waitFor(() => expect(authActions.login).toHaveBeenCalledWith('jane@example.com', 'password123'));
   });
 
+  it('sends first-login trial starts to billing after login', async () => {
+    const user = userEvent.setup();
+    authState.user = null;
+    authActions.login.mockResolvedValueOnce({ success: true, trialStartedNow: true });
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/billing" element={<div>Trial billing destination</div>} />
+      </Routes>,
+      { route: '/login' }
+    );
+
+    await user.type(screen.getByLabelText(/email/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /^log in$/i }));
+
+    expect(await screen.findByText(/trial billing destination/i)).toBeInTheDocument();
+  });
+
   it('submits signup details through auth context', async () => {
     const user = userEvent.setup();
     renderWithRouter(<SignupPage />, { route: '/signup' });
@@ -253,6 +332,27 @@ describe('auth and recovery pages', () => {
         password: 'password123',
       })
     );
+  });
+
+  it('sends first-login trial starts to billing after signup', async () => {
+    const user = userEvent.setup();
+    authActions.signup.mockResolvedValueOnce({ success: true, trialStartedNow: true });
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/billing" element={<div>Trial billing destination</div>} />
+      </Routes>,
+      { route: '/signup' }
+    );
+
+    await user.type(screen.getByLabelText(/first name/i), 'Jane');
+    await user.type(screen.getByLabelText(/last name/i), 'Doe');
+    await user.type(screen.getByLabelText(/email/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText(/trial billing destination/i)).toBeInTheDocument();
   });
 
   it('requests a password reset and shows the submitted state', async () => {

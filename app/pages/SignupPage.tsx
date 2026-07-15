@@ -37,7 +37,7 @@ function SignupPage() {
     try {
       const result = await signup(values);
       if (result.success) {
-        navigate('/', { replace: true });
+        navigate(result.trialStartedNow ? '/billing?trial=started' : '/', { replace: true });
       } else {
         setFormError(result.error ?? 'Unable to create account.');
       }

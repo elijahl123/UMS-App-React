@@ -69,6 +69,7 @@ vi.doMock('@/app/lib/billing/client', () => ({
   getBillingConfig: vi.fn(async () => billingState.config),
   getBillingStatus: vi.fn(async () => billingState.status),
   refreshBillingStatus: vi.fn(async () => billingState.status),
+  startTrial: vi.fn(async () => ({ ...billingState.status, trialStartedNow: false })),
   getPaymentMethod: vi.fn(async () => ({ paymentMethod: billingState.paymentMethod })),
   createSubscription: vi.fn(async () => ({ clientSecret: 'pi_secret_mock' })),
   createPaymentMethodSetupIntent: vi.fn(async () => ({ clientSecret: 'seti_secret_mock' })),
