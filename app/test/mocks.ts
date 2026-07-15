@@ -4,6 +4,8 @@ import type { AppUser, StagingAccessUser } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 
+type AuthActionResult = { success: boolean; error?: string; trialStartedNow?: boolean };
+
 export const authState = {
   user: mockUser as AppUser | null,
   idToken: 'mock-id-token' as string | null,
@@ -17,8 +19,8 @@ export const authState = {
 };
 
 export const authActions = {
-  login: vi.fn(async () => ({ success: true })),
-  signup: vi.fn(async () => ({ success: true })),
+  login: vi.fn(async (): Promise<AuthActionResult> => ({ success: true })),
+  signup: vi.fn(async (): Promise<AuthActionResult> => ({ success: true })),
   logout: vi.fn(),
   updateProfile: vi.fn(async () => ({ success: true })),
   changePassword: vi.fn(async () => ({ success: true })),
@@ -26,8 +28,10 @@ export const authActions = {
   verifyEmailWithToken: vi.fn(async () => ({ success: true })),
   requestPasswordReset: vi.fn(async () => ({ success: true })),
   resetPasswordWithToken: vi.fn(async () => ({ success: true })),
-  signInWithGoogle: vi.fn(async () => ({ success: true })),
+  signInWithGoogle: vi.fn(async (): Promise<AuthActionResult> => ({ success: true })),
+  deleteAccount: vi.fn(async () => ({ success: true })),
   refreshStagingAccess: vi.fn(async () => true),
+  consumeTrialStartedRedirect: vi.fn(() => false),
 };
 
 export const accountEmailState = {
@@ -87,6 +91,11 @@ export const billingState = {
     cancelAtPeriodEnd: false,
     stripeSubscriptionId: 'sub_mock',
     stripePriceId: 'price_monthly',
+    trialStartedAt: null,
+    trialEndsAt: null,
+    trialActive: false,
+    trialDaysRemaining: 0,
+    hasAccess: true,
   } as BillingStatus,
   paymentMethod: {
     id: 'pm_mock',
@@ -120,6 +129,11 @@ export function resetMockState() {
     cancelAtPeriodEnd: false,
     stripeSubscriptionId: 'sub_mock',
     stripePriceId: 'price_monthly',
+    trialStartedAt: null,
+    trialEndsAt: null,
+    trialActive: false,
+    trialDaysRemaining: 0,
+    hasAccess: true,
   };
   billingState.paymentMethod = {
     id: 'pm_mock',
