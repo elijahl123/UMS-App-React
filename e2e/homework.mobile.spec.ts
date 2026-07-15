@@ -1,51 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mockAuthenticatedApp } from './support/appMocks';
-
-function watchForRuntimeErrors(page: Page) {
-  const errors: string[] = [];
-
-  page.on('pageerror', (error) => {
-    errors.push(error.message);
-  });
-
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      errors.push(message.text());
-    }
-  });
-
-  return errors;
-}
-
-async function expectNoHorizontalPageOverflow(page: Page) {
-  const metrics = await page.evaluate(() => {
-    const documentWidth = document.documentElement.scrollWidth;
-    const bodyWidth = document.body.scrollWidth;
-    const offenders = Array.from(document.querySelectorAll('body *'))
-      .map((element) => {
-        const rect = element.getBoundingClientRect();
-        return {
-          tag: element.tagName.toLowerCase(),
-          className: typeof element.className === 'string' ? element.className : '',
-          text: (element.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
-          left: Math.round(rect.left),
-          right: Math.round(rect.right),
-          width: Math.round(rect.width),
-        };
-      })
-      .filter((entry) => entry.left < -2 || entry.right > window.innerWidth + 2)
-      .sort((a, b) => b.right - a.right)
-      .slice(0, 5);
-
-    return {
-      offenders,
-      widestContent: Math.max(documentWidth, bodyWidth),
-      viewportWidth: window.innerWidth,
-    };
-  });
-
-  expect(metrics.widestContent, JSON.stringify(metrics.offenders, null, 2)).toBeLessThanOrEqual(metrics.viewportWidth + 2);
-}
+import { expectNoHorizontalPageOverflow, watchForRuntimeErrors } from './support/mobileAssertions';
 
 test.beforeEach(async ({ page }) => {
   await mockAuthenticatedApp(page);
