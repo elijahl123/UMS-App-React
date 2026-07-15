@@ -35,7 +35,9 @@ describe('App routes', () => {
     render(<App />);
 
     expect(await screen.findByText(/upcoming assignments/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /toggle menu/i })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: /mobile primary navigation/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add anything/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /toggle menu/i })).not.toBeInTheDocument();
   });
 
   it('blocks authenticated users without staging access when staging access control is enabled', async () => {
