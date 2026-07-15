@@ -73,12 +73,15 @@ Use production values:
 ```sh
 NODE_ENV=production
 APP_ORIGIN=https://app.untitledmanagementsoftware.com
+APP_ORIGINS=https://app.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://app.untitledmanagementsoftware.com
 PORT=3001
 DATABASE_URL=<production-digitalocean-postgres-url>
 SENDGRID_API_KEY=<production-sendgrid-api-key>
 VITE_FIREBASE_API_KEY=<production-firebase-api-key>
 VITE_GOOGLE_CLIENT_ID=<production-google-client-id>
+VITE_API_BASE_URL=
+VITE_GOOGLE_REDIRECT_URI=
 STRIPE_SECRET_KEY=<production-stripe-secret-key>
 STRIPE_WEBHOOK_SECRET=<production-stripe-webhook-secret>
 STRIPE_MONTHLY_PRICE_ID=<production-monthly-price-id>
@@ -86,7 +89,7 @@ STRIPE_YEARLY_PRICE_ID=<production-yearly-price-id>
 VITE_STRIPE_PUBLISHABLE_KEY=<production-stripe-publishable-key>
 ```
 
-`VITE_*` values are client-side build values. If one changes, source the production env file before running `npm run build` so Vite bakes the new values into the browser bundle.
+`VITE_*` values are client-side build values. If one changes, source the production env file before running `npm run build` so Vite bakes the new values into the browser bundle. Leave `VITE_API_BASE_URL` blank for the hosted web app; set it to `https://app.untitledmanagementsoftware.com/api` for native Capacitor builds.
 
 ## Droplet Setup
 

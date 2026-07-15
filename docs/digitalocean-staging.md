@@ -16,12 +16,15 @@ Use these values in the droplet env file:
 
 ```sh
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
+APP_ORIGINS=https://dev.untitledmanagementsoftware.com
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
 PORT=3001
 DATABASE_URL=<staging-postgres-url>
 SENDGRID_API_KEY=<sendgrid-api-key>
 VITE_FIREBASE_API_KEY=<firebase-api-key>
 VITE_GOOGLE_CLIENT_ID=<google-client-id>
+VITE_API_BASE_URL=
+VITE_GOOGLE_REDIRECT_URI=
 STRIPE_SECRET_KEY=<stripe-secret-key>
 STRIPE_WEBHOOK_SECRET=<stripe-webhook-secret>
 STRIPE_MONTHLY_PRICE_ID=<stripe-monthly-price-id>
@@ -29,7 +32,7 @@ STRIPE_YEARLY_PRICE_ID=<stripe-yearly-price-id>
 VITE_STRIPE_PUBLISHABLE_KEY=<stripe-publishable-key>
 ```
 
-`VITE_GOOGLE_CLIENT_ID` is a client-side build value. If you add or change it, rerun `npm run build` before restarting the service so the browser bundle picks up the new value.
+`VITE_GOOGLE_CLIENT_ID`, `VITE_API_BASE_URL`, and `VITE_GOOGLE_REDIRECT_URI` are client-side build values. If you add or change one, rerun `npm run build` before restarting the service so the browser bundle picks up the new value. Leave `VITE_API_BASE_URL` blank for the hosted web app.
 
 ## Install
 
@@ -130,7 +133,7 @@ If you want to force HTTP to HTTPS manually, keep the 80 server block as a redir
 
 ## Google Sign-In
 
-Google sign-in uses `window.location.origin` as the redirect URI, so the Google OAuth client must allow `https://dev.untitledmanagementsoftware.com` as an authorized JavaScript origin and redirect URI. If the button still says it is not configured, confirm that the env file contains `VITE_GOOGLE_CLIENT_ID`, rebuild the client with `npm run build`, and restart the service.
+Google sign-in uses `window.location.origin` as the web redirect URI unless `VITE_GOOGLE_REDIRECT_URI` is set. The Google OAuth client must allow `https://dev.untitledmanagementsoftware.com` as an authorized JavaScript origin and redirect URI. If the button still says it is not configured, confirm that the env file contains `VITE_GOOGLE_CLIENT_ID`, rebuild the client with `npm run build`, and restart the service.
 
 ## Billing Troubleshooting
 
