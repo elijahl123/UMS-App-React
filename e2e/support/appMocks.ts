@@ -137,6 +137,58 @@ async function fulfillJson(route: Route, payload: unknown) {
   });
 }
 
+const activeBillingStatus = {
+  status: 'active',
+  subscribed: true,
+  currentPeriodEnd: '2026-08-01T00:00:00.000Z',
+  cancelAtPeriodEnd: false,
+  stripeSubscriptionId: 'sub_e2e',
+  stripePriceId: 'price_monthly_e2e',
+  trialStartedAt: null,
+  trialEndsAt: null,
+  trialActive: false,
+  trialDaysRemaining: 0,
+  hasAccess: true,
+};
+
+async function mockActiveBillingApis(page: Page) {
+  await page.route('**/api/billing/config', async (route) => {
+    await fulfillJson(route, {
+      publishableKey: null,
+      prices: {
+        monthly: 'price_monthly_e2e',
+        yearly: 'price_yearly_e2e',
+      },
+    });
+  });
+
+  await page.route('**/api/billing/status**', async (route) => {
+    await fulfillJson(route, activeBillingStatus);
+  });
+
+  await page.route('**/api/billing/trial/start', async (route) => {
+    await fulfillJson(route, {
+      ...activeBillingStatus,
+      trialStartedNow: false,
+    });
+  });
+
+  await page.route('**/api/billing/payment-method?**', async (route) => {
+    await fulfillJson(route, {
+      paymentMethod: {
+        id: 'pm_e2e',
+        type: 'card',
+        brand: 'visa',
+        last4: '4242',
+        expMonth: 12,
+        expYear: 2030,
+        wallet: null,
+        billingName: 'E2E Student',
+      },
+    });
+  });
+}
+
 export async function mockPublicAppApis(page: Page) {
   await page.route('**/api/staging-access/config', async (route) => {
     await fulfillJson(route, { enabled: false });
@@ -200,21 +252,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
     );
   });
 
-  await page.route('**/api/billing/status?**', async (route) => {
-    await fulfillJson(route, {
-      status: 'active',
-      subscribed: true,
-      currentPeriodEnd: '2026-08-01T00:00:00.000Z',
-      cancelAtPeriodEnd: false,
-      stripeSubscriptionId: 'sub_e2e',
-      stripePriceId: 'price_monthly_e2e',
-      trialStartedAt: null,
-      trialEndsAt: null,
-      trialActive: false,
-      trialDaysRemaining: 0,
-      hasAccess: true,
-    });
-  });
+  await mockActiveBillingApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -336,21 +374,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
     await fulfillJson(route, options.accountEmails);
   });
 
-  await page.route('**/api/billing/status?**', async (route) => {
-    await fulfillJson(route, {
-      status: 'active',
-      subscribed: true,
-      currentPeriodEnd: '2026-08-01T00:00:00.000Z',
-      cancelAtPeriodEnd: false,
-      stripeSubscriptionId: 'sub_e2e',
-      stripePriceId: 'price_monthly_e2e',
-      trialStartedAt: null,
-      trialEndsAt: null,
-      trialActive: false,
-      trialDaysRemaining: 0,
-      hasAccess: true,
-    });
-  });
+  await mockActiveBillingApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -462,21 +486,7 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
     await fulfillJson(route, options.accountEmails);
   });
 
-  await page.route('**/api/billing/status?**', async (route) => {
-    await fulfillJson(route, {
-      status: 'active',
-      subscribed: true,
-      currentPeriodEnd: '2026-08-01T00:00:00.000Z',
-      cancelAtPeriodEnd: false,
-      stripeSubscriptionId: 'sub_e2e',
-      stripePriceId: 'price_monthly_e2e',
-      trialStartedAt: null,
-      trialEndsAt: null,
-      trialActive: false,
-      trialDaysRemaining: 0,
-      hasAccess: true,
-    });
-  });
+  await mockActiveBillingApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
