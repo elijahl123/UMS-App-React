@@ -12,6 +12,9 @@
     "migrate": "tsx server/migrate.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:android": "npm run build && npx cap run android",
+    "cap:ios": "npm run build && npx cap run ios",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,6 +23,9 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-dialog": "^1.1.19",
     "@radix-ui/react-dropdown-menu": "^2.1.20",
@@ -61,6 +67,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
     "@eslint/js": "9.11.1",
     "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
