@@ -30,8 +30,6 @@ type AddTarget = 'assignment' | 'event' | 'course' | 'class' | null;
 
 const baseNavClass =
   'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-primary';
-const mobileSheetClass =
-  'top-auto bottom-0 max-h-[calc(100dvh-1rem)] translate-y-0 overflow-y-auto rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom md:bottom-auto md:top-[50%] md:max-h-[85vh] md:translate-y-[-50%] md:rounded-lg md:pb-6';
 
 function MobileBottomNavigation() {
   const navigate = useNavigate();
@@ -163,7 +161,7 @@ function MobileBottomNavigation() {
       </nav>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className={mobileSheetClass}>
+        <DialogContent className="top-auto bottom-0 translate-y-0 rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom md:bottom-auto md:top-[50%] md:translate-y-[-50%] md:rounded-lg md:pb-6">
           <DialogHeader>
             <DialogTitle>Add</DialogTitle>
           </DialogHeader>
@@ -194,7 +192,7 @@ function MobileBottomNavigation() {
       </Dialog>
 
       <Dialog open={moreOpen} onOpenChange={setMoreOpen}>
-        <DialogContent className={mobileSheetClass}>
+        <DialogContent className="top-auto bottom-0 translate-y-0 rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom md:bottom-auto md:top-[50%] md:translate-y-[-50%] md:rounded-lg md:pb-6">
           <DialogHeader>
             <DialogTitle>More</DialogTitle>
           </DialogHeader>
