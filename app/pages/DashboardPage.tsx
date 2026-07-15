@@ -60,17 +60,17 @@ function DashboardPage() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-4 gap-3 overflow-hidden sm:gap-4 md:grid-cols-2 md:grid-rows-2 md:gap-5 xl:gap-6">
-      <div className="min-h-0 overflow-hidden">
+    <div className="flex min-h-0 flex-col gap-3 sm:gap-4 md:grid md:h-full md:grid-cols-2 md:grid-rows-2 md:gap-5 md:overflow-hidden xl:gap-6">
+      <div className="min-h-[18rem] overflow-hidden md:min-h-0">
         <UpcomingAssignmentsWidget assignments={upcoming} courses={courses} onAdd={handleAddAssignment} compact />
       </div>
-      <div className="min-h-0 overflow-hidden">
+      <div className="min-h-[18rem] overflow-hidden md:min-h-0">
         <ClassesTodayWidget sessions={todaysSessions} courses={courses} compact />
       </div>
-      <div className="min-h-0 overflow-hidden">
+      <div className="min-h-[18rem] overflow-hidden md:min-h-0">
         <LateAssignmentsWidget assignments={late} courses={courses} compact />
       </div>
-      <div className="min-h-0 overflow-hidden">
+      <div className="min-h-[18rem] overflow-hidden md:min-h-0">
         <UpcomingEventsWidget events={events} onAdd={handleAddEvent} compact />
       </div>
     </div>

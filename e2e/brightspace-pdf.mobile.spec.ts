@@ -1,23 +1,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { mockAuthenticatedApp } from './support/appMocks';
-
-function watchForRuntimeErrors(page: Page) {
-  const errors: string[] = [];
-
-  page.on('pageerror', (error) => {
-    errors.push(error.message);
-  });
-
-  page.on('console', (message) => {
-    if (message.type() === 'error') {
-      errors.push(message.text());
-    }
-  });
-
-  return errors;
-}
+import { watchForRuntimeErrors } from './support/mobileAssertions';
 
 function escapePdfText(text: string): string {
   return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');

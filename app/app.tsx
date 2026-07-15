@@ -64,6 +64,24 @@ function AuthActionRedirect() {
   return null;
 }
 
+function TrialStartedRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isLoading, consumeTrialStartedRedirect } = useAuth();
+
+  useEffect(() => {
+    if (isLoading || !user || !consumeTrialStartedRedirect()) {
+      return;
+    }
+
+    if (location.pathname !== '/billing' || !location.search.includes('trial=started')) {
+      navigate('/billing?trial=started', { replace: true });
+    }
+  }, [consumeTrialStartedRedirect, isLoading, location.pathname, location.search, navigate, user]);
+
+  return null;
+}
+
 function StagingAdminRoute({ children }: { children: ReactNode }) {
   const { stagingAccess, isStagingAccessControlEnabled } = useAuth();
 
@@ -79,6 +97,7 @@ function App() {
     <HashRouter>
       <AuthProvider>
         <AuthActionRedirect />
+        <TrialStartedRedirect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />

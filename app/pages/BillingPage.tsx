@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { loadStripe, type StripeElementsOptions } from '@stripe/stripe-js';
 import { ArrowLeft, Check, CreditCard, Loader2 } from 'lucide-react';
@@ -201,6 +201,7 @@ function paymentMethodDescription(paymentMethod: BillingPaymentMethod | null) {
 function BillingPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [config, setConfig] = useState<BillingConfig | null>(null);
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<BillingPaymentMethod | null>(null);
@@ -386,6 +387,11 @@ function BillingPage() {
   const missingPublishableKey = !config?.publishableKey;
   const activeInterval: BillingInterval | null =
     status?.stripePriceId === config?.prices.yearly ? 'yearly' : status?.stripePriceId === config?.prices.monthly ? 'monthly' : null;
+  const trialStartedNotice = new URLSearchParams(location.search).get('trial') === 'started';
+  const trialEndsLabel = status?.trialEndsAt ? new Date(status.trialEndsAt).toLocaleDateString() : null;
+  const isTrialOnlyAccess = Boolean(status?.trialActive && !status.subscribed);
+  const hasExpiredTrial = Boolean(status?.trialStartedAt && !status.trialActive && !status.subscribed);
+  const trialDaysRemaining = status?.trialDaysRemaining ?? 0;
 
   return (
     <div className="min-h-screen bg-secondary/40 p-4 sm:p-8">
@@ -395,7 +401,7 @@ function BillingPage() {
             <ArrowLeft className="h-4 w-4" />
             Log out
           </Button>
-          {status?.subscribed && (
+          {status?.hasAccess && (
             <Button onClick={() => navigate('/')} className="gap-2">
               Open app
             </Button>
@@ -409,6 +415,42 @@ function BillingPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-6 overflow-visible">
             {error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</p>}
+
+            {trialStartedNotice && isTrialOnlyAccess && (
+              <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-white p-1 text-primary">
+                    <Check className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-primary">Your 14-day free trial has started.</p>
+                    <p className="mt-1 text-muted-foreground">
+                      You can upgrade now, or keep using UMS free
+                      {trialEndsLabel ? ` until ${trialEndsLabel}` : ' for 14 days'}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isTrialOnlyAccess && !trialStartedNotice && (
+              <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 text-sm">
+                <p className="font-bold text-primary">Free trial active</p>
+                <p className="mt-1 text-muted-foreground">
+                  {trialDaysRemaining > 0
+                    ? `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} remaining`
+                    : 'Your trial is active'}
+                  {trialEndsLabel ? `, ending ${trialEndsLabel}` : ''}. Upgrade any time to keep access after the trial.
+                </p>
+              </div>
+            )}
+
+            {hasExpiredTrial && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm">
+                <p className="font-bold text-destructive">Your free trial has ended.</p>
+                <p className="mt-1 text-muted-foreground">Choose a subscription below to keep using UMS.</p>
+              </div>
+            )}
 
             {missingSetup && (
               <div className="rounded-md border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
@@ -533,6 +575,16 @@ function BillingPage() {
               </div>
             ) : (
               <>
+                {isTrialOnlyAccess && (
+                  <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-light)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-bold text-foreground">You do not have to upgrade today.</p>
+                      <p className="mt-1 text-sm text-muted-foreground">Your trial includes full app access.</p>
+                    </div>
+                    <Button onClick={() => navigate('/')}>Continue to app</Button>
+                  </div>
+                )}
+
                 <div className="grid gap-4 md:grid-cols-2">
                   {(['monthly', 'yearly'] as BillingInterval[]).map((interval) => {
                     const plan = planCopy[interval];
@@ -592,7 +644,13 @@ function BillingPage() {
               <button type="button" className="font-semibold text-primary hover:underline" onClick={() => void refreshStatus()}>
                 Refresh subscription status
               </button>
-              . Return to <Link to="/" className="font-semibold text-primary hover:underline">the app</Link> after your subscription is active.
+              {status?.hasAccess ? (
+                <>
+                  . Return to <Link to="/" className="font-semibold text-primary hover:underline">the app</Link> when you are ready.
+                </>
+              ) : (
+                '.'
+              )}
             </p>
           </CardContent>
         </Card>

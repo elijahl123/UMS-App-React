@@ -14,6 +14,7 @@ import UpcomingEventsWidget from '@/app/components/widgets/UpcomingEventsWidget'
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import DayDetailsDialog from '@/app/components/calendar/DayDetailsDialog';
 import GoogleSignInButton from '@/app/components/auth/GoogleSignInButton';
+import MobileBottomNavigation from '@/app/components/MobileBottomNavigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,7 @@ import { assignments, courses, events, sessions } from '@/app/test/fixtures';
 import { apiState, authActions } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 import type { CalendarItem } from '@/app/data/calendarUtils';
+import { Route, Routes } from 'react-router-dom';
 
 describe('widgets and calendar components', () => {
   it('renders assignment, event, class, and late-assignment widgets', () => {
@@ -140,6 +142,30 @@ describe('widgets and calendar components', () => {
     }
   });
 
+  it('updates the sidebar class card at the class boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 10, 10, 14, 59));
+
+    try {
+      renderWithRouter(<Sidebar />);
+
+      expect(screen.getByText(/current class/i)).toBeInTheDocument();
+      expect(screen.getByText(/math 101/i)).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByText(/no more classes today/i)).toBeInTheDocument();
+      expect(screen.getByText(/your schedule is clear for the rest of the day/i)).toBeInTheDocument();
+      expect(screen.getByText(/no more classes today/i).closest('[style]')).toHaveStyle({
+        backgroundColor: 'var(--course-gray)',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders calendar grid items and day details', async () => {
     const onDayClick = vi.fn();
     const onEventClick = vi.fn();
@@ -165,6 +191,43 @@ describe('widgets and calendar components', () => {
     rerender(<DayDetailsDialog open onOpenChange={vi.fn()} date="2026-07-10" items={[item]} onEventClick={onEventClick} />);
     fireEvent.click(screen.getByText(/study group/i));
     expect(onEventClick).toHaveBeenCalledWith(item);
+  });
+
+  it('renders mobile bottom navigation and opens the global add sheet', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<MobileBottomNavigation />);
+
+    expect(screen.getByRole('navigation', { name: /mobile primary navigation/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /toggle menu/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /add anything/i }));
+
+    expect(screen.getByRole('heading', { name: /^add$/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /add assignment/i }));
+    expect(screen.getByRole('heading', { name: /add assignment/i })).toBeInTheDocument();
+  });
+
+  it('navigates from the mobile more sheet and logs out', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(
+      <>
+        <MobileBottomNavigation />
+        <Routes>
+          <Route path="/notes" element={<div>Notes destination</div>} />
+          <Route path="/login" element={<div>Login destination</div>} />
+        </Routes>
+      </>
+    );
+
+    await user.click(screen.getByRole('button', { name: /^more$/i }));
+    await user.click(screen.getByRole('button', { name: /^notes$/i }));
+    expect(screen.getByText(/notes destination/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^more$/i }));
+    await user.click(screen.getByRole('button', { name: /log out/i }));
+
+    expect(authActions.logout).toHaveBeenCalled();
+    expect(screen.getByText(/login destination/i)).toBeInTheDocument();
   });
 });
 

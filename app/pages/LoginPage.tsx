@@ -34,10 +34,10 @@ function LoginPage() {
   const from = requestedFrom === '/login' || requestedFrom === '/signup' ? '/' : requestedFrom;
 
   useEffect(() => {
-    if (!isLoading && user) {
+    if (!isLoading && user && !isSubmitting) {
       navigate(from, { replace: true });
     }
-  }, [from, isLoading, navigate, user]);
+  }, [from, isLoading, isSubmitting, navigate, user]);
 
   const handleSubmit = async (values: FormValues) => {
     setFormError(null);
@@ -45,7 +45,7 @@ function LoginPage() {
     try {
       const result = await login(values.email, values.password);
       if (result.success) {
-        navigate(from, { replace: true });
+        navigate(result.trialStartedNow ? '/billing?trial=started' : from, { replace: true });
       } else {
         setFormError(result.error ?? 'Unable to log in.');
       }
