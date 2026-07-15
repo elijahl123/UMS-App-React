@@ -4,6 +4,8 @@ This document describes the recommended production release process for the UMS a
 
 Production should be promoted from `main`, not from pull request branches. Pull requests prove the change is safe. Merges to `main` release the change.
 
+For the branch promotion process from feature work to staging to production, see [Release Flow](release-flow.md).
+
 ## Assumptions
 
 - Public URL: `https://app.untitledmanagementsoftware.com`
@@ -48,6 +50,8 @@ Recommended rules:
 - Require branches to be up to date before merging.
 - Restrict who can push directly to `main`.
 - Optionally require manual approval through a GitHub `production` environment before deployment.
+
+When promoting `staging` to `main`, use a normal merge commit. Do not squash merge `staging` into `main`, because that can make future pull requests show old staging commits again even when the files already match production.
 
 The important split is:
 
