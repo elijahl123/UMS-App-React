@@ -2,6 +2,8 @@
 
 This repo is set up for a single Ubuntu droplet with Nginx in front and the Express API running on `127.0.0.1:3001`.
 
+For the branch promotion process from feature work to staging to production, see [Release Flow](release-flow.md).
+
 ## Assumptions
 
 - Public URL: `https://dev.untitledmanagementsoftware.com`
