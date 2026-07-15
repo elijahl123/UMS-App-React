@@ -264,7 +264,7 @@ export default function BrightspacePdfImportCard({
                       </TableCell>
                       <TableCell>
                         <Badge variant={row.entryKind === 'homework' ? 'default' : 'secondary'}>
-                          {row.entryKind === 'homework' ? 'Homework' : 'Event'}
+                          {row.entryKind === 'homework' ? 'Assignment' : 'Event'}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{formatPreviewDate(row)}</TableCell>
