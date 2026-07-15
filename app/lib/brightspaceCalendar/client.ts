@@ -1,4 +1,4 @@
-import { getApiAuthHeaders } from '@/app/lib/api/client';
+import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 import type { BrightspaceCalendarPreviewRow } from './parser';
 
 export type BrightspaceImportResponse = {
@@ -13,7 +13,7 @@ export async function importBrightspaceCalendarRows(
   rows: BrightspaceCalendarPreviewRow[],
   userId?: string
 ): Promise<BrightspaceImportResponse> {
-  const response = await fetch('/api/brightspace-calendar/import', {
+  const response = await apiFetch('/brightspace-calendar/import', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
     body: JSON.stringify({ rows, userId }),
