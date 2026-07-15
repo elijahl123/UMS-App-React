@@ -142,6 +142,30 @@ describe('widgets and calendar components', () => {
     }
   });
 
+  it('updates the sidebar class card at the class boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 10, 10, 14, 59));
+
+    try {
+      renderWithRouter(<Sidebar />);
+
+      expect(screen.getByText(/current class/i)).toBeInTheDocument();
+      expect(screen.getByText(/math 101/i)).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByText(/no more classes today/i)).toBeInTheDocument();
+      expect(screen.getByText(/your schedule is clear for the rest of the day/i)).toBeInTheDocument();
+      expect(screen.getByText(/no more classes today/i).closest('[style]')).toHaveStyle({
+        backgroundColor: 'var(--course-gray)',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders calendar grid items and day details', async () => {
     const onDayClick = vi.fn();
     const onEventClick = vi.fn();
