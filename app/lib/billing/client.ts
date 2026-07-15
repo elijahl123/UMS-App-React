@@ -1,4 +1,4 @@
-import { getApiAuthHeaders } from '@/app/lib/api/client';
+import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 
 export type BillingInterval = 'monthly' | 'yearly';
 
@@ -36,7 +36,7 @@ export interface BillingConfig {
 }
 
 async function billingRequest<TResult>(path: string, options?: RequestInit): Promise<TResult> {
-  const response = await fetch(`/api/billing${path}`, {
+  const response = await apiFetch(`/billing${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

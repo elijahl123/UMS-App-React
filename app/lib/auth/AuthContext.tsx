@@ -1,8 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { mapFirebaseUser } from '@/app/data/mappers';
 import type { AppUser, StagingAccessUser } from '@/app/data/types';
-import { getApiAuthHeaders, setApiAuthToken } from '@/app/lib/api/client';
-import { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo } from '@/app/lib/auth/googleOAuth';
+import { apiFetch, getApiAuthHeaders, setApiAuthToken } from '@/app/lib/api/client';
+import {
+  consumeGoogleRedirectIdToken,
+  getGoogleOAuthRequestUri,
+  isGoogleSignInConfigured,
+  setGoogleAuthReturnTo,
+  startGoogleSignIn,
+} from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
 import { startTrial } from '@/app/lib/billing/client';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
@@ -202,7 +208,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const postBody = `id_token=${encodeURIComponent(googleIdToken)}&providerId=google.com`;
       const result: FirebaseIdpResult = await firebaseAuth.signInWithIdp({
         postBody,
-        requestUri: window.location.origin,
+        requestUri: getGoogleOAuthRequestUri(),
         idToken: linkToIdToken,
       });
       const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: result.idToken });
@@ -530,7 +536,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await fetch('/api/auth/account', {
+      const response = await apiFetch('/auth/account', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
         body: JSON.stringify(values),

@@ -22,7 +22,10 @@ SENDGRID_API_KEY=SG.xxxx
 SENDGRID_FROM_EMAIL=noreply@untitledmanagementsoftware.com
 VITE_FIREBASE_API_KEY=xxxx
 VITE_GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+VITE_API_BASE_URL=
+VITE_GOOGLE_REDIRECT_URI=
 APP_ORIGIN=http://localhost:5173
+APP_ORIGINS=
 APP_BASE_URL=http://localhost:5173
 PORT=3001
 VITE_DEV_ORIGIN=http://localhost:5173
@@ -42,6 +45,8 @@ npm run dev
 ```
 
 Vite serves the React app at `http://localhost:5173` and proxies `/api` requests to the Express API on `http://127.0.0.1:3001`.
+
+Leave `VITE_API_BASE_URL` blank for same-origin web builds. Native Capacitor builds should set it to the public API root, for example `https://app.untitledmanagementsoftware.com/api`.
 
 Useful checks:
 
@@ -81,6 +86,7 @@ Set the staging origin to your public URL:
 
 ```sh
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
+APP_ORIGINS=https://dev.untitledmanagementsoftware.com
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
 PORT=3001
 ```
