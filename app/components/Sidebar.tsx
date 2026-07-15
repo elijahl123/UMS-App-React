@@ -66,8 +66,22 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const displayEmail = user?.loginEmail ?? user?.email;
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
+    let intervalId: number | undefined;
+    const syncNow = () => setNow(new Date());
+    const currentTime = new Date();
+    const nextMinuteDelay = 60_000 - currentTime.getSeconds() * 1000 - currentTime.getMilliseconds();
+
+    const timeoutId = window.setTimeout(() => {
+      syncNow();
+      intervalId = window.setInterval(syncNow, 60_000);
+    }, nextMinuteDelay);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
+    };
   }, []);
 
   const handleNavClick = () => {
@@ -279,9 +293,9 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         <div
           className={cn('rounded-lg border p-3 shadow-sm', collapsedOnlyClass)}
           style={{
-            backgroundColor: classFocus ? classFocusColors.bg : 'white',
-            borderColor: classFocus ? classFocusColors.border : 'rgb(9 9 11 / 0.08)',
-            color: classFocus ? classFocusColors.text : undefined,
+            backgroundColor: classFocusColors.bg,
+            borderColor: classFocusColors.border,
+            color: classFocusColors.text,
           }}
         >
           <div className="mb-2 flex items-center gap-2">
