@@ -6,6 +6,7 @@ import { ArrowLeft, Check, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { appEnv } from '@/app/lib/env';
 import {
   cancelSubscription,
   createPaymentMethodSetupIntent,
@@ -21,6 +22,9 @@ import {
   type BillingPaymentMethod,
   type BillingStatus,
 } from '@/app/lib/billing/client';
+
+const isProductionApp = appEnv === 'production';
+const showStripeTestCardHelp = !isProductionApp;
 
 const planCopy: Record<BillingInterval, { title: string; price: string; cadence: string; note: string }> = {
   monthly: {
@@ -401,7 +405,7 @@ function BillingPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Subscribe to UMS</CardTitle>
-            <CardDescription>Choose a test-mode subscription to unlock the app.</CardDescription>
+            <CardDescription>{isProductionApp ? 'Choose a subscription to unlock the app.' : 'Choose a test-mode subscription to unlock the app.'}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6 overflow-visible">
             {error && <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</p>}
@@ -575,9 +579,11 @@ function BillingPage() {
                   </div>
                 )}
 
-                <p className="text-xs text-muted-foreground">
-                  Test mode: use Stripe test cards such as <code>4242 4242 4242 4242</code> with any future expiry and CVC.
-                </p>
+                {showStripeTestCardHelp && (
+                  <p className="text-xs text-muted-foreground">
+                    Test mode: use Stripe test cards such as <code>4242 4242 4242 4242</code> with any future expiry and CVC.
+                  </p>
+                )}
               </>
             )}
 
