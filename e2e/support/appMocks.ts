@@ -208,6 +208,11 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
       cancelAtPeriodEnd: false,
       stripeSubscriptionId: 'sub_e2e',
       stripePriceId: 'price_monthly_e2e',
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialActive: false,
+      trialDaysRemaining: 0,
+      hasAccess: true,
     });
   });
 
@@ -339,6 +344,11 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
       cancelAtPeriodEnd: false,
       stripeSubscriptionId: 'sub_e2e',
       stripePriceId: 'price_monthly_e2e',
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialActive: false,
+      trialDaysRemaining: 0,
+      hasAccess: true,
     });
   });
 
@@ -460,6 +470,11 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
       cancelAtPeriodEnd: false,
       stripeSubscriptionId: 'sub_e2e',
       stripePriceId: 'price_monthly_e2e',
+      trialStartedAt: null,
+      trialEndsAt: null,
+      trialActive: false,
+      trialDaysRemaining: 0,
+      hasAccess: true,
     });
   });
 

@@ -11,6 +11,7 @@ import {
   getOrCreateCustomer,
   isSubscribed,
   priceIdForInterval,
+  startTrialForUser,
   stripeClient,
   subscriptionPeriodEnd,
   updateSubscriptionByStripeSubscription,
@@ -66,6 +67,16 @@ billingRouter.get('/status/refresh', async (req, res) => {
       return res.json(await getBillingStatus(userId));
     }
     return res.json(status);
+  } catch (err) {
+    return errorResponse(res, err);
+  }
+});
+
+billingRouter.post('/trial/start', async (req, res) => {
+  try {
+    const userId = requestUserId(req, req.body);
+    const email = req.auth?.email ?? (required(req.body, 'email') as string);
+    return res.json(await startTrialForUser({ userId, email }));
   } catch (err) {
     return errorResponse(res, err);
   }

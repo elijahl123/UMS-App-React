@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FcGoogle } from 'react-icons/fc';
-import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard, Link2, Mail, Plus, Send } from 'lucide-react';
+import {
+  AlertTriangle,
+  Loader2,
+  User as UserIcon,
+  KeyRound,
+  CheckCircle2,
+  MailWarning,
+  CreditCard,
+  Link2,
+  Mail,
+  Plus,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -57,7 +70,9 @@ function AccountPage() {
     isGoogleSignInAvailable,
     isProcessingGoogleRedirect,
     googleSignInError,
+    deleteAccount,
   } = useAuth();
+  const navigate = useNavigate();
 
   const [resendSubmitting, setResendSubmitting] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -83,6 +98,10 @@ function AccountPage() {
   const [accountEmailResendingId, setAccountEmailResendingId] = useState<string | null>(null);
   const [accountEmailError, setAccountEmailError] = useState<string | null>(null);
   const [accountEmailSuccess, setAccountEmailSuccess] = useState<string | null>(null);
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -236,12 +255,47 @@ function AccountPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const acceptableEmails = [accountPrimaryEmail, user?.email].filter((email): email is string => Boolean(email));
+    const normalizedConfirmation = deleteConfirmation.trim().toLowerCase();
+    const confirmationMatchesAccountEmail = acceptableEmails.some(
+      (email) => normalizedConfirmation === email.trim().toLowerCase()
+    );
+
+    if (!confirmationMatchesAccountEmail) {
+      setDeleteError('Type your account email to confirm deletion.');
+      return;
+    }
+
+    const confirmed = window.confirm('This permanently deletes your account and all app data. This cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeleteSubmitting(true);
+    try {
+      const result = await deleteAccount({ confirmationEmail: deleteConfirmation });
+      if (result.success) {
+        navigate('/login', { replace: true });
+      } else {
+        setDeleteError(result.error ?? 'Unable to delete account.');
+      }
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
 
   const googleConnected = user.connectedProviders.includes('google.com');
   const displayedPrimaryEmail = accountPrimaryEmail ?? user.email;
+  const normalizedDeleteConfirmation = deleteConfirmation.trim().toLowerCase();
+  const deleteConfirmationMatches = [displayedPrimaryEmail, user.email].some(
+    (email) => normalizedDeleteConfirmation === email.trim().toLowerCase()
+  );
   const googleAccountEmails = accountEmails.filter((email) => email.source === 'google');
   const additionalEmailAccounts = accountEmails.filter((email) => email.source !== 'google');
   const googleAccountEmail = googleAccountEmails[0]?.email ?? accountLoginEmail ?? user.email;
@@ -565,6 +619,45 @@ function AccountPage() {
               </Button>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <CardTitle>Delete account</CardTitle>
+          </div>
+          <CardDescription>Permanently delete your profile, courses, assignments, notes, events, connected emails, and billing records.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="delete-account-confirmation">
+              Type {displayedPrimaryEmail} to confirm
+            </label>
+            {user.email !== displayedPrimaryEmail && (
+              <p className="text-sm text-muted-foreground">Your current sign-in email, {user.email}, also works.</p>
+            )}
+            <Input
+              id="delete-account-confirmation"
+              type="email"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoComplete="off"
+              disabled={deleteSubmitting}
+            />
+          </div>
+          {deleteError && <p className="text-sm font-medium text-destructive">{deleteError}</p>}
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full gap-2 sm:w-auto"
+            disabled={deleteSubmitting || !deleteConfirmationMatches}
+            onClick={handleDeleteAccount}
+          >
+            {deleteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deleteSubmitting ? 'Deleting...' : 'Delete account'}
+          </Button>
         </CardContent>
       </Card>
       </div>
