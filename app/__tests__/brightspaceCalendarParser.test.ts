@@ -10,13 +10,14 @@ describe('Brightspace calendar parser', () => {
     });
   });
 
-  it('parses Due entries as homework and Available entries as events', () => {
+  it('parses Due entries and coursework availability rows as homework', () => {
     const rows = parseBrightspaceCalendarText(`
       Agenda
       Page 1 of 2
       COMP30870-Graph Algorithms-2025/26 Spring
       Mid-Term Assignment (50%) - Due 01 March 2026 11:59 PM
       Practical 2 - Available 03 February 2026 4:00 PM
+      Office Hours - Available 04 February 2026 2:00 PM
     `);
 
     expect(rows).toEqual([
@@ -32,9 +33,17 @@ describe('Brightspace calendar parser', () => {
       expect.objectContaining({
         title: 'Practical 2',
         courseCode: 'COMP30870',
-        entryKind: 'event',
+        entryKind: 'homework',
         date: '2026-02-03',
         time: '16:00',
+        sourceLabel: 'Available',
+      }),
+      expect.objectContaining({
+        title: 'Office Hours',
+        courseCode: 'COMP30870',
+        entryKind: 'event',
+        date: '2026-02-04',
+        time: '14:00',
         sourceLabel: 'Available',
       }),
     ]);
@@ -72,5 +81,69 @@ describe('Brightspace calendar parser', () => {
       date: '2026-04-12',
       time: '23:59',
     });
+  });
+
+  it('parses pasted Brightspace print text with encoded dashes and duplicate detail rows', () => {
+    const rows = parseBrightspaceCalendarText(`
+      Practical 2 â€“ Available 03 February 2026 4:00 PM
+      MATH10210-Found. of Math. for Com.Sc. I-2025/26 Spring
+      Homework 2 solutions â€“ Available 03 February 2026 5:00 PM
+      MATH10210-Found. of Math. for Com.Sc. I-2025/26 Spring
+      7/14/26, 4:50 PM Print - University College Dublin
+      https://brightspace.ucd.ie/d2l/le/calendar/6606 1/12
+      Mid-Term Assignment - Due 01 March 2026 11:59 PM
+      COMP30870-Graph Algorithms-2025/26 Spring
+      Mid-Term Assignment
+      Mid-Term Assignment (50%) - Due 01 March 2026 11:59 PM
+      COMP30870-Graph Algorithms-2025/26 Spring
+      Due 1 March at 11:59 PM
+      Due 1 March at 11:59 PM
+      Mid-Term Assignment
+      Assignment
+      Mid-Term Assignment (50%) - Due 01 March 2026 11:59 PM
+      COMP30870-Graph Algorithms-2025/26 Spring
+      Group Project (30% of your final grade) - Due 22 March 2026 11:30 PM
+      COMP30770- Programming for Big Data-2025/26 Spring
+    `);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        title: 'Practical 2',
+        courseCode: 'MATH10210',
+        entryKind: 'homework',
+        date: '2026-02-03',
+        time: '16:00',
+        sourceLabel: 'Available',
+      }),
+      expect.objectContaining({
+        title: 'Homework 2 solutions',
+        courseCode: 'MATH10210',
+        entryKind: 'homework',
+        date: '2026-02-03',
+        time: '17:00',
+      }),
+      expect.objectContaining({
+        title: 'Mid-Term Assignment',
+        courseCode: 'COMP30870',
+        entryKind: 'homework',
+        date: '2026-03-01',
+        time: '23:59',
+      }),
+      expect.objectContaining({
+        title: 'Mid-Term Assignment (50%)',
+        courseCode: 'COMP30870',
+        entryKind: 'homework',
+        date: '2026-03-01',
+        time: '23:59',
+      }),
+      expect.objectContaining({
+        title: 'Group Project (30% of your final grade)',
+        courseCode: 'COMP30770',
+        courseName: 'Programming for Big Data',
+        entryKind: 'homework',
+        date: '2026-03-22',
+        time: '23:30',
+      }),
+    ]);
   });
 });
