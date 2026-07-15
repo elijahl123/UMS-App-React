@@ -7,6 +7,9 @@
 :root {
   --main-color: #f8ad9d;
   --secondary-color: #f7f7f7;
+  --secondary-accent: #56494c;
+  --secondary-accent-hover: #473d40;
+  --secondary-accent-soft: #f0ecec;
   --main-accent: #f08080;
   --main-color-shade: #f4978e;
 
@@ -46,8 +49,8 @@
   --popover-foreground: var(--text-primary);
   --primary: var(--main-color);
   --primary-foreground: #ffffff;
-  --secondary: #666666;
-  --secondary-foreground: rgb(255 255 255);
+  --secondary: var(--secondary-accent);
+  --secondary-foreground: #ffffff;
   --muted: var(--secondary-color);
   --muted-foreground: var(--text-secondary);
   --accent: var(--main-accent);
@@ -98,7 +101,7 @@
   --popover-foreground: rgb(250 250 250);
   --primary: rgb(229 229 229);
   --primary-foreground: rgb(23 23 23);
-  --secondary: rgb(156 64 64);
+  --secondary: #56494c;
   --secondary-foreground: rgb(250 250 250);
   --muted: rgb(38 38 38);
   --muted-foreground: rgb(161 161 161);
