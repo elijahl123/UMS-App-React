@@ -1,6 +1,6 @@
 /* global self, caches, URL, fetch */
 
-const CACHE_VERSION = 'ums-pwa-v1';
+const CACHE_VERSION = 'ums-pwa-v2';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
