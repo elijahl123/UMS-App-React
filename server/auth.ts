@@ -13,6 +13,27 @@ export interface AuthenticatedUser {
   role: StagingAccessRole;
 }
 
+export interface FirebaseUserProfile {
+  uid: string;
+  email: string;
+  displayName?: string;
+  emailVerified: boolean;
+  createdAt: string;
+  providerIds: string[];
+}
+
+export interface AuthenticatedFirebaseUser {
+  uid: string;
+  email: string;
+}
+
+type FirebaseLookupResult = {
+  users?: Array<{
+    localId: string;
+    email?: string;
+  }>;
+};
+
 declare module 'express-serve-static-core' {
   interface Request {
     auth?: AuthenticatedUser;
@@ -106,6 +127,148 @@ async function grantForUser(uid: string, email: string) {
   }
 
   return null;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+export async function getFirebaseUserProfile(uid: string): Promise<FirebaseUserProfile> {
+  const user = await firebaseApp().auth().getUser(uid);
+  return {
+    uid: user.uid,
+    email: normalizeEmail(user.email ?? ''),
+    displayName: user.displayName,
+    emailVerified: user.emailVerified,
+    createdAt: user.metadata.creationTime ? new Date(user.metadata.creationTime).toISOString() : new Date().toISOString(),
+    providerIds: user.providerData.map((provider) => provider.providerId).filter(Boolean),
+  };
+}
+
+export async function authenticatedFirebaseUser(req: Request): Promise<AuthenticatedFirebaseUser> {
+  if (req.auth?.uid && req.auth.email) {
+    return { uid: req.auth.uid, email: req.auth.email };
+  }
+
+  const token = bearerToken(req);
+  if (!token) {
+    throw new ApiError('AUTH_TOKEN_REQUIRED', 401);
+  }
+
+  if (!config.firebaseWebApiKey) {
+    throw new ApiError('VITE_FIREBASE_API_KEY is required', 500);
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: token }),
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as FirebaseLookupResult | null;
+  const firebaseUser = payload?.users?.[0];
+  if (!response.ok || !firebaseUser?.email) {
+    throw new ApiError('INVALID_AUTH_TOKEN', 401);
+  }
+
+  return { uid: firebaseUser.localId, email: normalizeEmail(firebaseUser.email) };
+}
+
+function isMissingFirebaseUser(err: unknown): boolean {
+  return (err as { code?: string })?.code === 'auth/user-not-found';
+}
+
+export async function deleteFirebaseAuthUsers(uids: string[]) {
+  const uniqueUids = [...new Set(uids.map((uid) => uid.trim()).filter(Boolean))];
+  if (uniqueUids.length === 0) {
+    return;
+  }
+
+  if (uniqueUids.length === 1) {
+    try {
+      await firebaseApp().auth().deleteUser(uniqueUids[0]);
+    } catch (err) {
+      if (!isMissingFirebaseUser(err)) {
+        throw err;
+      }
+    }
+    return;
+  }
+
+  await firebaseApp().auth().deleteUsers(uniqueUids);
+}
+
+export async function deleteCurrentFirebaseAuthUser(idToken: string) {
+  if (!config.firebaseWebApiKey) {
+    throw new ApiError('VITE_FIREBASE_API_KEY is required', 500);
+  }
+
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    }
+  );
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
+    throw new ApiError(payload?.error?.message ?? 'FIREBASE_ACCOUNT_DELETE_FAILED', 400);
+  }
+}
+
+export async function getAccountPrimaryEmail(uid: string): Promise<string | null> {
+  const result = await pool.query<{ email: string }>(
+    `
+      SELECT email
+      FROM account_primary_emails
+      WHERE firebase_uid = $1
+      LIMIT 1;
+    `,
+    [uid]
+  );
+
+  return result.rows[0]?.email ?? null;
+}
+
+export async function rememberAccountPrimaryEmail(uid: string, email: string): Promise<string> {
+  const normalizedEmail = normalizeEmail(email);
+  await pool.query(
+    `
+      INSERT INTO account_primary_emails (firebase_uid, email)
+      VALUES ($1, $2)
+      ON CONFLICT (firebase_uid) DO UPDATE
+      SET email = EXCLUDED.email,
+          updated_at = NOW();
+    `,
+    [uid, normalizedEmail]
+  );
+
+  return normalizedEmail;
+}
+
+export async function resolvePrimaryUidForEmail(email: string, fallbackUid: string): Promise<string> {
+  const normalizedEmail = normalizeEmail(email);
+  const result = await pool.query<{ firebase_uid: string }>(
+    `
+      SELECT firebase_uid
+      FROM account_primary_emails
+      WHERE lower(email) = $1
+      UNION ALL
+      SELECT firebase_uid
+      FROM account_email_addresses
+      WHERE lower(email) = $1
+        AND verified_at IS NOT NULL
+      LIMIT 1;
+    `,
+    [normalizedEmail]
+  );
+
+  return result.rows[0]?.firebase_uid ?? fallbackUid;
 }
 
 export async function requireStagingAccess(req: Request, res: Response, next: NextFunction) {

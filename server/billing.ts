@@ -16,6 +16,7 @@ export interface BillingPaymentMethod {
   billingName: string | null;
 }
 
+export const trialLengthDays = 14;
 export const activeSubscriptionStatuses = new Set(['active', 'trialing']);
 
 export function isSubscribed(status: string | null | undefined): boolean {
@@ -54,13 +55,52 @@ export async function ensureBillingTables() {
       status TEXT NOT NULL DEFAULT 'none',
       current_period_end TIMESTAMPTZ,
       cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
+      trial_started_at TIMESTAMPTZ,
+      trial_ends_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    ALTER TABLE user_subscriptions
+      ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
+
     CREATE INDEX IF NOT EXISTS idx_user_subscriptions_customer_id ON user_subscriptions (stripe_customer_id);
     CREATE INDEX IF NOT EXISTS idx_user_subscriptions_subscription_id ON user_subscriptions (stripe_subscription_id);
+    CREATE INDEX IF NOT EXISTS idx_user_subscriptions_trial_ends_at ON user_subscriptions (trial_ends_at);
   `);
+}
+
+function trialDaysRemaining(trialEndsAt: Date | string | null | undefined): number {
+  if (!trialEndsAt) {
+    return 0;
+  }
+
+  const endsAt = trialEndsAt instanceof Date ? trialEndsAt : new Date(trialEndsAt);
+  const millisecondsRemaining = endsAt.getTime() - Date.now();
+  return Math.max(0, Math.ceil(millisecondsRemaining / (1000 * 60 * 60 * 24)));
+}
+
+function mapBillingStatus(row?: Record<string, unknown>) {
+  const status = (row?.status as string | undefined) ?? 'none';
+  const subscribed = isSubscribed(status);
+  const trialStartedAt = (row?.trial_started_at as string | null | undefined) ?? null;
+  const trialEndsAt = (row?.trial_ends_at as string | null | undefined) ?? null;
+  const trialActive = Boolean(row?.trial_active);
+
+  return {
+    status,
+    subscribed,
+    currentPeriodEnd: (row?.current_period_end as string | null | undefined) ?? null,
+    cancelAtPeriodEnd: (row?.cancel_at_period_end as boolean | undefined) ?? false,
+    stripeSubscriptionId: (row?.stripe_subscription_id as string | null | undefined) ?? null,
+    stripePriceId: (row?.stripe_price_id as string | null | undefined) ?? null,
+    trialStartedAt,
+    trialEndsAt,
+    trialActive,
+    trialDaysRemaining: trialDaysRemaining(trialEndsAt),
+    hasAccess: subscribed || trialActive,
+  };
 }
 
 export async function getOrCreateCustomer(params: { userId: string; email: string; name?: string | null }): Promise<string> {
@@ -100,6 +140,52 @@ export async function getOrCreateCustomer(params: { userId: string; email: strin
   );
 
   return customer.id;
+}
+
+export async function startTrialForUser(params: { userId: string; email: string }) {
+  const result = await pool.query(
+    `
+      WITH existing AS (
+        SELECT trial_started_at, status
+        FROM user_subscriptions
+        WHERE user_id = $1
+      ),
+      upserted AS (
+        INSERT INTO user_subscriptions (user_id, email, status, trial_started_at, trial_ends_at)
+        VALUES ($1, $2, 'none', NOW(), NOW() + ($3::text || ' days')::interval)
+        ON CONFLICT (user_id) DO UPDATE
+        SET email = EXCLUDED.email,
+            trial_started_at = CASE
+              WHEN user_subscriptions.trial_started_at IS NULL
+                AND user_subscriptions.status <> ALL($4::text[])
+                THEN EXCLUDED.trial_started_at
+              ELSE user_subscriptions.trial_started_at
+            END,
+            trial_ends_at = CASE
+              WHEN user_subscriptions.trial_ends_at IS NULL
+                AND user_subscriptions.status <> ALL($4::text[])
+                THEN EXCLUDED.trial_ends_at
+              ELSE user_subscriptions.trial_ends_at
+            END,
+            updated_at = NOW()
+        RETURNING user_id
+      )
+      SELECT EXISTS(SELECT 1 FROM upserted)
+        AND NOT EXISTS(
+          SELECT 1
+          FROM existing
+          WHERE trial_started_at IS NOT NULL
+            OR status = ANY($4::text[])
+        ) AS trial_started_now;
+    `,
+    [params.userId, params.email, trialLengthDays, Array.from(activeSubscriptionStatuses)]
+  );
+
+  const status = await getBillingStatus(params.userId);
+  return {
+    ...status,
+    trialStartedNow: Boolean(result.rows[0]?.trial_started_now),
+  };
 }
 
 export async function getBillingReference(userId: string): Promise<{ customerId: string | null; subscriptionId: string | null }> {
@@ -279,7 +365,11 @@ export async function getBillingStatus(userId: string) {
   const result = await pool.query(
     `
       SELECT user_id, email, stripe_customer_id, stripe_subscription_id, stripe_price_id, status,
-             current_period_end::text AS current_period_end, cancel_at_period_end
+             current_period_end::text AS current_period_end,
+             cancel_at_period_end,
+             trial_started_at::text AS trial_started_at,
+             trial_ends_at::text AS trial_ends_at,
+             trial_ends_at > NOW() AS trial_active
       FROM user_subscriptions
       WHERE user_id = $1;
     `,
@@ -288,21 +378,8 @@ export async function getBillingStatus(userId: string) {
 
   const row = result.rows[0];
   if (!row) {
-    return {
-      status: 'none',
-      subscribed: false,
-      currentPeriodEnd: null,
-      cancelAtPeriodEnd: false,
-      stripeSubscriptionId: null,
-    };
+    return mapBillingStatus();
   }
 
-  return {
-    status: row.status as string,
-    subscribed: isSubscribed(row.status),
-    currentPeriodEnd: row.current_period_end as string | null,
-    cancelAtPeriodEnd: row.cancel_at_period_end as boolean,
-    stripeSubscriptionId: row.stripe_subscription_id as string | null,
-    stripePriceId: row.stripe_price_id as string | null,
-  };
+  return mapBillingStatus(row);
 }

@@ -1,12 +1,19 @@
-import { getApiAuthHeaders } from '@/app/lib/api/client';
+import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 
 export interface AccountEmailAddress {
   id: string;
   email: string;
+  source?: 'email' | 'google';
   verified: boolean;
   verifiedAt: string | null;
   verificationExpiresAt: string | null;
   createdAt: string;
+}
+
+export interface AccountEmailListResponse {
+  primaryEmail?: string;
+  loginEmail?: string;
+  emails: AccountEmailAddress[];
 }
 
 async function accountEmailRequest<TResult>(path: string, init?: RequestInit): Promise<TResult> {
@@ -14,7 +21,7 @@ async function accountEmailRequest<TResult>(path: string, init?: RequestInit): P
   headers.set('Content-Type', 'application/json');
   Object.entries(getApiAuthHeaders()).forEach(([key, value]) => headers.set(key, String(value)));
 
-  const response = await fetch(`/api/email/account-addresses${path}`, {
+  const response = await apiFetch(`/email/account-addresses${path}`, {
     ...(init ?? {}),
     headers,
   });
@@ -27,7 +34,7 @@ async function accountEmailRequest<TResult>(path: string, init?: RequestInit): P
   return payload as TResult;
 }
 
-export async function listAccountEmails(): Promise<{ emails: AccountEmailAddress[] }> {
+export async function listAccountEmails(): Promise<AccountEmailListResponse> {
   return accountEmailRequest('');
 }
 
@@ -45,7 +52,7 @@ export async function resendAccountEmailVerification(id: string): Promise<{ emai
 }
 
 export async function verifyAccountEmailToken(token: string): Promise<{ email: AccountEmailAddress }> {
-  const response = await fetch('/api/email/account-addresses/verify', {
+  const response = await apiFetch('/email/account-addresses/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token }),

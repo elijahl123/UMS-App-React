@@ -63,10 +63,25 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const dueTodayCount = assignments.filter((a) => a.status === 'due_today').length;
   const classFocus = getTodayClassFocus(sessions, courses, now);
   const classFocusColors = getCourseColor(classFocus?.course?.color);
+  const displayEmail = user?.loginEmail ?? user?.email;
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
+    let intervalId: number | undefined;
+    const syncNow = () => setNow(new Date());
+    const currentTime = new Date();
+    const nextMinuteDelay = 60_000 - currentTime.getSeconds() * 1000 - currentTime.getMilliseconds();
+
+    const timeoutId = window.setTimeout(() => {
+      syncNow();
+      intervalId = window.setInterval(syncNow, 60_000);
+    }, nextMinuteDelay);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
+    };
   }, []);
 
   const handleNavClick = () => {
@@ -117,7 +132,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         )}
       >
         <img
-          src="/storages/zwD6Awu5SX/static/UMSLogo.svg"
+          src="/app-icons/android/launchericon-192x192.png"
           alt="Untitled Management Software logo"
           className={cn('h-12 w-12 shrink-0 sm:h-14 sm:w-14', collapsed && 'md:h-10 md:w-10')}
         />
@@ -278,9 +293,9 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         <div
           className={cn('rounded-lg border p-3 shadow-sm', collapsedOnlyClass)}
           style={{
-            backgroundColor: classFocus ? classFocusColors.bg : 'white',
-            borderColor: classFocus ? classFocusColors.border : 'rgb(9 9 11 / 0.08)',
-            color: classFocus ? classFocusColors.text : undefined,
+            backgroundColor: classFocusColors.bg,
+            borderColor: classFocusColors.border,
+            color: classFocusColors.text,
           }}
         >
           <div className="mb-2 flex items-center gap-2">
@@ -349,7 +364,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
               <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-foreground">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{user.email}</p>
+              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{displayEmail}</p>
             </div>
           </NavLink>
         )}

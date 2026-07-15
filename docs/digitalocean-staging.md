@@ -2,6 +2,8 @@
 
 This repo is set up for a single Ubuntu droplet with Nginx in front and the Express API running on `127.0.0.1:3001`.
 
+For the branch promotion process from feature work to staging to production, see [Release Flow](release-flow.md).
+
 ## Assumptions
 
 - Public URL: `https://dev.untitledmanagementsoftware.com`
@@ -14,12 +16,15 @@ Use these values in the droplet env file:
 
 ```sh
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
+APP_ORIGINS=https://dev.untitledmanagementsoftware.com
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
 PORT=3001
 DATABASE_URL=<staging-postgres-url>
 SENDGRID_API_KEY=<sendgrid-api-key>
 VITE_FIREBASE_API_KEY=<firebase-api-key>
 VITE_GOOGLE_CLIENT_ID=<google-client-id>
+VITE_API_BASE_URL=
+VITE_GOOGLE_REDIRECT_URI=
 STRIPE_SECRET_KEY=<stripe-secret-key>
 STRIPE_WEBHOOK_SECRET=<stripe-webhook-secret>
 STRIPE_MONTHLY_PRICE_ID=<stripe-monthly-price-id>
@@ -27,7 +32,7 @@ STRIPE_YEARLY_PRICE_ID=<stripe-yearly-price-id>
 VITE_STRIPE_PUBLISHABLE_KEY=<stripe-publishable-key>
 ```
 
-`VITE_GOOGLE_CLIENT_ID` is a client-side build value. If you add or change it, rerun `npm run build` before restarting the service so the browser bundle picks up the new value.
+`VITE_GOOGLE_CLIENT_ID`, `VITE_API_BASE_URL`, and `VITE_GOOGLE_REDIRECT_URI` are client-side build values. If you add or change one, rerun `npm run build` before restarting the service so the browser bundle picks up the new value. Leave `VITE_API_BASE_URL` blank for the hosted web app.
 
 ## Install
 
@@ -128,7 +133,7 @@ If you want to force HTTP to HTTPS manually, keep the 80 server block as a redir
 
 ## Google Sign-In
 
-Google sign-in uses `window.location.origin` as the redirect URI, so the Google OAuth client must allow `https://dev.untitledmanagementsoftware.com` as an authorized JavaScript origin and redirect URI. If the button still says it is not configured, confirm that the env file contains `VITE_GOOGLE_CLIENT_ID`, rebuild the client with `npm run build`, and restart the service.
+Google sign-in uses `window.location.origin` as the web redirect URI unless `VITE_GOOGLE_REDIRECT_URI` is set. The Google OAuth client must allow `https://dev.untitledmanagementsoftware.com` as an authorized JavaScript origin and redirect URI. If the button still says it is not configured, confirm that the env file contains `VITE_GOOGLE_CLIENT_ID`, rebuild the client with `npm run build`, and restart the service.
 
 ## Billing Troubleshooting
 
@@ -154,6 +159,30 @@ source /etc/ums-app-react/staging.env
 set +a
 npm run build
 sudo systemctl restart ums-app-react
+```
+
+## PDF Worker Troubleshooting
+
+The Brightspace PDF import uses a Vite-built PDF.js worker like `/assets/pdf.worker-<hash>.mjs`. Browser module workers require a JavaScript MIME type, so this file must not be served as `application/octet-stream`.
+
+Check the deployed header:
+
+```sh
+curl -I https://dev.untitledmanagementsoftware.com/assets/pdf.worker-<hash>.mjs
+```
+
+If the response has `Content-Type: application/octet-stream`, update the active nginx site config with the `.mjs` location from `deploy/nginx.conf.example`, then reload nginx:
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Also confirm you are checking the app directory on the droplet, not your local machine:
+
+```sh
+cd /var/www/ums-app-react
+ls -lah dist/assets | grep pdf.worker
 ```
 
 ## Notes

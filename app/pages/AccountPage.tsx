@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { FcGoogle } from 'react-icons/fc';
-import { Loader2, User as UserIcon, KeyRound, CheckCircle2, MailWarning, CreditCard, Link2, Mail, Plus, Send } from 'lucide-react';
+import {
+  AlertTriangle,
+  Loader2,
+  User as UserIcon,
+  KeyRound,
+  CheckCircle2,
+  MailWarning,
+  CreditCard,
+  Link2,
+  Mail,
+  Plus,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -17,6 +30,7 @@ import {
   resendAccountEmailVerification,
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
+import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -56,7 +70,9 @@ function AccountPage() {
     isGoogleSignInAvailable,
     isProcessingGoogleRedirect,
     googleSignInError,
+    deleteAccount,
   } = useAuth();
+  const navigate = useNavigate();
 
   const [resendSubmitting, setResendSubmitting] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -74,12 +90,18 @@ function AccountPage() {
   const [googleConnectError, setGoogleConnectError] = useState<string | null>(null);
 
   const [accountEmails, setAccountEmails] = useState<AccountEmailAddress[]>([]);
+  const [accountPrimaryEmail, setAccountPrimaryEmail] = useState<string | null>(null);
+  const [accountLoginEmail, setAccountLoginEmail] = useState<string | null>(null);
   const [accountEmailsLoading, setAccountEmailsLoading] = useState(false);
   const [accountEmailInput, setAccountEmailInput] = useState('');
   const [accountEmailSubmitting, setAccountEmailSubmitting] = useState(false);
   const [accountEmailResendingId, setAccountEmailResendingId] = useState<string | null>(null);
   const [accountEmailError, setAccountEmailError] = useState<string | null>(null);
   const [accountEmailSuccess, setAccountEmailSuccess] = useState<string | null>(null);
+
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -104,6 +126,8 @@ function AccountPage() {
       .then((result) => {
         if (isMounted) {
           setAccountEmails(result.emails);
+          setAccountPrimaryEmail(result.primaryEmail ?? user.email);
+          setAccountLoginEmail(result.loginEmail ?? user.email);
           setAccountEmailError(null);
         }
       })
@@ -122,6 +146,12 @@ function AccountPage() {
       isMounted = false;
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const primaryEmail = accountPrimaryEmail ?? user.email;
+    profileForm.setValue('email', primaryEmail);
+  }, [accountPrimaryEmail, profileForm, user]);
 
   const handleProfileSubmit = async (values: ProfileFormValues) => {
     setProfileError(null);
@@ -225,11 +255,50 @@ function AccountPage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const acceptableEmails = [accountPrimaryEmail, user?.email].filter((email): email is string => Boolean(email));
+    const normalizedConfirmation = deleteConfirmation.trim().toLowerCase();
+    const confirmationMatchesAccountEmail = acceptableEmails.some(
+      (email) => normalizedConfirmation === email.trim().toLowerCase()
+    );
+
+    if (!confirmationMatchesAccountEmail) {
+      setDeleteError('Type your account email to confirm deletion.');
+      return;
+    }
+
+    const confirmed = window.confirm('This permanently deletes your account and all app data. This cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeleteSubmitting(true);
+    try {
+      const result = await deleteAccount({ confirmationEmail: deleteConfirmation });
+      if (result.success) {
+        navigate('/login', { replace: true });
+      } else {
+        setDeleteError(result.error ?? 'Unable to delete account.');
+      }
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
 
   const googleConnected = user.connectedProviders.includes('google.com');
+  const displayedPrimaryEmail = accountPrimaryEmail ?? user.email;
+  const normalizedDeleteConfirmation = deleteConfirmation.trim().toLowerCase();
+  const deleteConfirmationMatches = [displayedPrimaryEmail, user.email].some(
+    (email) => normalizedDeleteConfirmation === email.trim().toLowerCase()
+  );
+  const googleAccountEmails = accountEmails.filter((email) => email.source === 'google');
+  const additionalEmailAccounts = accountEmails.filter((email) => email.source !== 'google');
+  const googleAccountEmail = googleAccountEmails[0]?.email ?? accountLoginEmail ?? user.email;
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -286,6 +355,8 @@ function AccountPage() {
         </CardContent>
       </Card>
 
+      <BrightspacePdfImportCard />
+
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -302,13 +373,13 @@ function AccountPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Email</p>
-                <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                <p className="truncate text-sm text-muted-foreground">{displayedPrimaryEmail}</p>
               </div>
             </div>
             <Badge variant="secondary" className="w-fit">Primary</Badge>
           </div>
 
-          {accountEmails.map((email) => (
+          {additionalEmailAccounts.map((email) => (
             <div key={email.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary">
@@ -379,9 +450,9 @@ function AccountPage() {
                 <FcGoogle className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">Google</p>
+                <p className="text-sm font-medium text-foreground">Google account</p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {googleConnected ? user.email : 'Connect Google for one-click sign in.'}
+                  {googleConnected ? googleAccountEmail : 'Connect Google for one-click sign in.'}
                 </p>
               </div>
             </div>
@@ -406,6 +477,11 @@ function AccountPage() {
           )}
           {(googleConnectError || googleSignInError) && (
             <p className="px-4 pb-4 text-sm font-medium text-destructive">{googleConnectError ?? googleSignInError}</p>
+          )}
+          {googleAccountEmails.length > 0 && (
+            <p className="px-4 pb-4 text-sm text-muted-foreground">
+              {googleAccountEmails.length} Google {googleAccountEmails.length === 1 ? 'account' : 'accounts'} connected.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -543,6 +619,45 @@ function AccountPage() {
               </Button>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <CardTitle>Delete account</CardTitle>
+          </div>
+          <CardDescription>Permanently delete your profile, courses, assignments, notes, events, connected emails, and billing records.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-foreground" htmlFor="delete-account-confirmation">
+              Type {displayedPrimaryEmail} to confirm
+            </label>
+            {user.email !== displayedPrimaryEmail && (
+              <p className="text-sm text-muted-foreground">Your current sign-in email, {user.email}, also works.</p>
+            )}
+            <Input
+              id="delete-account-confirmation"
+              type="email"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoComplete="off"
+              disabled={deleteSubmitting}
+            />
+          </div>
+          {deleteError && <p className="text-sm font-medium text-destructive">{deleteError}</p>}
+          <Button
+            type="button"
+            variant="destructive"
+            className="w-full gap-2 sm:w-auto"
+            disabled={deleteSubmitting || !deleteConfirmationMatches}
+            onClick={handleDeleteAccount}
+          >
+            {deleteSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deleteSubmitting ? 'Deleting...' : 'Delete account'}
+          </Button>
         </CardContent>
       </Card>
       </div>

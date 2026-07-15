@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw } from 'lucide-react';
+import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw, FileUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
+import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
 import { mapCourse, mapAssignment } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import { formatAssignmentDue, formatDueTime, formatTimeZoneLabel } from '@/app/data/assignmentDates';
@@ -40,6 +41,7 @@ function HomeworkPage() {
     const status = searchParams.get('status');
     return status && statusValues.has(status) ? status : 'all';
   });
+  const [showImportPanel, setShowImportPanel] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
@@ -224,20 +226,20 @@ function HomeworkPage() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <Card className="flex min-h-0 flex-1 flex-col">
-        <CardHeader className="flex flex-col gap-4 pb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-0 flex-col gap-4 md:h-full">
+      <Card className="h-auto min-h-0 md:h-full md:flex-1">
+        <CardHeader className="flex flex-col gap-4 p-4 pb-3 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-4">
           <div className="flex items-center gap-3">
-            <CardTitle>Homework</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">Homework</CardTitle>
             {groups.find((g) => g.key === 'late') && (
               <Badge className="bg-[#ffdcdd] text-[#B3261E] hover:bg-[#ffdcdd]" variant="secondary">
                 {groups.find((g) => g.key === 'late')?.items.length} late
               </Badge>
             )}
           </div>
-          <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
+          <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-end">
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
+              <SelectTrigger className="w-full lg:w-[200px]">
                 <SelectValue placeholder="Filter by course" />
               </SelectTrigger>
               <SelectContent>
@@ -250,7 +252,7 @@ function HomeworkPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[160px]">
+              <SelectTrigger className="w-full lg:w-[160px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -261,13 +263,25 @@ function HomeworkPage() {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={openAddDialog} className="gap-2">
+            <Button type="button" variant="outline" className="w-full gap-2 lg:w-auto" onClick={() => setShowImportPanel((current) => !current)}>
+              <FileUp className="h-4 w-4" />
+              {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+            </Button>
+            <Button onClick={openAddDialog} className="w-full gap-2 lg:w-auto">
               <Plus className="h-4 w-4" />
               Add Assignment
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-auto px-2 sm:px-6">
+        <CardContent className="min-h-0 flex-1 overflow-visible px-4 pb-4 sm:px-6 md:overflow-auto">
+          {showImportPanel && (
+            <div className="mb-6">
+              <BrightspacePdfImportCard
+                title="Import Brightspace Assignments"
+                description="Download the Brightspace calendar as a PDF, preview the parsed rows, and import the items you want into Homework and Calendar."
+              />
+            </div>
+          )}
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
               <p className="text-sm font-semibold text-primary">No assignments found</p>

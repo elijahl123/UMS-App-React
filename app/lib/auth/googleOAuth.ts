@@ -2,6 +2,7 @@
 // http://localhost:5173 to the Google OAuth client's authorized redirect URIs
 // and JavaScript origins while running the standalone dev app.
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_OAUTH_CLIENT_ID';
+const GOOGLE_REDIRECT_URI = (import.meta.env.VITE_GOOGLE_REDIRECT_URI ?? '').trim();
 const GOOGLE_AUTH_RETURN_TO_KEY = 'schoolwork_google_auth_return_to';
 
 function isGoogleSignInConfigured(): boolean {
@@ -14,13 +15,21 @@ interface GoogleRedirectResult {
   idToken: string;
 }
 
+function getGoogleOAuthRedirectUri(): string {
+  return GOOGLE_REDIRECT_URI || window.location.origin;
+}
+
+function getGoogleOAuthRequestUri(): string {
+  return getGoogleOAuthRedirectUri();
+}
+
 // Opens Google's OAuth endpoint using Firebase's redirect URI for its auth handler.
 // This will redirect the browser through Google's OAuth flow, then back to Firebase's
 // handler, which will eventually redirect back to this app.
 function startGoogleSignIn(): Promise<GoogleRedirectResult> {
   console.log('[GoogleOAuth] ========== startGoogleSignIn() called ==========');
   
-  const redirectUri = window.location.origin;
+  const redirectUri = getGoogleOAuthRedirectUri();
   const nonce = generateNonce();
   const state = encodeState({ nonce });
   
@@ -68,19 +77,40 @@ function setGoogleAuthReturnTo(nextHashRoute: string) {
   sessionStorage.setItem(GOOGLE_AUTH_RETURN_TO_KEY, nextHashRoute);
 }
 
-function consumeGoogleRedirectIdToken(): string | null {
-  const rawHash = window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash;
+function extractGoogleRedirectIdToken(redirectUrl: string): string | null {
+  const url = new URL(redirectUrl, window.location.origin);
+  const rawHash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
   const hash = rawHash.startsWith('/') ? rawHash.slice(1) : rawHash;
-  const params = new URLSearchParams(hash);
-  const idToken = params.get('id_token');
+  const hashParams = new URLSearchParams(hash);
+  const hashIdToken = hashParams.get('id_token');
 
+  return hashIdToken ?? url.searchParams.get('id_token');
+}
+
+function consumeGoogleRedirectIdToken(redirectUrl?: string): string | null {
+  const idToken = extractGoogleRedirectIdToken(redirectUrl ?? window.location.href);
   if (idToken) {
     const returnTo = sessionStorage.getItem(GOOGLE_AUTH_RETURN_TO_KEY) ?? '/';
     sessionStorage.removeItem(GOOGLE_AUTH_RETURN_TO_KEY);
-    replaceHashRoute(returnTo);
+    if (!redirectUrl) {
+      replaceHashRoute(returnTo);
+    }
   }
 
   return idToken;
 }
 
-export { startGoogleSignIn, consumeGoogleRedirectIdToken, isGoogleSignInConfigured, setGoogleAuthReturnTo };
+function consumeGoogleRedirectUrl(redirectUrl: string): string | null {
+  return consumeGoogleRedirectIdToken(redirectUrl);
+}
+
+export {
+  consumeGoogleRedirectIdToken,
+  consumeGoogleRedirectUrl,
+  extractGoogleRedirectIdToken,
+  getGoogleOAuthRedirectUri,
+  getGoogleOAuthRequestUri,
+  isGoogleSignInConfigured,
+  setGoogleAuthReturnTo,
+  startGoogleSignIn,
+};

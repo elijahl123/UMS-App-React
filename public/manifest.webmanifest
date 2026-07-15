@@ -1,0 +1,40 @@
+{
+  "name": "Untitled Management Software",
+  "short_name": "UMS",
+  "description": "A student-focused management app for courses, homework, schedules, calendar events, and notes.",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f7",
+  "theme_color": "#f8ad9d",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/app-icons/android/launchericon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icons/android/launchericon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/splash_screens/13__iPad_Pro_M4_landscape.png",
+      "sizes": "2752x2064",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Untitled Management Software on a wide screen"
+    },
+    {
+      "src": "/splash_screens/iPhone_17_Pro_Max__iPhone_16_Pro_Max_portrait.png",
+      "sizes": "1320x2868",
+      "type": "image/png",
+      "label": "Untitled Management Software on mobile"
+    }
+  ]
+}

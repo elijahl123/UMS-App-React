@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { parseAllowedOrigins } from './cors';
 
 dotenv.config();
 
@@ -40,11 +41,14 @@ function listEnv(name: string): string[] {
     .filter(Boolean);
 }
 
+const appOrigin = process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://localhost:5173';
+
 export const config = {
   port: numberEnv('PORT', 3001),
   appEnv: process.env.APP_ENV ?? 'development',
-  appOrigin: process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://localhost:5173',
-  appBaseUrl: process.env.APP_BASE_URL ?? process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://127.0.0.1:5173',
+  appOrigin,
+  appOrigins: parseAllowedOrigins(appOrigin, process.env.APP_ORIGINS),
+  appBaseUrl: process.env.APP_BASE_URL ?? appOrigin ?? process.env.VITE_DEV_ORIGIN ?? 'http://127.0.0.1:5173',
   databaseUrl: requiredEnv('DATABASE_URL'),
   stagingAccessControlEnabled: booleanEnv('STAGING_ACCESS_CONTROL_ENABLED'),
   stagingAdminEmails: listEnv('STAGING_ADMIN_EMAILS'),

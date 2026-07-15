@@ -4,6 +4,8 @@ This document describes the recommended production release process for the UMS a
 
 Production should be promoted from `main`, not from pull request branches. Pull requests prove the change is safe. Merges to `main` release the change.
 
+For the branch promotion process from feature work to staging to production, see [Release Flow](release-flow.md).
+
 ## Assumptions
 
 - Public URL: `https://app.untitledmanagementsoftware.com`
@@ -49,6 +51,8 @@ Recommended rules:
 - Restrict who can push directly to `main`.
 - Optionally require manual approval through a GitHub `production` environment before deployment.
 
+When promoting `staging` to `main`, use a normal merge commit. Do not squash merge `staging` into `main`, because that can make future pull requests show old staging commits again even when the files already match production.
+
 The important split is:
 
 - Pull request checks do not have production secrets.
@@ -69,12 +73,15 @@ Use production values:
 ```sh
 NODE_ENV=production
 APP_ORIGIN=https://app.untitledmanagementsoftware.com
+APP_ORIGINS=https://app.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://app.untitledmanagementsoftware.com
 PORT=3001
 DATABASE_URL=<production-digitalocean-postgres-url>
 SENDGRID_API_KEY=<production-sendgrid-api-key>
 VITE_FIREBASE_API_KEY=<production-firebase-api-key>
 VITE_GOOGLE_CLIENT_ID=<production-google-client-id>
+VITE_API_BASE_URL=
+VITE_GOOGLE_REDIRECT_URI=
 STRIPE_SECRET_KEY=<production-stripe-secret-key>
 STRIPE_WEBHOOK_SECRET=<production-stripe-webhook-secret>
 STRIPE_MONTHLY_PRICE_ID=<production-monthly-price-id>
@@ -82,7 +89,7 @@ STRIPE_YEARLY_PRICE_ID=<production-yearly-price-id>
 VITE_STRIPE_PUBLISHABLE_KEY=<production-stripe-publishable-key>
 ```
 
-`VITE_*` values are client-side build values. If one changes, source the production env file before running `npm run build` so Vite bakes the new values into the browser bundle.
+`VITE_*` values are client-side build values. If one changes, source the production env file before running `npm run build` so Vite bakes the new values into the browser bundle. Leave `VITE_API_BASE_URL` blank for the hosted web app; set it to `https://app.untitledmanagementsoftware.com/api` for native Capacitor builds.
 
 ## Droplet Setup
 
@@ -169,6 +176,13 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location ~* \.mjs$ {
+    types {
+      application/javascript mjs;
+    }
+    try_files $uri =404;
   }
 
   location / {
@@ -426,6 +440,21 @@ sudo tail -n 100 /var/log/nginx/error.log
 ```
 
 If `/api/health` works locally but the browser gets `502 Bad Gateway`, check the Nginx upstream and service port.
+
+The Brightspace PDF import uses a Vite-built PDF.js worker like `/assets/pdf.worker.min-<hash>.mjs`. Browser module workers require a JavaScript MIME type, so production must not serve this file as `application/octet-stream`.
+
+Check the deployed worker header:
+
+```sh
+curl -I https://app.untitledmanagementsoftware.com/assets/pdf.worker.min-<hash>.mjs
+```
+
+If the response is not `Content-Type: application/javascript` or `Content-Type: text/javascript`, add the `.mjs` location from the Nginx example to the active production HTTPS server block, then reload Nginx:
+
+```sh
+sudo nginx -t
+sudo systemctl reload nginx
+```
 
 If the frontend has stale Google, Firebase, or Stripe client values, source `production.env`, rebuild, and restart:
 

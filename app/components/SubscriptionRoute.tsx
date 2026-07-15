@@ -42,7 +42,7 @@ function SubscriptionRoute() {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Checking subscription...</div>;
   }
 
-  if (!status?.subscribed) {
+  if (!status?.hasAccess) {
     return <Navigate to="/billing" state={{ from: location.pathname }} replace />;
   }
 
