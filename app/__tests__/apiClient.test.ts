@@ -1,8 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-async function loadApiClient(apiBaseUrl = '') {
+async function loadApiClient(
+  apiBaseUrl = '',
+  capacitor: { isNativePlatform?: boolean; platform?: 'android' | 'ios' | 'web' } = {}
+) {
   vi.resetModules();
   vi.stubEnv('VITE_API_BASE_URL', apiBaseUrl);
+  vi.doMock('@capacitor/core', () => ({
+    Capacitor: {
+      isNativePlatform: () => capacitor.isNativePlatform ?? false,
+      getPlatform: () => capacitor.platform ?? 'web',
+    },
+  }));
   return import('@/app/lib/api/client');
 }
 
@@ -17,6 +26,18 @@ describe('API client', () => {
     const { apiUrl } = await loadApiClient('');
 
     expect(apiUrl('/actions/listCourses')).toBe('/api/actions/listCourses');
+  });
+
+  it('uses the host API for iOS simulator builds when VITE_API_BASE_URL is empty', async () => {
+    const { apiUrl } = await loadApiClient('', { isNativePlatform: true, platform: 'ios' });
+
+    expect(apiUrl('/actions/listCourses')).toBe('http://localhost:3001/api/actions/listCourses');
+  });
+
+  it('uses the Android emulator host API when VITE_API_BASE_URL is empty', async () => {
+    const { apiUrl } = await loadApiClient('', { isNativePlatform: true, platform: 'android' });
+
+    expect(apiUrl('/actions/listCourses')).toBe('http://10.0.2.2:3001/api/actions/listCourses');
   });
 
   it('joins a configured API base URL without duplicate slashes', async () => {

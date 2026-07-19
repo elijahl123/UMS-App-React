@@ -16,7 +16,11 @@ function resolveCorsOrigin(origin: string | undefined, allowedOrigins: string[])
 
 describe('CORS origin allowlist', () => {
   it('preserves legacy APP_ORIGIN behavior when APP_ORIGINS is empty', () => {
-    expect(parseAllowedOrigins('http://localhost:5173', '')).toEqual(['http://localhost:5173']);
+    expect(parseAllowedOrigins('http://localhost:5173', '')).toEqual([
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://[::1]:5173',
+    ]);
   });
 
   it('uses comma-separated APP_ORIGINS when provided', () => {
@@ -24,6 +28,14 @@ describe('CORS origin allowlist', () => {
       'https://app.untitledmanagementsoftware.com',
       'capacitor://localhost',
     ]);
+  });
+
+  it('allows loopback aliases for local web development origins', () => {
+    const allowedOrigins = parseAllowedOrigins('http://localhost:5173', 'http://localhost:5173,capacitor://localhost');
+
+    expect(isCorsOriginAllowed('http://127.0.0.1:5173', allowedOrigins)).toBe(true);
+    expect(isCorsOriginAllowed('http://localhost:5173', allowedOrigins)).toBe(true);
+    expect(isCorsOriginAllowed('http://[::1]:5173', allowedOrigins)).toBe(true);
   });
 
   it('allows configured web and native origins', () => {

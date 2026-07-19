@@ -238,88 +238,90 @@ function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       const authStartedAt = performance.now();
-      console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
-      let accessControlEnabled = stagingAccessControlEnabled;
       try {
-        const stagingConfig = await getStagingAccessConfig();
-        accessControlEnabled = stagingConfig.enabled;
-        setIsStagingAccessControlEnabled(stagingConfig.enabled);
-      } catch {
-        setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
-      }
-      const googleIdToken = consumeGoogleRedirectIdToken();
-
-      if (googleIdToken) {
-        console.log('[Auth] Found Google id_token from local OAuth redirect');
-        setIsProcessingGoogleRedirect(true);
-        const storedSession = readStoredSession();
-        const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
-        if (!result.success) {
-          setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
-          console.error('[Auth] Google redirect sign-in failed:', result.error);
-        }
-        if (result.success) {
-          console.log('[Auth] Google redirect sign-in completed');
-        }
-        setIsProcessingGoogleRedirect(false);
-        setIsLoading(false);
-        return;
-      }
-      
-      // Firebase's __/auth/handler redirects back here with sessionToken in URL params
-      const params = new URLSearchParams(window.location.search);
-      const sessionToken = params.get('sessionToken');
-      
-      if (sessionToken) {
-        console.log('[Auth] Found sessionToken from Firebase auth handler');
-        setIsProcessingGoogleRedirect(true);
+        console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
+        let accessControlEnabled = stagingAccessControlEnabled;
         try {
-          // Exchange Firebase session token for user info
-          const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: sessionToken });
-          const freshUser = lookup?.users?.[0];
-          if (freshUser) {
-            console.log('[Auth] Successfully logged in user:', freshUser.email);
-            const nextUser = mapFirebaseUser(freshUser);
-            persistSession(sessionToken, nextUser);
-            await startTrialAfterAuth(nextUser);
-            await refreshStagingAccess(sessionToken, accessControlEnabled);
-            // Clean URL
-            const previousUrl = window.location.href;
-            window.history.replaceState(null, '', `${window.location.pathname}#/`);
-            window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: window.location.href }));
-            setIsLoading(false);
-            return;
+          const stagingConfig = await getStagingAccessConfig();
+          accessControlEnabled = stagingConfig.enabled;
+          setIsStagingAccessControlEnabled(stagingConfig.enabled);
+        } catch {
+          setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
+        }
+        const googleIdToken = consumeGoogleRedirectIdToken();
+
+        if (googleIdToken) {
+          console.log('[Auth] Found Google id_token from local OAuth redirect');
+          setIsProcessingGoogleRedirect(true);
+          const storedSession = readStoredSession();
+          const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
+          if (!result.success) {
+            setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
+            console.error('[Auth] Google redirect sign-in failed:', result.error);
           }
-        } catch (err) {
-          console.error('[Auth] Failed to exchange sessionToken:', err);
-          setGoogleSignInError('Failed to complete sign-in. Please try again.');
+          if (result.success) {
+            console.log('[Auth] Google redirect sign-in completed');
+          }
+          return;
         }
-        setIsProcessingGoogleRedirect(false);
-      }
 
-      console.log('[Auth] No sessionToken found, checking for stored session');
-      const session = readStoredSession();
-      if (session) {
-        try {
-          setApiAuthToken(session.idToken);
-          const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
-          const freshUser = lookup?.users?.[0];
-          if (freshUser) {
-            const nextUser = mapFirebaseUser(freshUser);
-            persistSession(session.idToken, nextUser);
-            await startTrialAfterAuth(nextUser);
-            await refreshStagingAccess(session.idToken, accessControlEnabled);
-          } else {
+        // Firebase's __/auth/handler redirects back here with sessionToken in URL params
+        const params = new URLSearchParams(window.location.search);
+        const sessionToken = params.get('sessionToken');
+
+        if (sessionToken) {
+          console.log('[Auth] Found sessionToken from Firebase auth handler');
+          setIsProcessingGoogleRedirect(true);
+          try {
+            // Exchange Firebase session token for user info
+            const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: sessionToken });
+            const freshUser = lookup?.users?.[0];
+            if (freshUser) {
+              console.log('[Auth] Successfully logged in user:', freshUser.email);
+              const nextUser = mapFirebaseUser(freshUser);
+              persistSession(sessionToken, nextUser);
+              await startTrialAfterAuth(nextUser);
+              await refreshStagingAccess(sessionToken, accessControlEnabled);
+              // Clean URL
+              const previousUrl = window.location.href;
+              window.history.replaceState(null, '', `${window.location.pathname}#/`);
+              window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousUrl, newURL: window.location.href }));
+              return;
+            }
+          } catch (err) {
+            console.error('[Auth] Failed to exchange sessionToken:', err);
+            setGoogleSignInError('Failed to complete sign-in. Please try again.');
+          }
+        }
+
+        console.log('[Auth] No sessionToken found, checking for stored session');
+        const session = readStoredSession();
+        if (session) {
+          try {
+            setApiAuthToken(session.idToken);
+            const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
+            const freshUser = lookup?.users?.[0];
+            if (freshUser) {
+              const nextUser = mapFirebaseUser(freshUser);
+              persistSession(session.idToken, nextUser);
+              await startTrialAfterAuth(nextUser);
+              await refreshStagingAccess(session.idToken, accessControlEnabled);
+            } else {
+              setApiAuthToken(null);
+              localStorage.removeItem(SESSION_STORAGE_KEY);
+            }
+          } catch {
             setApiAuthToken(null);
             localStorage.removeItem(SESSION_STORAGE_KEY);
           }
-        } catch {
-          setApiAuthToken(null);
-          localStorage.removeItem(SESSION_STORAGE_KEY);
         }
+      } catch (err) {
+        console.error('[Auth] Bootstrap failed:', err);
+      } finally {
+        setIsProcessingGoogleRedirect(false);
+        setIsLoading(false);
+        console.log(`[Auth] Bootstrap completed in ${Math.round(performance.now() - authStartedAt)}ms`);
       }
-      setIsLoading(false);
-      console.log(`[Auth] Bootstrap completed in ${Math.round(performance.now() - authStartedAt)}ms`);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -517,9 +519,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const message =
         err instanceof Error && err.message === 'POPUP_BLOCKED'
           ? 'Please allow popups for this site to sign in with Google.'
-          : err instanceof Error
-            ? `Google sign-in failed: ${err.message}`
-            : 'Google sign-in was cancelled.';
+          : err instanceof Error && err.message === 'GOOGLE_SIGN_IN_CANCELLED'
+            ? 'Google sign-in was cancelled.'
+            : err instanceof Error && err.message.includes('redirect_uri_mismatch')
+              ? 'Google sign-in is not configured for this app redirect URL.'
+              : err instanceof Error
+                ? `Google sign-in failed: ${err.message}`
+                : 'Google sign-in was cancelled.';
       console.error('[Auth] ========== Google sign-in FAILED ==========');
       console.error('[Auth] Error:', err);
       console.error('[Auth] Error message:', message);
