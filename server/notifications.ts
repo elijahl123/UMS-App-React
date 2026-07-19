@@ -174,6 +174,34 @@ export function selectNotificationInstancesQuery(userId: string, limit = 50): Qu
   };
 }
 
+function selectNotificationScheduleQuery(userId: string, limit = 250): QueryConfig {
+  return {
+    text: `
+      SELECT
+        id::text,
+        source_type,
+        source_id::text,
+        occurrence_key,
+        fire_at,
+        target_at,
+        title,
+        body,
+        reminder_offset_minutes,
+        local_notification_id,
+        read_at,
+        dismissed_at
+      FROM notification_instances
+      WHERE user_id = $1
+        AND dismissed_at IS NULL
+        AND read_at IS NULL
+        AND fire_at >= NOW() - INTERVAL '10 minutes'
+      ORDER BY fire_at
+      LIMIT $2;
+    `,
+    values: [userId, limit],
+  };
+}
+
 async function getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
   await pool.query(
     `
@@ -256,7 +284,7 @@ export async function syncNotificationInstancesForUser(userId: string) {
     );
   }
 
-  const schedule = await pool.query(selectNotificationInstancesQuery(userId, 100).text, [userId, 100]);
+  const schedule = await pool.query(selectNotificationScheduleQuery(userId, 250).text, [userId, 250]);
   return schedule.rows;
 }
 

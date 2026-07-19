@@ -38,6 +38,7 @@ import type { NotificationPreferences } from '@/app/data/types';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
 import {
   getNotificationPermissionStatus,
+  getNativePendingNotificationCount,
   requestNotificationPermission,
   syncAndScheduleNotifications,
   type NotificationPermissionStatus,
@@ -130,6 +131,7 @@ function AccountPage() {
   const [notificationsSubmitting, setNotificationsSubmitting] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsSuccess, setNotificationsSuccess] = useState<string | null>(null);
+  const [nativePendingNotificationCount, setNativePendingNotificationCount] = useState<number | null>(null);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -177,6 +179,8 @@ function AccountPage() {
     } else {
       setNotificationPermission('unsupported');
     }
+
+    setNativePendingNotificationCount(await getNativePendingNotificationCount().catch(() => null));
 
     setNotificationsLoading(false);
   }, []);
@@ -343,6 +347,7 @@ function AccountPage() {
       setNotificationPreferences(saved);
       setNotificationsSuccess(successMessage);
       await syncAndScheduleNotifications();
+      setNativePendingNotificationCount(await getNativePendingNotificationCount().catch(() => null));
       window.dispatchEvent(new CustomEvent('ums-notifications-changed'));
     } catch (err) {
       setNotificationsError(requestError(err, 'Unable to save notification settings.'));
@@ -517,6 +522,11 @@ function AccountPage() {
                 <div>
                   <p className="text-sm font-medium text-foreground">Reminders</p>
                   <p className="text-sm text-muted-foreground">{notificationPermissionLabel}</p>
+                  {nativePendingNotificationCount !== null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {nativePendingNotificationCount} reminder{nativePendingNotificationCount === 1 ? '' : 's'} scheduled on this device.
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"

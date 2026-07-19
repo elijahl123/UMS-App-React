@@ -17,7 +17,7 @@ import {
   markNotificationRead,
   unreadNotificationCount,
 } from '@/app/lib/notifications/client';
-import { syncAndScheduleNotifications } from '@/app/lib/notifications/scheduler';
+import { showDueWebNotifications, syncAndScheduleNotifications } from '@/app/lib/notifications/scheduler';
 import type { NotificationInstance } from '@/app/data/types';
 
 function formatNotificationTime(value: string) {
@@ -41,6 +41,7 @@ function NotificationCenter() {
     setLoading(true);
     try {
       const rows = sync ? await syncAndScheduleNotifications() : await listNotificationInstances();
+      await showDueWebNotifications(rows);
       setInstances(rows);
     } catch {
       setInstances([]);

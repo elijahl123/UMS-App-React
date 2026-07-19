@@ -126,7 +126,9 @@ vi.doMock('@/app/lib/notifications/client', () => ({
 
 vi.doMock('@/app/lib/notifications/scheduler', () => ({
   getNotificationPermissionStatus: vi.fn(async () => 'unsupported'),
+  getNativePendingNotificationCount: vi.fn(async () => null),
   requestNotificationPermission: vi.fn(async () => 'unsupported'),
+  showDueWebNotifications: vi.fn(async () => undefined),
   syncAndScheduleNotifications: vi.fn(async () => []),
 }));
 
