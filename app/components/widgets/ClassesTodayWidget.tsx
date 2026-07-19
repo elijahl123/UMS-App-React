@@ -1,6 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { BookOpen, Clock, GraduationCap } from 'lucide-react';
 import type { ClassSession, Course } from '@/app/data/types';
 import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay } from '@/app/data/classSchedule';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
@@ -48,20 +49,25 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
   };
 
   return (
-    <Card>
-      <CardHeader className={`shrink-0 p-3 pb-2 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
-        <CardTitle className={compact ? 'text-base md:text-lg xl:text-xl' : 'text-lg sm:text-2xl'}>Classes Today</CardTitle>
+    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+      <CardHeader className={`shrink-0 p-4 pb-3 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
+            <GraduationCap className="h-5 w-5" />
+          </span>
+          <CardTitle className={compact ? 'whitespace-nowrap text-[0.98rem] text-primary md:text-lg xl:text-xl' : 'text-lg sm:text-2xl'}>Classes Today</CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className={sessions.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
+      <CardContent className={sessions.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {sessions.length === 0 ? (
-          <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoClassesToday.svg"
               alt="No classes today"
               className={compact ? 'hidden h-16 w-auto max-w-[60%] sm:block xl:h-20' : 'h-[clamp(5.5rem,18vw,8rem)] w-auto max-w-[70%]'}
             />
             <div>
-              <p className="text-base font-semibold text-primary">No Classes Today</p>
+              <p className="text-base font-semibold text-[var(--secondary-accent)]">No Classes Today</p>
               <p className="text-xs text-muted-foreground">Enjoy your day off!</p>
             </div>
           </div>
@@ -74,29 +80,31 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
               return (
                 <div
                   key={session.id}
-                  className={`rounded-lg border transition-all hover:shadow-sm ${compact ? 'p-2' : 'p-4'}`}
+                  className={`rounded-lg border transition-all hover:shadow-sm ${compact ? 'p-3' : 'p-4'}`}
                   style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
                 >
                   <button
                     type="button"
-                    className={`${compact ? 'mb-1' : 'mb-2'} flex w-full items-start justify-between gap-3 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring`}
+                    className={`${compact ? 'mb-3' : 'mb-2'} flex w-full items-start justify-between gap-3 rounded-md text-left focus:outline-none focus:ring-2 focus:ring-ring`}
                     onClick={openClassContext}
                   >
                     <div>
-                      <p className={`font-bold ${compact ? 'text-xs sm:text-sm' : 'text-sm'}`}>{course?.code}</p>
-                      <p className="truncate text-xs opacity-80">
-                        {formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}
+                      <p className={`font-bold ${compact ? 'text-sm' : 'text-sm'}`}>{course?.code}</p>
+                      <p className="mt-1 flex items-center gap-1.5 truncate text-xs opacity-80">
+                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                        <span>{formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}</span>
                       </p>
                     </div>
                   </button>
                   <Button
                     size="sm"
                     variant="success"
-                    className={`${compact ? 'h-7' : 'h-8'} w-full text-xs`}
-                    style={{ backgroundColor: colors.border, color: colors.text }}
+                    className={`${compact ? 'h-11' : 'h-8'} w-full gap-2 rounded-lg border text-sm font-bold shadow-sm hover:opacity-90`}
+                    style={{ backgroundColor: colors.border, borderColor: colors.border, color: colors.text }}
                     disabled={!course || isCreatingNote}
                     onClick={() => handleOpenNotes(course, session.courseId)}
                   >
+                    <BookOpen className="h-4 w-4" />
                     {isCreatingNote ? 'Opening...' : 'Open Notes'}
                   </Button>
                 </div>

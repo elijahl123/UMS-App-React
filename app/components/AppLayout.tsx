@@ -28,7 +28,7 @@ function AppLayout() {
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >
-        <div className="fixed bottom-[calc(6.75rem+env(safe-area-inset-bottom))] right-3 z-50 sm:right-4 md:bottom-4 xl:bottom-6 xl:right-6">
+        <div className="fixed right-8 top-[calc(2.25rem+env(safe-area-inset-top))] z-50 md:bottom-4 md:right-4 md:top-auto xl:bottom-6 xl:right-6">
           <NotificationCenter />
         </div>
         <Outlet />

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertTriangle, Check } from 'lucide-react';
 import type { Assignment, Course } from '@/app/data/types';
 import { formatAssignmentDue } from '@/app/data/assignmentDates';
 import { getCourseColor } from '@/app/data/courseColors';
@@ -21,20 +22,28 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
   };
 
   return (
-    <Card>
-      <CardHeader className={`shrink-0 p-3 pb-2 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
-        <CardTitle className={compact ? 'text-base md:text-lg xl:text-xl' : 'text-lg sm:text-2xl'}>Late Assignments</CardTitle>
+    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+      <CardHeader className={`shrink-0 p-4 pb-3 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
+            <AlertTriangle className="h-5 w-5" />
+          </span>
+          <CardTitle className={compact ? 'whitespace-nowrap text-[0.98rem] text-primary md:text-lg xl:text-xl' : 'text-lg sm:text-2xl'}>Late Assignments</CardTitle>
+        </div>
       </CardHeader>
-      <CardContent className={assignments.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-3 pb-3 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
+      <CardContent className={assignments.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {assignments.length === 0 ? (
-          <div className={`flex flex-col items-center justify-center text-center ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoLateAssignments.svg"
               alt="No late assignments"
               className={compact ? 'hidden h-16 w-auto max-w-[60%] sm:block xl:h-20' : 'h-[clamp(5.5rem,18vw,8rem)] w-auto max-w-[70%]'}
             />
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600 md:hidden">
+              <Check className="h-5 w-5" />
+            </span>
             <div>
-              <p className="text-base font-semibold text-primary">No Late Assignments</p>
+              <p className="text-base font-semibold text-[var(--secondary-accent)]">No Late Assignments</p>
               <p className="text-xs text-muted-foreground">Keep up the good work!</p>
             </div>
           </div>
