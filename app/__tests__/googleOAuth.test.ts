@@ -1,8 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-async function loadGoogleOAuth(redirectUri = '') {
+async function loadGoogleOAuth(
+  redirectUri = '',
+  capacitor: { isNativePlatform?: boolean; platform?: 'android' | 'ios' | 'web' } = {}
+) {
   vi.resetModules();
   vi.stubEnv('VITE_GOOGLE_REDIRECT_URI', redirectUri);
+  vi.doMock('@capacitor/core', () => ({
+    Capacitor: {
+      isNativePlatform: () => capacitor.isNativePlatform ?? false,
+      getPlatform: () => capacitor.platform ?? 'web',
+    },
+  }));
+  vi.doMock('@capacitor/app', () => ({
+    App: {
+      addListener: vi.fn(),
+    },
+  }));
+  vi.doMock('@capacitor/browser', () => ({
+    Browser: {
+      addListener: vi.fn(),
+      close: vi.fn(),
+      open: vi.fn(),
+    },
+  }));
   return import('@/app/lib/auth/googleOAuth');
 }
 
@@ -27,6 +48,17 @@ describe('Google OAuth helper', () => {
 
     expect(getGoogleOAuthRedirectUri()).toBe(redirectUri);
     expect(getGoogleOAuthRequestUri()).toBe(redirectUri);
+  });
+
+  it('uses the iOS client, reversed-client redirect URI, and Firebase localhost request URI in Capacitor iOS', async () => {
+    const { getGoogleOAuthClientId, getGoogleOAuthRedirectUri, getGoogleOAuthRequestUri } = await loadGoogleOAuth('', {
+      isNativePlatform: true,
+      platform: 'ios',
+    });
+
+    expect(getGoogleOAuthClientId()).toBe('546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks.apps.googleusercontent.com');
+    expect(getGoogleOAuthRedirectUri()).toBe('com.googleusercontent.apps.546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks:/oauth2redirect');
+    expect(getGoogleOAuthRequestUri()).toBe('http://localhost');
   });
 
   it('parses an id token from the current web hash and restores the stored route', async () => {

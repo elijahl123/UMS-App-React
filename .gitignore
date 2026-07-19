@@ -3,6 +3,9 @@ dist
 dist-server
 .DS_Store
 .env
+.env.*
+!.env.example
+!.env.*.example
 .vite
 *.log
 *.tsbuildinfo
@@ -10,6 +13,8 @@ vite.config.js
 vite.config.d.ts
 .idea
 staging.env
+GoogleService-Info*.plist
+ios/**/GoogleService-Info*.plist
 
 # Playwright
 /test-results/
@@ -19,3 +24,6 @@ staging.env
 /playwright/.auth/
 
 .codex
+
+ios/App/App/Info.plist
+scripts/configure-ios-google-oauth.sh

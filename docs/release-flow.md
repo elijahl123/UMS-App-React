@@ -2,6 +2,10 @@
 
 This project uses `staging` as the integration branch and `main` as the production branch.
 
+For the iPhone-specific workflow from local dev, to staging on a physical iPhone,
+to production TestFlight/App Store release, see
+[iOS Dev, Staging, and Production Workflow](ios-dev-staging-production-workflow.md).
+
 The goal is to keep the deployed environments predictable:
 
 ```text
