@@ -31,6 +31,7 @@ derived_data_path="${derived_base}/${target_id}"
 app_path="${derived_data_path}/Build/Products/${configuration}-iphonesimulator/${scheme}.app"
 
 npx cap sync ios
+npm run ios:configure-google-oauth
 npm run clean:apple-metadata
 
 xcodebuild \
