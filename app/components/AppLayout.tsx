@@ -23,7 +23,7 @@ function AppLayout() {
 
       {/* Main content */}
       <main
-        className={`flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip p-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:p-4 sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))] md:h-[100dvh] md:overflow-hidden md:pb-4 xl:p-6 ${
+        className={`flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-4 sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pt-[calc(1rem+env(safe-area-inset-top))] md:h-[100dvh] md:overflow-hidden md:pb-4 md:pt-4 xl:p-6 ${
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >

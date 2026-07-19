@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [ -z "${DEVELOPER_DIR:-}" ] && ! xcrun --find simctl >/dev/null 2>&1 && [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+  export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+fi
+
 scheme="${IOS_SCHEME:-App}"
 configuration="${IOS_CONFIGURATION:-Debug}"
 derived_base="${IOS_DERIVED_DATA_BASE:-${TMPDIR:-/tmp}/ums-app-react-ios-derived-data}"
