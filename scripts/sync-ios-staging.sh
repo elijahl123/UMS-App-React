@@ -40,3 +40,9 @@ export VITE_GOOGLE_IOS_REVERSED_CLIENT_ID="${VITE_GOOGLE_IOS_REVERSED_CLIENT_ID:
 echo "Syncing staging iOS build for bundle id: $ios_bundle_id"
 echo "Using staging API base URL: $VITE_API_BASE_URL"
 npm run cap:sync
+
+if ! grep -R --fixed-strings "$VITE_API_BASE_URL" ios/App/App/public/assets >/dev/null 2>&1; then
+  echo "Staging API base URL was not found in the generated iOS bundle." >&2
+  echo "Expected: $VITE_API_BASE_URL" >&2
+  exit 1
+fi

@@ -79,6 +79,7 @@ function CalendarPage() {
       title: values.title,
       date: values.date,
       time: values.time ?? null,
+      timeZone: values.timeZone,
       description: values.description ?? null,
       userId: user?.id,
     });
@@ -93,6 +94,7 @@ function CalendarPage() {
         title: event.title,
         date: event.date,
         time: event.time,
+        timeZone: event.timeZone,
         description: event.description,
       });
       setEditEventOpen(true);
@@ -105,6 +107,7 @@ function CalendarPage() {
       title: values.title,
       date: values.date,
       time: values.time ?? null,
+      timeZone: values.timeZone,
       description: values.description ?? null,
       userId: user?.id,
     });

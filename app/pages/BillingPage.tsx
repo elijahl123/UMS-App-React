@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { appEnv } from '@/app/lib/env';
+import { getApiBaseUrl } from '@/app/lib/api/client';
 import {
   cancelSubscription,
   createPaymentMethodSetupIntent,
@@ -385,6 +386,7 @@ function BillingPage() {
 
   const missingSetup = !config?.publishableKey || !config.prices.monthly || !config.prices.yearly;
   const missingPublishableKey = !config?.publishableKey;
+  const apiBaseUrl = getApiBaseUrl();
   const activeInterval: BillingInterval | null =
     status?.stripePriceId === config?.prices.yearly ? 'yearly' : status?.stripePriceId === config?.prices.monthly ? 'monthly' : null;
   const trialStartedNotice = new URLSearchParams(location.search).get('trial') === 'started';
@@ -455,6 +457,9 @@ function BillingPage() {
             {missingSetup && (
               <div className="rounded-md border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
                 Stripe billing is missing setup. Add <code>VITE_STRIPE_PUBLISHABLE_KEY</code> or <code>STRIPE_PUBLISHABLE_KEY</code>, plus monthly and yearly price IDs, to the env file.
+                <span className="mt-2 block text-xs text-muted-foreground">
+                  Current API: <code>{apiBaseUrl}</code>
+                </span>
               </div>
             )}
 

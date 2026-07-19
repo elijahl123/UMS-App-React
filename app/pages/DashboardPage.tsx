@@ -47,6 +47,7 @@ function DashboardPage() {
       title: values.title,
       date: values.date,
       time: values.time ?? null,
+      timeZone: values.timeZone,
       description: values.description ?? null,
       userId: user?.id,
     });

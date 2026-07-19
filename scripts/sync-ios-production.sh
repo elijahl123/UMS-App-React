@@ -43,3 +43,9 @@ export VITE_STAGING_ACCESS_CONTROL_ENABLED="${VITE_STAGING_ACCESS_CONTROL_ENABLE
 
 echo "Using production API base URL: $VITE_API_BASE_URL"
 npm run cap:sync
+
+if ! grep -R --fixed-strings "$VITE_API_BASE_URL" ios/App/App/public/assets >/dev/null 2>&1; then
+  echo "Production API base URL was not found in the generated iOS bundle." >&2
+  echo "Expected: $VITE_API_BASE_URL" >&2
+  exit 1
+fi

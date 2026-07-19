@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { buildCalendarItems, toIsoDate } from '@/app/data/calendarUtils';
 import { getCourseColor } from '@/app/data/courseColors';
-import { mapAssignment, mapClassSession, mapCourse, mapCourseLink, mapEvent, mapFirebaseUser, mapNote } from '@/app/data/mappers';
+import {
+  mapAssignment,
+  mapClassSession,
+  mapCourse,
+  mapCourseLink,
+  mapEvent,
+  mapFirebaseUser,
+  mapNote,
+  mapNotificationInstance,
+} from '@/app/data/mappers';
 import { assignments, courses, events, links, notes, sessions } from '@/app/test/fixtures';
 
 describe('data mappers and calendar utilities', () => {
@@ -20,9 +29,40 @@ describe('data mappers and calendar utilities', () => {
       })
     ).toEqual(assignments[0]);
     expect(mapClassSession({ id: 1, course_id: 1, day: 'Fri', start_time: '09:00:00', end_time: '10:15:00' })).toEqual(sessions[0]);
-    expect(mapEvent({ id: 1, title: 'Study Group', event_date: '2026-07-10T00:00:00.000Z', event_time: '16:00', description: 'Library room 2' })).toEqual(events[0]);
+    expect(
+      mapEvent({
+        id: 1,
+        title: 'Study Group',
+        event_date: '2026-07-10T00:00:00.000Z',
+        event_time: '16:00:00',
+        event_timezone: 'America/Los_Angeles',
+        description: 'Library room 2',
+      })
+    ).toEqual(events[0]);
     expect(mapNote({ id: 1, course_id: 1, title: notes[0].title, content: notes[0].content, created_at: notes[0].createdAt, updated_at: notes[0].updatedAt })).toEqual(notes[0]);
     expect(mapCourseLink({ id: 1, course_id: 1, label: links[0].label, url: links[0].url, created_at: links[0].createdAt })).toEqual(links[0]);
+    expect(
+      mapNotificationInstance({
+        id: 1,
+        source_type: 'assignment',
+        source_id: 2,
+        occurrence_key: '2026-07-10:23:59',
+        fire_at: '2026-07-10T22:59:00.000Z',
+        target_at: '2026-07-10T23:59:00.000Z',
+        title: 'MATH 101: Limits Worksheet',
+        body: 'Assignment due in 1 hour.',
+        reminder_offset_minutes: 60,
+        local_notification_id: 123,
+        read_at: null,
+        dismissed_at: null,
+      })
+    ).toMatchObject({
+      id: '1',
+      sourceType: 'assignment',
+      sourceId: '2',
+      reminderOffsetMinutes: 60,
+      localNotificationId: 123,
+    });
   });
 
   it('maps Firebase users and calendar items', () => {

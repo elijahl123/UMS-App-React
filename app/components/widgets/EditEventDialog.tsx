@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import type { CalendarEvent } from '@/app/data/types';
+import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -49,6 +50,7 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         ...values,
         id: event.id,
         time: values.time || undefined,
+        timeZone: event.timeZone || getBrowserTimeZone(),
         description: values.description || undefined,
       });
       form.reset();

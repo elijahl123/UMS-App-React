@@ -1,4 +1,14 @@
-import type { Assignment, AssignmentStatus, AppUser, CalendarEvent, ClassSession, Course, CourseLink, Note } from '@/app/data/types';
+import type {
+  Assignment,
+  AssignmentStatus,
+  AppUser,
+  CalendarEvent,
+  ClassSession,
+  Course,
+  CourseLink,
+  Note,
+  NotificationInstance,
+} from '@/app/data/types';
 import { DEFAULT_DUE_TIME_ZONE, normalizeDateString, normalizeTimeString } from '@/app/data/assignmentDates';
 
 interface DbCourse {
@@ -32,6 +42,7 @@ interface DbEvent {
   title: string;
   event_date: string;
   event_time: string | null;
+  event_timezone?: string | null;
   description: string | null;
 }
 
@@ -89,8 +100,45 @@ export function mapEvent(row: DbEvent): CalendarEvent {
     id: String(row.id),
     title: row.title,
     date: row.event_date.split('T')[0], // Extract date part from ISO timestamp
-    time: row.event_time ?? undefined,
+    time: normalizeTimeString(row.event_time),
+    timeZone: row.event_timezone || DEFAULT_DUE_TIME_ZONE,
     description: row.description ?? undefined,
+  };
+}
+
+interface DbNotificationInstance {
+  id: string | number;
+  source_type: string;
+  source_id: string | number;
+  occurrence_key: string;
+  fire_at: string | Date;
+  target_at: string | Date;
+  title: string;
+  body: string;
+  reminder_offset_minutes: number;
+  local_notification_id: number;
+  read_at: string | Date | null;
+  dismissed_at: string | Date | null;
+}
+
+function normalizeDateTime(value: string | Date): string {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
+export function mapNotificationInstance(row: DbNotificationInstance): NotificationInstance {
+  return {
+    id: String(row.id),
+    sourceType: row.source_type as NotificationInstance['sourceType'],
+    sourceId: String(row.source_id),
+    occurrenceKey: row.occurrence_key,
+    fireAt: normalizeDateTime(row.fire_at),
+    targetAt: normalizeDateTime(row.target_at),
+    title: row.title,
+    body: row.body,
+    reminderOffsetMinutes: row.reminder_offset_minutes,
+    localNotificationId: row.local_notification_id,
+    readAt: row.read_at ? normalizeDateTime(row.read_at) : null,
+    dismissedAt: row.dismissed_at ? normalizeDateTime(row.dismissed_at) : null,
   };
 }
 
