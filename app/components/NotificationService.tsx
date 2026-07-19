@@ -43,11 +43,15 @@ function NotificationService() {
         if (isActive) {
           void sync();
         }
-      }).then((listener) => {
-        removeAppStateListener = () => {
-          void listener.remove();
-        };
-      });
+      })
+        .then((listener) => {
+          removeAppStateListener = () => {
+            void listener.remove();
+          };
+        })
+        .catch((err) => {
+          console.warn('[Notifications] Unable to register app state listener:', err);
+        });
     }
 
     return () => {

@@ -153,36 +153,39 @@ function AccountPage() {
 
   const loadNotificationSettings = useCallback(async () => {
     setNotificationsLoading(true);
-    const [preferencesResult, permissionResult] = await Promise.allSettled([
-      getNotificationPreferences(),
-      getNotificationPermissionStatus(),
-    ]);
+    setNotificationsError(null);
+    try {
+      const [preferencesResult, permissionResult] = await Promise.allSettled([
+        getNotificationPreferences(),
+        getNotificationPermissionStatus(),
+      ]);
 
-    if (preferencesResult.status === 'fulfilled') {
-      const browserTimeZone = getBrowserTimeZone();
-      setNotificationPreferences({
-        ...preferencesResult.value,
-        timeZone: preferencesResult.value.timeZone === 'UTC' ? browserTimeZone : preferencesResult.value.timeZone,
-      });
-      setNotificationsError(
-        permissionResult.status === 'rejected'
-          ? 'Notification settings loaded, but device permission status is unavailable.'
-          : null
-      );
-    } else {
-      setNotificationPreferences(null);
-      setNotificationsError(requestError(preferencesResult.reason, 'Unable to load notification settings.'));
+      if (preferencesResult.status === 'fulfilled') {
+        const browserTimeZone = getBrowserTimeZone();
+        setNotificationPreferences({
+          ...preferencesResult.value,
+          timeZone: preferencesResult.value.timeZone === 'UTC' ? browserTimeZone : preferencesResult.value.timeZone,
+        });
+        setNotificationsError(
+          permissionResult.status === 'rejected'
+            ? 'Notification settings loaded, but device permission status is unavailable.'
+            : null
+        );
+      } else {
+        setNotificationPreferences(null);
+        setNotificationsError(requestError(preferencesResult.reason, 'Unable to load notification settings.'));
+      }
+
+      if (permissionResult.status === 'fulfilled') {
+        setNotificationPermission(permissionResult.value);
+      } else {
+        setNotificationPermission('unsupported');
+      }
+
+      setNativePendingNotificationCount(await getNativePendingNotificationCount().catch(() => null));
+    } finally {
+      setNotificationsLoading(false);
     }
-
-    if (permissionResult.status === 'fulfilled') {
-      setNotificationPermission(permissionResult.value);
-    } else {
-      setNotificationPermission('unsupported');
-    }
-
-    setNativePendingNotificationCount(await getNativePendingNotificationCount().catch(() => null));
-
-    setNotificationsLoading(false);
   }, []);
 
   useEffect(() => {

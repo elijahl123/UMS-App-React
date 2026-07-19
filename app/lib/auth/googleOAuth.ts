@@ -122,8 +122,10 @@ async function startNativeGoogleSignIn(): Promise<GoogleRedirectResult> {
 
   return new Promise<GoogleRedirectResult>((resolve, reject) => {
     const cleanup = async () => {
-      appUrlOpenListener?.remove();
-      browserFinishedListener?.remove();
+      await Promise.all([
+        appUrlOpenListener?.remove().catch(() => undefined),
+        browserFinishedListener?.remove().catch(() => undefined),
+      ]);
       await Browser.close().catch(() => undefined);
     };
 
