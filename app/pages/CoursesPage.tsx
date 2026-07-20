@@ -1,18 +1,31 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { Plus, Pencil, Trash2, GraduationCap, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BarChart3, BookOpen, Calculator, ChevronRight, Code2, GraduationCap, Pencil, Plus, Search, Sigma, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import CourseFormDialog from '@/app/components/widgets/CourseFormDialog';
-import { mapCourse } from '@/app/data/mappers';
+import { mapAssignment, mapCourse } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
-import type { Course } from '@/app/data/types';
+import type { Assignment, Course } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+
+type CourseFilter = 'all' | 'current' | 'complete';
+
+const courseIcons = [BookOpen, BarChart3, Code2, Calculator, Sigma, GraduationCap];
+
+function getCourseIcon(course: Course, index: number) {
+  const subject = `${course.code} ${course.name}`.toLowerCase();
+  if (subject.includes('math') || subject.includes('algebra') || subject.includes('calculus')) return Sigma;
+  if (subject.includes('program') || subject.includes('software') || subject.includes('code')) return Code2;
+  if (subject.includes('data') || subject.includes('analytics')) return BarChart3;
+  return courseIcons[index % courseIcons.length];
+}
 
 function CoursesPage() {
   const { user } = useAuth();
   const [courseRows, loading, , refresh] = useLoadAction('loadCourses', [], { userId: user?.id });
+  const [assignmentRows] = useLoadAction('loadAssignments', [], { userId: user?.id });
   const [addCourse] = useMutateAction('createCourse');
   const [editCourse] = useMutateAction('updateCourse');
   const [removeCourse] = useMutateAction('deleteCourse');
@@ -20,8 +33,46 @@ function CoursesPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Course | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [courseFilter, setCourseFilter] = useState<CourseFilter>('all');
 
   const courses = (courseRows ?? []).map(mapCourse);
+  const assignments = (assignmentRows ?? []).map(mapAssignment);
+
+  const courseStats = useMemo(() => {
+    const stats = new Map<string, { completed: number; total: number }>();
+    assignments.forEach((assignment: Assignment) => {
+      const current = stats.get(assignment.courseId) ?? { completed: 0, total: 0 };
+      current.total += 1;
+      if (assignment.status === 'completed') current.completed += 1;
+      stats.set(assignment.courseId, current);
+    });
+    return stats;
+  }, [assignments]);
+
+  const filterCounts = useMemo(() => {
+    const current = courses.filter((course) => {
+      const stats = courseStats.get(course.id) ?? { completed: 0, total: 0 };
+      return stats.total === 0 || stats.completed < stats.total;
+    }).length;
+    const complete = courses.filter((course) => {
+      const stats = courseStats.get(course.id) ?? { completed: 0, total: 0 };
+      return stats.total > 0 && stats.completed === stats.total;
+    }).length;
+    return { all: courses.length, current, complete };
+  }, [courseStats, courses]);
+
+  const filteredCourses = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return courses
+      .filter((course) => !query || course.code.toLowerCase().includes(query) || course.name.toLowerCase().includes(query))
+      .filter((course) => {
+        const stats = courseStats.get(course.id) ?? { completed: 0, total: 0 };
+        if (courseFilter === 'current') return stats.total === 0 || stats.completed < stats.total;
+        if (courseFilter === 'complete') return stats.total > 0 && stats.completed === stats.total;
+        return true;
+      });
+  }, [courseFilter, courseStats, courses, searchTerm]);
 
   const openAddDialog = () => {
     setEditing(null);
@@ -52,73 +103,172 @@ function CoursesPage() {
     return <div className="p-6 text-center text-muted-foreground">Loading courses...</div>;
   }
 
+  const tabs: Array<{ value: CourseFilter; label: string; count: number }> = [
+    { value: 'all', label: 'All Courses', count: filterCounts.all },
+    { value: 'current', label: 'Current', count: filterCounts.current },
+    { value: 'complete', label: 'Complete', count: filterCounts.complete },
+  ];
+
   return (
-    <div className="flex h-full flex-col gap-4">
-      <Card className="flex min-h-0 flex-1 flex-col">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle>Courses</CardTitle>
-          <Button onClick={openAddDialog} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Course
-          </Button>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-auto">
-          {courses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <GraduationCap className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-semibold text-primary">No courses yet</p>
-              <p className="text-xs text-muted-foreground">Add your first course to get started.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {courses.map((course) => {
-                const colors = getCourseColor(course.color);
-                return (
-                  <div
-                    key={course.id}
-                    role="button"
-                    onClick={() => navigate(`/courses/${course.id}`)}
-                    className="group flex cursor-pointer flex-col gap-3 rounded-xl border-l-4 p-4 shadow-sm transition-shadow hover:shadow-md"
-                    style={{ backgroundColor: colors.bg, borderLeftColor: colors.border, color: colors.text }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span
-                        className="rounded-full px-2.5 py-1 text-xs font-bold"
-                        style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors.text }}
-                      >
-                        {course.code}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={(e) => openEditDialog(course, e)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          title="Delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm('Deleting this course also removes its assignments and class sessions. Continue?')) {
-                              handleDelete(course.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <section className="flex min-h-0 flex-1 flex-col gap-4 md:gap-0 md:rounded-lg md:border-2 md:border-primary md:bg-card md:text-card-foreground md:shadow-none">
+      <header className="shrink-0 pr-20 md:flex md:flex-row md:items-center md:justify-between md:gap-4 md:p-6 md:pr-6">
+        <div className="min-w-0">
+          <h1 className="text-4xl font-bold leading-tight text-[var(--secondary-accent)] md:text-2xl md:leading-none md:text-primary">Courses</h1>
+          <p className="mt-2 text-sm font-medium text-[var(--text-secondary)] md:hidden">Manage your courses and materials.</p>
+        </div>
+        <Button onClick={openAddDialog} className="hidden gap-2 md:inline-flex">
+          <Plus className="h-4 w-4" />
+          Add Course
+        </Button>
+      </header>
+
+      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto] gap-3 md:hidden">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--text-secondary)]" />
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search courses..."
+            className="h-14 rounded-lg border-[var(--border-light)] bg-[var(--surface)] pl-12 pr-4 text-base font-semibold text-[var(--secondary-accent)] shadow-[var(--shadow-xs)] placeholder:font-medium"
+          />
+        </div>
+        <Button
+          type="button"
+          onClick={openAddDialog}
+          className="h-14 rounded-lg border-[var(--main-accent)] bg-[var(--main-accent)] px-4 text-white shadow-[var(--shadow-sm)] hover:border-[var(--main-color-shade)] hover:bg-[var(--main-color-shade)] sm:px-5"
+        >
+          <Plus className="h-5 w-5" />
+          <span className="hidden sm:inline">Add Course</span>
+          <span className="sm:hidden">Add</span>
+        </Button>
+      </div>
+
+      <div className="flex shrink-0 overflow-x-auto rounded-lg border border-[var(--border-light)] bg-[var(--surface)] p-1 shadow-[var(--shadow-xs)] md:hidden">
+        {tabs.map((tab) => {
+          const isActive = courseFilter === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => setCourseFilter(tab.value)}
+              className={`min-h-11 flex-1 whitespace-nowrap rounded-md px-2 text-xs font-bold leading-none transition-colors sm:px-3 sm:text-sm ${
+                isActive
+                  ? 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)] text-[var(--main-accent)]'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--secondary-color)]'
+              }`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-visible md:overflow-auto md:px-6 md:pb-6 md:pt-0">
+        {courses.length === 0 ? (
+          <div className="flex min-h-[18rem] flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] px-6 text-center shadow-[var(--shadow-xs)] md:min-h-0 md:border-0 md:bg-transparent md:py-16 md:shadow-none">
+            <GraduationCap className="h-9 w-9 text-[var(--main-accent)] md:h-8 md:w-8 md:text-muted-foreground" />
+            <p className="text-sm font-bold text-[var(--secondary-accent)] md:font-semibold md:text-primary">No courses yet</p>
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Add your first course to get started.</p>
+          </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="flex min-h-[14rem] flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] px-6 text-center shadow-[var(--shadow-xs)]">
+            <Search className="h-8 w-8 text-[var(--text-secondary)]" />
+            <p className="text-sm font-bold text-[var(--secondary-accent)]">No matching courses</p>
+            <p className="text-xs font-medium text-[var(--text-secondary)]">Try a different search or filter.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 pb-2 md:grid-cols-2 xl:grid-cols-3">
+            {filteredCourses.map((course, index) => {
+              const colors = getCourseColor(course.color);
+              const Icon = getCourseIcon(course, index);
+              const stats = courseStats.get(course.id) ?? { completed: 0, total: 0 };
+              const percent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+              const progressLabel = stats.total > 0 ? `${percent}% complete` : 'No assignments yet';
+
+              return (
+                <div
+                  key={course.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/courses/${course.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/courses/${course.id}`);
+                    }
+                  }}
+                  className="group relative min-h-[142px] cursor-pointer overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--course-border)_58%,white)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--course-bg)_55%,white),color-mix(in_srgb,var(--course-bg)_18%,white))] p-3 pl-5 text-[var(--course-text)] shadow-[var(--shadow-xs)] transition-shadow hover:shadow-[var(--shadow-md)] sm:p-4 sm:pl-5 md:flex md:min-h-0 md:flex-col md:gap-3 md:rounded-xl md:border md:border-l-4 md:border-l-[var(--course-border)] md:bg-[var(--course-bg)] md:p-4 md:shadow-sm md:hover:shadow-md xl:[&_.course-actions]:opacity-0 xl:hover:[&_.course-actions]:opacity-100"
+                  style={{
+                    '--course-bg': colors.bg,
+                    '--course-border': colors.border,
+                    '--course-text': colors.text,
+                  } as React.CSSProperties}
+                >
+                  <span className="absolute bottom-4 left-4 top-4 w-1 rounded-full bg-[var(--course-border)] md:hidden" />
+                  <div className="flex min-w-0 gap-3 pr-10 sm:gap-4 sm:pr-14 md:contents">
+                    <div
+                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--course-border)_35%,white)] bg-[color-mix(in_srgb,var(--course-bg)_54%,white)] sm:h-16 sm:w-16 md:hidden"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${colors.bg} 54%, white)`,
+                        borderColor: `color-mix(in srgb, ${colors.border} 35%, white)`,
+                      }}
+                    >
+                      <Icon className="h-7 w-7 sm:h-8 sm:w-8" style={{ color: colors.text }} />
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-sm font-bold">{course.name}</p>
-                      <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <span
+                        className="inline-flex max-w-full items-center rounded-full bg-[color-mix(in_srgb,var(--course-bg)_62%,white)] px-2.5 py-1 text-xs font-bold leading-none text-[var(--course-text)] md:bg-white/45"
+                      >
+                        <span className="truncate">{course.code}</span>
+                      </span>
+                      <p className="mt-3 truncate text-base font-bold leading-snug text-[var(--secondary-accent)] sm:text-lg md:text-sm md:text-[var(--course-text)]" title={course.name}>
+                        {course.name}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+                  <div className="course-actions absolute right-4 top-4 flex items-center gap-1 opacity-100 transition-opacity md:static md:ml-auto md:gap-0.5">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-[var(--secondary-accent)]" title="Edit" onClick={(e) => openEditDialog(course, e)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-md text-[var(--main-accent)] hover:text-white"
+                      title="Delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Deleting this course also removes its assignments and class sessions. Continue?')) {
+                          handleDelete(course.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <ChevronRight className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--secondary-accent)] opacity-75 md:bottom-4 md:right-4 md:top-auto md:translate-y-0 md:text-[var(--course-text)]" />
+
+                  <div className="mt-4 flex items-center gap-2 pl-16 pr-6 text-[11px] font-bold text-[var(--course-text)] sm:gap-3 sm:pl-20 sm:pr-7 sm:text-xs md:hidden">
+                    <span className="shrink-0 whitespace-nowrap">{progressLabel}</span>
+                    <div className="h-2 min-w-12 flex-1 overflow-hidden rounded-full bg-white/55">
+                      <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: colors.border }} />
+                    </div>
+                    {stats.total > 0 && (
+                      <span className="shrink-0 whitespace-nowrap text-[var(--text-secondary)]">
+                        {stats.completed}/{stats.total}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      </section>
 
       <CourseFormDialog
         open={dialogOpen}
