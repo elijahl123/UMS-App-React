@@ -244,28 +244,28 @@ function HomeworkPage() {
     return (
       <div
         key={a.id}
-        className="group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-2.5 pl-4 shadow-[0_8px_20px_rgb(86_73_76/0.05)] sm:gap-4 sm:p-3 sm:pl-5 md:p-4 md:pl-6 md:shadow-sm"
+        className="group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-2.5 pl-4 shadow-[0_8px_20px_rgb(86_73_76/0.05)] sm:gap-4 sm:p-3 sm:pl-5 md:gap-3 md:p-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
         style={{ borderColor: colors.border, backgroundColor: `color-mix(in srgb, ${colors.bg} 42%, white)`, color: colors.text }}
       >
-        <span className="absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 rounded-full md:left-4 md:top-5 md:h-[calc(100%-2.5rem)]" style={{ backgroundColor: colors.border }} />
+        <span className="absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 rounded-full md:left-4 md:top-4 md:h-[calc(100%-2rem)] xl:top-5 xl:h-[calc(100%-2.5rem)]" style={{ backgroundColor: colors.border }} />
         <div
-          className="ml-5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-14 md:w-14"
+          className="ml-5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
           style={{ backgroundColor: `color-mix(in srgb, ${colors.bg} 62%, white)` }}
           aria-hidden="true"
         >
-          <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7" style={{ color: colors.text }} />
+          <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-5 md:w-5 xl:h-7 xl:w-7" style={{ color: colors.text }} />
         </div>
         <div className="min-w-0 space-y-1">
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-snug text-[var(--secondary-accent)] sm:text-base md:text-lg" title={a.name}>
+            <p className="truncate text-sm font-bold leading-snug text-[var(--secondary-accent)] sm:text-base md:text-sm xl:text-base" title={a.name}>
               {a.name}
             </p>
-            <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-secondary)] sm:text-xs md:text-sm" title={course?.code ?? 'No course'}>
+            <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-secondary)] sm:text-xs md:text-xs" title={course?.code ?? 'No course'}>
               {course?.code ?? 'No course'}
             </p>
           </div>
-          <p className={`flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs md:text-sm ${emphasis === 'late' ? 'text-[var(--main-accent)]' : colors.text}`}>
-            <CalendarClock className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+          <p className={`flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs md:text-xs ${emphasis === 'late' ? 'text-[var(--main-accent)]' : colors.text}`}>
+            <CalendarClock className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 md:h-3.5 md:w-3.5" />
             <span className="min-w-0 truncate" title={dueLabel}>
               {dueLabel}
             </span>
@@ -276,26 +276,26 @@ function HomeworkPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-white/70 sm:w-9 md:h-10 md:w-11 [&_svg]:size-3.5 md:[&_svg]:size-4"
+              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
               title="Mark incomplete"
               onClick={() => handleMarkIncomplete(a)}
             >
-              <RotateCcw className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <RotateCcw className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-10 md:w-11 [&_svg]:size-3.5 md:[&_svg]:size-4" title="Mark complete" onClick={() => handleMarkComplete(a)}>
-              <CheckCircle2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Mark complete" onClick={() => handleMarkComplete(a)}>
+              <CheckCircle2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
             </Button>
           )}
-          <span className="my-1.5 w-px bg-[var(--border-light)] md:my-2" aria-hidden="true" />
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--secondary-accent)] hover:bg-white/70 sm:w-9 md:h-10 md:w-11 [&_svg]:size-3.5 md:[&_svg]:size-4" title="Edit" onClick={() => openEditDialog(a)}>
-            <Pencil className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--secondary-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Edit" onClick={() => openEditDialog(a)}>
+            <Pencil className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
           </Button>
-          <span className="my-1.5 w-px bg-[var(--border-light)] md:my-2" aria-hidden="true" />
+          <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-10 md:w-11 [&_svg]:size-3.5 md:[&_svg]:size-4"
+            className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
             title="Delete"
             onClick={() => {
               if (confirm('Are you sure you want to delete this assignment?')) {
@@ -303,7 +303,7 @@ function HomeworkPage() {
               }
             }}
           >
-            <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <Trash2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
           </Button>
         </div>
       </div>
@@ -313,15 +313,15 @@ function HomeworkPage() {
   return (
     <div className="min-h-0 md:h-full md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pb-2 md:h-full md:max-w-none md:gap-0 md:overflow-hidden md:rounded-lg md:border-2 md:border-primary md:bg-card">
-        <section className="-mx-3 rounded-b-lg bg-[linear-gradient(180deg,color-mix(in_srgb,var(--main-color)_18%,white),white)] px-5 pb-6 pt-7 sm:-mx-4 sm:px-7 md:mx-0 md:flex md:items-center md:justify-between md:gap-4 md:rounded-none md:bg-transparent md:px-6 md:pb-4 md:pt-6">
+        <section className="px-2 pb-1 pr-20 pt-3 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
           <div className="max-w-[calc(100%-4.5rem)] sm:max-w-none">
-            <h1 className="text-3xl font-bold leading-tight text-[var(--secondary-accent)] sm:text-4xl md:text-2xl md:text-primary">Homework</h1>
+            <h1 className="text-3xl font-bold leading-tight text-[var(--secondary-accent)] sm:text-4xl md:text-xl md:text-primary xl:text-2xl">Homework</h1>
             <p className="mt-2 text-sm font-medium text-[var(--text-secondary)] sm:text-base md:hidden">Stay on track and get everything done.</p>
           </div>
           {isDesktopLayout && (
-            <div className="hidden min-w-0 grid-cols-[auto_auto_auto_auto] items-center justify-end gap-2 md:grid">
+            <div className="hidden min-w-0 grid-cols-2 items-center gap-2 md:grid xl:grid-cols-[auto_auto_auto_auto] xl:justify-end">
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="h-10 w-[200px] rounded-md border border-input bg-white px-4 text-sm font-semibold text-[var(--secondary-accent)] shadow-none">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[200px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by course" />
                 </SelectTrigger>
                 <SelectContent>
@@ -334,7 +334,7 @@ function HomeworkPage() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-10 w-[180px] rounded-md border border-input bg-white px-4 text-sm font-semibold text-[var(--secondary-accent)] shadow-none">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -348,7 +348,7 @@ function HomeworkPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 gap-2 rounded-md px-4 text-sm [&_svg]:size-4"
+                className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
                 onClick={() => setShowImportPanel((current) => !current)}
               >
                 <FileUp className="h-4 w-4" />
@@ -356,7 +356,7 @@ function HomeworkPage() {
               </Button>
               <Button
                 onClick={openAddDialog}
-                className="h-10 gap-2 rounded-md border-2 border-primary bg-[var(--secondary-color)] px-4 text-sm font-semibold text-primary shadow-none hover:bg-primary hover:text-primary-foreground [&_svg]:size-4"
+                className="h-9 gap-2 rounded-md border-2 border-primary bg-[var(--secondary-color)] px-3 text-xs font-semibold text-primary shadow-none hover:bg-primary hover:text-primary-foreground xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
               >
                 <Plus className="h-4 w-4" />
                 Add Assignment
@@ -413,7 +413,7 @@ function HomeworkPage() {
           </Button>
         </section>}
 
-        <section className="grid gap-5 md:min-h-0 md:flex-1 md:overflow-auto md:px-6 md:pb-6">
+        <section className="grid gap-5 md:min-h-0 md:flex-1 md:overflow-auto md:px-4 md:pb-4 xl:px-5 xl:pb-5">
           {showImportPanel && (
             <div>
               <BrightspacePdfImportCard
@@ -428,21 +428,21 @@ function HomeworkPage() {
               <p className="text-xs text-muted-foreground">Try adjusting your filters or add a new assignment.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 md:gap-4 xl:gap-5">
               {groups.map((group) => (
-                <div key={group.key} className="flex flex-col gap-3">
+                <div key={group.key} className="flex flex-col gap-3 md:gap-2.5 xl:gap-3">
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 text-left"
                     onClick={() => toggleGroupCollapsed(group.key)}
                     aria-expanded={!collapsedGroups.has(group.key)}
                   >
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${group.iconBgClass}`}>
-                      <group.icon className={`h-5 w-5 ${group.iconClass}`} />
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full md:h-9 md:w-9 xl:h-10 xl:w-10 ${group.iconBgClass}`}>
+                      <group.icon className={`h-5 w-5 md:h-4 md:w-4 xl:h-5 xl:w-5 ${group.iconClass}`} />
                     </span>
                     <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <span className="truncate text-xl font-bold text-[var(--secondary-accent)] sm:text-2xl">{group.label}</span>
-                      <span className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 text-sm font-bold ${group.iconBgClass} ${group.textClass}`}>
+                      <span className="truncate text-xl font-bold text-[var(--secondary-accent)] sm:text-2xl md:text-lg xl:text-xl">{group.label}</span>
+                      <span className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 text-sm font-bold md:h-7 md:min-w-7 md:text-xs xl:h-8 xl:min-w-8 xl:text-sm ${group.iconBgClass} ${group.textClass}`}>
                         {group.items.length}
                       </span>
                     </span>
@@ -460,7 +460,7 @@ function HomeworkPage() {
             </div>
           )}
 
-          <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 shadow-[0_10px_26px_rgb(86_73_76/0.06)] sm:p-5">
+          <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 shadow-[0_10px_26px_rgb(86_73_76/0.06)] sm:p-5 md:hidden">
             <p className="text-lg font-bold text-[var(--secondary-accent)] sm:text-xl">Homework Overview</p>
             <div className="mt-4 grid grid-cols-4">
               {overviewItems.map((item, index) => (
