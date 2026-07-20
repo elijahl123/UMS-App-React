@@ -136,7 +136,7 @@ function CoursesPage() {
         <Button
           type="button"
           onClick={openAddDialog}
-          className="h-14 rounded-lg border-[var(--main-accent)] bg-[var(--main-accent)] px-4 text-white shadow-[var(--shadow-sm)] hover:border-[var(--main-color-shade)] hover:bg-[var(--main-color-shade)] sm:px-5"
+          className="h-14 rounded-lg border-[var(--main-color)] bg-[var(--main-color)] px-4 text-white shadow-[var(--shadow-sm)] hover:border-[var(--main-color-shade)] hover:bg-[var(--main-color-shade)] sm:px-5"
         >
           <Plus className="h-5 w-5" />
           <span className="hidden sm:inline">Add Course</span>

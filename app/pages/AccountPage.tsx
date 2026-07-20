@@ -43,6 +43,7 @@ import {
   syncAndScheduleNotifications,
   type NotificationPermissionStatus,
 } from '@/app/lib/notifications/scheduler';
+import { NotificationInbox } from '@/app/components/NotificationCenter';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -631,6 +632,8 @@ function AccountPage() {
                   />
                 </label>
               </div>
+
+              <NotificationInbox className="md:hidden" title="Scheduled reminders" />
 
               {notificationsError && <p className="text-sm font-medium text-destructive">{notificationsError}</p>}
               {notificationsSuccess && (

@@ -206,7 +206,7 @@ function CalendarPage() {
     <>
       {!isDesktopCalendar && (
         <section className="-mx-3 -mt-[calc(0.75rem+env(safe-area-inset-top))] min-h-[calc(100dvh-6.25rem-env(safe-area-inset-bottom))] bg-background">
-          <div className="relative overflow-hidden px-5 pb-4 pt-[calc(4.75rem+env(safe-area-inset-top))]">
+          <div className="relative overflow-hidden px-5 pb-4 pt-[calc(2.25rem+env(safe-area-inset-top))]">
             <div className="relative pr-20">
               <h1 className="whitespace-nowrap text-[clamp(1.55rem,8vw,3.05rem)] font-bold leading-none text-[var(--secondary-accent)]">{monthLabel}</h1>
             </div>

@@ -12,6 +12,7 @@ test('uses mobile bottom navigation with global add and more sheets', async ({ p
 
   await expect(page.getByRole('navigation', { name: 'Mobile primary navigation' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add anything' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Notifications' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Toggle menu' })).toHaveCount(0);
   await expectNoHorizontalPageOverflow(page);
 
@@ -35,6 +36,8 @@ test('uses mobile bottom navigation with global add and more sheets', async ({ p
   await page.getByRole('button', { name: 'Account' }).click();
   await expect(page).toHaveURL(/#\/account$/);
   await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
+  await expect(page.getByText('Scheduled reminders', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Notifications' })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Homework' }).click();
   await page.getByRole('button', { name: 'Add anything' }).click();
