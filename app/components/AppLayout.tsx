@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import MobileBottomNavigation from '@/app/components/MobileBottomNavigation';
+import MobileSwipeNavigation from '@/app/components/MobileSwipeNavigation';
 import NotificationCenter from '@/app/components/NotificationCenter';
 
 function AppLayout() {
@@ -31,7 +32,9 @@ function AppLayout() {
         <div className="fixed right-8 top-[calc(2.25rem+env(safe-area-inset-top))] z-50 hidden md:bottom-4 md:right-4 md:top-auto md:block xl:bottom-6 xl:right-6">
           <NotificationCenter />
         </div>
-        <Outlet />
+        <MobileSwipeNavigation>
+          <Outlet />
+        </MobileSwipeNavigation>
       </main>
       <MobileBottomNavigation />
     </div>

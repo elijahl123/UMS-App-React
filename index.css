@@ -207,6 +207,36 @@ body {
   font-family: inherit;
 }
 
+@keyframes mobile-swipe-left {
+  from {
+    opacity: 0.92;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mobile-swipe-right {
+  from {
+    opacity: 0.92;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-mobile-swipe-left {
+  animation: mobile-swipe-left 180ms ease-out;
+}
+
+.animate-mobile-swipe-right {
+  animation: mobile-swipe-right 180ms ease-out;
+}
+
 /* Rich text editor (Tiptap) content styling */
 .ProseMirror {
   outline: none;
