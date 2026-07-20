@@ -283,7 +283,10 @@ function CalendarPage() {
                       onClick={() => handleEventClick(item)}
                     >
                       <span className="h-full min-h-12 rounded-full" style={{ backgroundColor: item.borderColor }} />
-                      <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-white/45 text-primary">
+                      <span
+                        className="flex h-12 w-12 items-center justify-center rounded-lg border bg-white/50"
+                        style={{ borderColor: item.borderColor, color: item.textColor }}
+                      >
                         <Icon className="h-5 w-5" />
                       </span>
                       <span className="min-w-0">
@@ -291,8 +294,8 @@ function CalendarPage() {
                         <span className="block truncate text-sm text-[var(--text-secondary)]">{formatItemTime(item)}</span>
                       </span>
                       <span
-                        className="rounded-lg border bg-white/35 px-3 py-1 text-xs font-semibold text-[var(--secondary-accent)]"
-                        style={{ borderColor: item.borderColor }}
+                        className="rounded-lg border bg-white/35 px-3 py-1 text-xs font-semibold"
+                        style={{ borderColor: item.borderColor, color: item.textColor }}
                       >
                         {itemTypeLabel(item.type)}
                       </span>

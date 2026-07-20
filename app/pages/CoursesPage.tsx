@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { BarChart3, BookOpen, Calculator, ChevronRight, Code2, GraduationCap, Pencil, Plus, Search, Sigma, Trash2 } from 'lucide-react';
+import { ChevronRight, GraduationCap, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import CourseFormDialog from '@/app/components/widgets/CourseFormDialog';
@@ -11,16 +11,6 @@ import type { Assignment, Course } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 
 type CourseFilter = 'all' | 'current' | 'complete';
-
-const courseIcons = [BookOpen, BarChart3, Code2, Calculator, Sigma, GraduationCap];
-
-function getCourseIcon(course: Course, index: number) {
-  const subject = `${course.code} ${course.name}`.toLowerCase();
-  if (subject.includes('math') || subject.includes('algebra') || subject.includes('calculus')) return Sigma;
-  if (subject.includes('program') || subject.includes('software') || subject.includes('code')) return Code2;
-  if (subject.includes('data') || subject.includes('analytics')) return BarChart3;
-  return courseIcons[index % courseIcons.length];
-}
 
 function CoursesPage() {
   const { user } = useAuth();
@@ -180,9 +170,8 @@ function CoursesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 pb-2 md:grid-cols-2 xl:grid-cols-3">
-            {filteredCourses.map((course, index) => {
+            {filteredCourses.map((course) => {
               const colors = getCourseColor(course.color);
-              const Icon = getCourseIcon(course, index);
               const stats = courseStats.get(course.id) ?? { completed: 0, total: 0 };
               const percent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
               const progressLabel = stats.total > 0 ? `${percent}% complete` : 'No assignments yet';
@@ -207,16 +196,7 @@ function CoursesPage() {
                   } as React.CSSProperties}
                 >
                   <span className="absolute bottom-4 left-4 top-4 w-1 rounded-full bg-[var(--course-border)] md:hidden" />
-                  <div className="flex min-w-0 gap-3 pr-10 sm:gap-4 sm:pr-14 md:contents">
-                    <div
-                      className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--course-border)_35%,white)] bg-[color-mix(in_srgb,var(--course-bg)_54%,white)] sm:h-16 sm:w-16 md:hidden"
-                      style={{
-                        backgroundColor: `color-mix(in srgb, ${colors.bg} 54%, white)`,
-                        borderColor: `color-mix(in srgb, ${colors.border} 35%, white)`,
-                      }}
-                    >
-                      <Icon className="h-7 w-7 sm:h-8 sm:w-8" style={{ color: colors.text }} />
-                    </div>
+                  <div className="flex min-w-0 pl-8 pr-24 sm:pr-28 md:contents">
                     <div className="min-w-0 flex-1 pt-0.5">
                       <span
                         className="inline-flex max-w-full items-center rounded-full bg-[color-mix(in_srgb,var(--course-bg)_62%,white)] px-2.5 py-1 text-xs font-bold leading-none text-[var(--course-text)] md:bg-white/45"
@@ -251,9 +231,9 @@ function CoursesPage() {
 
                   <ChevronRight className="absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[var(--secondary-accent)] opacity-75 md:bottom-4 md:right-4 md:top-auto md:translate-y-0 md:text-[var(--course-text)]" />
 
-                  <div className="mt-4 flex items-center gap-2 pl-16 pr-6 text-[11px] font-bold text-[var(--course-text)] sm:gap-3 sm:pl-20 sm:pr-7 sm:text-xs md:hidden">
+                  <div className="mt-5 grid grid-cols-[auto_minmax(4rem,1fr)_auto] items-center gap-3 pl-8 pr-12 text-[11px] font-bold text-[var(--course-text)] sm:pr-14 sm:text-xs md:hidden">
                     <span className="shrink-0 whitespace-nowrap">{progressLabel}</span>
-                    <div className="h-2 min-w-12 flex-1 overflow-hidden rounded-full bg-white/55">
+                    <div className="h-2 min-w-0 overflow-hidden rounded-full bg-white/55">
                       <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: colors.border }} />
                     </div>
                     {stats.total > 0 && (
