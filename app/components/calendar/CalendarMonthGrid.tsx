@@ -72,7 +72,7 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick, selectedDate,
               className={cn(
                 'border-b border-r border-[var(--border-light)] transition-colors hover:bg-primary/5',
                 isMobile
-                  ? 'relative flex aspect-square min-h-0 flex-col items-center justify-start p-1 pt-3 text-center text-[var(--secondary-accent)]'
+                  ? 'relative flex aspect-square min-h-0 flex-col items-center justify-start overflow-hidden p-1 pt-3 text-center text-[var(--secondary-accent)]'
                   : 'flex min-h-[60px] flex-col items-stretch gap-0.5 p-1 text-left sm:min-h-[80px] sm:gap-1 sm:p-1.5 md:min-h-[96px] xl:min-h-[80px]',
                 !isCurrentMonth && (isMobile ? 'text-muted-foreground/55' : 'bg-muted/40 text-muted-foreground'),
                 isSelected && isMobile && 'bg-primary/5'
@@ -89,17 +89,15 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick, selectedDate,
                 {date.getDate()}
               </span>
               {isMobile ? (
-                items.length > 0 && (
-                  <div className="mt-1 flex max-w-full justify-center gap-0.5">
-                    {items.slice(0, 3).map((item) => (
-                      <span
-                        key={item.id}
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ backgroundColor: item.borderColor }}
-                      />
-                    ))}
-                  </div>
-                )
+                <div className="mt-1 flex h-2 w-full items-center justify-center gap-0.5 overflow-hidden px-1">
+                  {items.slice(0, 3).map((item) => (
+                    <span
+                      key={item.id}
+                      className="h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.borderColor }}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="flex flex-col gap-0 overflow-hidden sm:gap-0.5">
                   {items.slice(0, 3).map((item) => (
