@@ -46,10 +46,10 @@ function formatTimeDisplay(time: string): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  late: 'bg-[#ffdcdd] text-[#B3261E]',
-  completed: 'bg-[#dcefe3] text-[#24553D]',
-  due_today: 'bg-[#fff2cf] text-[#6B5A1E]',
-  upcoming: 'bg-[#fff2cf] text-[#6B5A1E]',
+  late: 'bg-[color-mix(in_srgb,var(--main-accent)_18%,white)] text-[var(--main-accent)]',
+  completed: 'bg-[color-mix(in_srgb,var(--course-green)_48%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+  due_today: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+  upcoming: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
 };
 
 function CoursePage() {
@@ -156,9 +156,14 @@ function CoursePage() {
   }
 
   const colors = getCourseColor(course.color);
+  const courseItemStyle = {
+    '--mobile-item-bg': colors.bg,
+    '--mobile-item-border': colors.border,
+    '--mobile-item-text': colors.text,
+  } as React.CSSProperties;
 
   return (
-    <div className="flex flex-col gap-4 pb-4">
+    <div className="mobile-page-stack pb-4">
       {/* Back link */}
       <button
         type="button"
@@ -174,7 +179,7 @@ function CoursePage() {
         <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-base font-bold sm:h-14 sm:w-14 sm:text-lg"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-base font-bold sm:h-14 sm:w-14 sm:text-lg"
               style={{ backgroundColor: colors.bg, color: colors.text }}
             >
               {course.code.slice(0, 2)}
@@ -210,7 +215,7 @@ function CoursePage() {
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="flex items-center gap-3 rounded-xl border p-3 shadow-sm" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+        <div className="mobile-list-item flex items-center gap-3" style={courseItemStyle}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
             <ClipboardList className="h-5 w-5" />
           </div>
@@ -219,16 +224,16 @@ function CoursePage() {
             <p className="text-xs font-semibold opacity-80">Open Assignments</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 rounded-xl border p-3 shadow-sm" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+        <div className="mobile-list-item flex items-center gap-3" style={courseItemStyle}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
-            <AlertTriangle className={`h-5 w-5 ${lateCount > 0 ? 'text-[#B3261E]' : ''}`} />
+            <AlertTriangle className={`h-5 w-5 ${lateCount > 0 ? 'text-[var(--main-accent)]' : ''}`} />
           </div>
           <div className="min-w-0">
-            <p className={`text-2xl font-bold leading-none ${lateCount > 0 ? 'text-[#B3261E]' : ''}`}>{lateCount}</p>
+            <p className={`text-2xl font-bold leading-none ${lateCount > 0 ? 'text-[var(--main-accent)]' : ''}`}>{lateCount}</p>
             <p className="text-xs font-semibold opacity-80">Late</p>
           </div>
         </div>
-        <div className="col-span-2 flex items-center gap-3 rounded-xl border p-3 shadow-sm sm:col-span-1" style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}>
+        <div className="mobile-list-item col-span-2 flex items-center gap-3 sm:col-span-1" style={courseItemStyle}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
             <CalendarDays className="h-5 w-5" />
           </div>
@@ -253,15 +258,15 @@ function CoursePage() {
                 {courseAssignments.map((a) => (
                   <div
                     key={a.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border p-2.5 sm:p-3"
-                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    className="mobile-list-item flex items-center justify-between gap-3 sm:p-3"
+                    style={courseItemStyle}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                      <div className="mobile-list-icon h-8 w-8 rounded-md">
                         {a.status === 'late' ? (
-                          <AlertTriangle className="h-4 w-4 text-[#B3261E]" />
+                          <AlertTriangle className="h-4 w-4 text-[var(--main-accent)]" />
                         ) : a.status === 'completed' ? (
-                          <CheckCircle2 className="h-4 w-4 text-[#24553D]" />
+                          <CheckCircle2 className="h-4 w-4 text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]" />
                         ) : (
                           <ClipboardList className="h-4 w-4" />
                         )}
@@ -294,17 +299,18 @@ function CoursePage() {
                 {courseSessions.map((s) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border p-2.5 sm:p-3"
-                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    className="mobile-list-item flex items-center justify-between gap-3 sm:p-3"
+                    style={courseItemStyle}
                   >
                     <div className="flex min-w-0 items-center gap-2">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                      <div className="mobile-list-icon h-8 w-8 rounded-md">
                         <Clock className="h-4 w-4" />
                       </div>
                       <span className="text-sm font-bold">{s.day}</span>
                     </div>
                     <span className="text-xs font-semibold opacity-80">
                       {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
+                      {s.location ? ` · ${s.location}` : ''}
                     </span>
                   </div>
                 ))}
@@ -334,11 +340,11 @@ function CoursePage() {
                   key={n.id}
                   role="button"
                   onClick={() => navigate(`/notes/${n.id}`)}
-                  className="cursor-pointer rounded-lg border p-2.5 transition-shadow hover:shadow-sm sm:p-3"
-                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                  className="mobile-list-item cursor-pointer transition-shadow sm:p-3"
+                  style={courseItemStyle}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/45">
+                    <div className="mobile-list-icon h-8 w-8 rounded-md">
                       <StickyNote className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
@@ -374,16 +380,17 @@ function CoursePage() {
                 return (
                   <div
                     key={l.id}
-                    className="group flex items-center justify-between gap-2 rounded-lg p-2.5 transition-all sm:p-3"
+                    className="mobile-list-item group flex items-center justify-between gap-2 sm:p-3"
                     style={{
-                      backgroundColor: `var(--color-bg-secondary)`,
-                      borderLeft: `3px solid ${linkColor.border}`,
-                    }}
+                      '--mobile-item-bg': linkColor.bg,
+                      '--mobile-item-border': linkColor.border,
+                      '--mobile-item-text': linkColor.text,
+                    } as React.CSSProperties}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = `${linkColor.bg}20`;
+                      e.currentTarget.style.color = linkColor.text;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = `var(--color-bg-secondary)`;
+                      e.currentTarget.style.color = linkColor.text;
                     }}
                   >
                     <a

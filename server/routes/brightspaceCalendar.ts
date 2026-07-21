@@ -3,6 +3,7 @@ import { importBrightspaceRows, normalizeBrightspaceImportRows } from '../bright
 import { pool } from '../db';
 import { ApiError } from '../errors';
 import { requestUserId } from '../auth';
+import { syncNotificationInstancesForUser } from '../notifications';
 
 export const brightspaceCalendarRouter = Router();
 
@@ -16,6 +17,7 @@ brightspaceCalendarRouter.post('/import', async (req: Request, res: Response) =>
     await client.query('BEGIN');
     const result = await importBrightspaceRows(client, userId, rows);
     await client.query('COMMIT');
+    await syncNotificationInstancesForUser(userId);
 
     return res.json(result);
   } catch (err) {

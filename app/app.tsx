@@ -4,6 +4,7 @@ import '@/index.css';
 import { useEffect, type ReactNode } from 'react';
 import { HashRouter, Navigate, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppLayout from '@/app/components/AppLayout';
+import NotificationService from '@/app/components/NotificationService';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import SubscriptionRoute from '@/app/components/SubscriptionRoute';
 import { AuthProvider, useAuth } from '@/app/lib/auth/AuthContext';
@@ -98,6 +99,7 @@ function App() {
       <AuthProvider>
         <AuthActionRedirect />
         <TrialStartedRedirect />
+        <NotificationService />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />

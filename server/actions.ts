@@ -138,7 +138,7 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   loadClassSessions: (params) => ({
     text: `
-      SELECT s.id, s.course_id, s.day, s.start_time::text AS start_time, s.end_time::text AS end_time
+      SELECT s.id, s.course_id, s.day, s.start_time::text AS start_time, s.end_time::text AS end_time, s.location
       FROM class_sessions s
       JOIN courses c ON c.id = s.course_id
       WHERE c.user_id = $1
@@ -149,13 +149,20 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   createClassSession: (params) => ({
     text: `
-      INSERT INTO class_sessions (course_id, day, start_time, end_time)
-      SELECT c.id, $1, $2::time, $3::time
+      INSERT INTO class_sessions (course_id, day, start_time, end_time, location)
+      SELECT c.id, $1, $2::time, $3::time, NULLIF($4, '')
       FROM courses c
-      WHERE c.id = $4::bigint AND c.user_id = $5
-      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time;
+      WHERE c.id = $5::bigint AND c.user_id = $6
+      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time, location;
     `,
-    values: [required(params, 'day'), required(params, 'startTime'), required(params, 'endTime'), required(params, 'courseId'), required(params, 'userId')],
+    values: [
+      required(params, 'day'),
+      required(params, 'startTime'),
+      required(params, 'endTime'),
+      params.location ?? null,
+      required(params, 'courseId'),
+      required(params, 'userId'),
+    ],
   }),
 
   updateClassSession: (params) => ({
@@ -164,19 +171,21 @@ const actionBuilders: Record<string, ActionBuilder> = {
       SET course_id = $1::bigint,
           day = $2,
           start_time = $3::time,
-          end_time = $4::time
-      WHERE id = $5::bigint
+          end_time = $4::time,
+          location = NULLIF($5, '')
+      WHERE id = $6::bigint
         AND EXISTS (
           SELECT 1 FROM courses c
-          WHERE c.id = $1::bigint AND c.user_id = $6
+          WHERE c.id = $1::bigint AND c.user_id = $7
         )
-      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time;
+      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time, location;
     `,
     values: [
       required(params, 'courseId'),
       required(params, 'day'),
       required(params, 'startTime'),
       required(params, 'endTime'),
+      params.location ?? null,
       required(params, 'id'),
       required(params, 'userId'),
     ],
@@ -193,31 +202,68 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   loadEvents: (params) => ({
     text: `
-      SELECT id, title, event_date::text AS event_date, event_time, description
+      SELECT
+        id,
+        title,
+        event_date::text AS event_date,
+        event_time::text AS event_time,
+        COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
+        description
       FROM events
       WHERE user_id = $1
-      ORDER BY event_date;
+      ORDER BY event_date, event_time NULLS LAST;
     `,
     values: [required(params, 'userId')],
   }),
 
   createEvent: (params) => ({
     text: `
-      INSERT INTO events (title, event_date, event_time, description, user_id)
-      VALUES ($1, $2::date, $3, $4, $5)
-      RETURNING id, title, event_date::text AS event_date, event_time, description;
+      INSERT INTO events (title, event_date, event_time, event_timezone, description, user_id)
+      VALUES ($1, $2::date, NULLIF($3, '')::time, $4, $5, $6)
+      RETURNING
+        id,
+        title,
+        event_date::text AS event_date,
+        event_time::text AS event_time,
+        COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
+        description;
     `,
-    values: [required(params, 'title'), required(params, 'date'), params.time ?? null, params.description ?? null, required(params, 'userId')],
+    values: [
+      required(params, 'title'),
+      required(params, 'date'),
+      params.time ?? null,
+      params.timeZone ?? 'UTC',
+      params.description ?? null,
+      required(params, 'userId'),
+    ],
   }),
 
   updateEvent: (params) => ({
     text: `
       UPDATE events
-      SET title = $1, event_date = $2::date, event_time = $3, description = $4
-      WHERE id = $5::bigint AND user_id = $6
-      RETURNING id, title, event_date::text AS event_date, event_time, description;
+      SET title = $1,
+          event_date = $2::date,
+          event_time = NULLIF($3, '')::time,
+          event_timezone = $4,
+          description = $5
+      WHERE id = $6::bigint AND user_id = $7
+      RETURNING
+        id,
+        title,
+        event_date::text AS event_date,
+        event_time::text AS event_time,
+        COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
+        description;
     `,
-    values: [required(params, 'title'), required(params, 'date'), params.time ?? null, params.description ?? null, required(params, 'id'), required(params, 'userId')],
+    values: [
+      required(params, 'title'),
+      required(params, 'date'),
+      params.time ?? null,
+      params.timeZone ?? 'UTC',
+      params.description ?? null,
+      required(params, 'id'),
+      required(params, 'userId'),
+    ],
   }),
 
   deleteEvent: (params) => ({

@@ -32,6 +32,7 @@ export interface ClassSession {
   day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
   startTime: string; // HH:MM format (24-hour)
   endTime: string; // HH:MM format (24-hour)
+  location?: string;
 }
 
 export interface Note {
@@ -48,7 +49,38 @@ export interface CalendarEvent {
   title: string;
   date: string; // ISO date
   time?: string;
+  timeZone: string;
   description?: string;
+}
+
+export type NotificationSourceType = 'assignment' | 'event' | 'class_session';
+
+export interface NotificationPreferences {
+  userId: string;
+  enabled: boolean;
+  assignment24hEnabled: boolean;
+  assignment1hEnabled: boolean;
+  event10mEnabled: boolean;
+  class10mEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  timeZone: string;
+}
+
+export interface NotificationInstance {
+  id: string;
+  sourceType: NotificationSourceType;
+  sourceId: string;
+  occurrenceKey: string;
+  fireAt: string;
+  targetAt: string;
+  title: string;
+  body: string;
+  reminderOffsetMinutes: number;
+  localNotificationId: number;
+  readAt: string | null;
+  dismissedAt: string | null;
 }
 
 export interface AppUser {

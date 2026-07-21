@@ -20,6 +20,18 @@ const invalidatesByMutation: Record<string, string[]> = {
   deleteNote: ['loadNotes'],
 };
 
+const notificationMutationActions = new Set([
+  'createAssignment',
+  'updateAssignment',
+  'deleteAssignment',
+  'createClassSession',
+  'updateClassSession',
+  'deleteClassSession',
+  'createEvent',
+  'updateEvent',
+  'deleteEvent',
+]);
+
 export function useLoadAction<T = unknown[]>(
   name: string,
   initialValue: T,
@@ -84,6 +96,9 @@ export function useMutateAction<TParams extends Record<string, unknown> = Record
       try {
         const result = await callAction<TResult>(name, params);
         window.dispatchEvent(new CustomEvent(MUTATION_EVENT, { detail: { name } }));
+        if (notificationMutationActions.has(name)) {
+          window.dispatchEvent(new CustomEvent('ums-notifications-changed'));
+        }
         return result;
       } catch (err) {
         setError(err);

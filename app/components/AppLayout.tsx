@@ -2,6 +2,8 @@ import { Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import MobileBottomNavigation from '@/app/components/MobileBottomNavigation';
+import MobileSwipeNavigation from '@/app/components/MobileSwipeNavigation';
+import NotificationCenter from '@/app/components/NotificationCenter';
 
 function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -23,11 +25,16 @@ function AppLayout() {
 
       {/* Main content */}
       <main
-        className={`flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-4 sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pt-[calc(1rem+env(safe-area-inset-top))] md:h-[100dvh] md:overflow-hidden md:pb-4 md:pt-4 xl:p-6 ${
+        className={`relative flex min-h-[100dvh] min-w-0 flex-col overflow-x-clip px-3 pb-[calc(6.25rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-4 sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pt-[calc(1rem+env(safe-area-inset-top))] md:h-[100dvh] md:overflow-hidden md:pb-4 md:pt-4 xl:p-6 ${
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >
-        <Outlet />
+        <div className="fixed right-8 top-[calc(2.25rem+env(safe-area-inset-top))] z-50 hidden md:bottom-4 md:right-4 md:top-auto md:block xl:bottom-6 xl:right-6">
+          <NotificationCenter />
+        </div>
+        <MobileSwipeNavigation>
+          <Outlet />
+        </MobileSwipeNavigation>
       </main>
       <MobileBottomNavigation />
     </div>

@@ -1,3 +1,5 @@
+/// <reference types="@capacitor/local-notifications" />
+
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -6,6 +8,11 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'http',
+  },
+  plugins: {
+    LocalNotifications: {
+      presentationOptions: ['badge', 'sound', 'banner', 'list'],
+    },
   },
 };
 

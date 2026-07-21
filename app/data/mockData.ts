@@ -17,15 +17,15 @@ export const assignments: Assignment[] = [
 const todayIso = new Date().toISOString().slice(0, 10);
 
 export const todaySessions: ClassSession[] = [
-  { id: 'c1', courseId: 'comp30870', day: 'Mon', startTime: '10:00 a.m.', endTime: '10:50 a.m.' },
-  { id: 'c2', courseId: 'comp30870', day: 'Mon', startTime: '11:00 a.m.', endTime: '12:50 p.m.' },
-  { id: 'c3', courseId: 'comp30870', day: 'Mon', startTime: '02:00 p.m.', endTime: '03:50 p.m.' },
+  { id: 'c1', courseId: 'comp30870', day: 'Mon', startTime: '10:00 a.m.', endTime: '10:50 a.m.', location: 'Engineering Building E201' },
+  { id: 'c2', courseId: 'comp30870', day: 'Mon', startTime: '11:00 a.m.', endTime: '12:50 p.m.', location: 'Engineering Building E201' },
+  { id: 'c3', courseId: 'comp30870', day: 'Mon', startTime: '02:00 p.m.', endTime: '03:50 p.m.', location: 'Science Center S204' },
 ];
 
 export const classSessions: ClassSession[] = [
   ...todaySessions,
-  { id: 'c4', courseId: 'comp30770', day: 'Tue', startTime: '09:00 a.m.', endTime: '10:50 a.m.' },
-  { id: 'c5', courseId: 'comp31020', day: 'Wed', startTime: '01:00 p.m.', endTime: '02:50 p.m.' },
+  { id: 'c4', courseId: 'comp30770', day: 'Tue', startTime: '09:00 a.m.', endTime: '10:50 a.m.', location: 'Library Lab 2' },
+  { id: 'c5', courseId: 'comp31020', day: 'Wed', startTime: '01:00 p.m.', endTime: '02:50 p.m.', location: 'Cloud Lab C105' },
 ];
 
 export const notes: Note[] = [

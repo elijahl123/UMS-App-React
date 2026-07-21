@@ -83,7 +83,7 @@ describe('page rendering', () => {
     renderWithRouter(<CalendarPage />);
 
     expect(screen.getByRole('heading', { name: /july 2026/i })).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: /10/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /22/i })[0]);
     expect(await screen.findByText(/study group/i)).toBeInTheDocument();
   });
 
@@ -110,6 +110,38 @@ describe('page rendering', () => {
 
     expect(screen.getByDisplayValue(/chain rule notes/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/rich text editor/i)).toBeInTheDocument();
+  });
+
+  it('persists favorite notes locally and filters the favorites tab', async () => {
+    const user = userEvent.setup();
+    const storage = new Map<string, string>();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        clear: vi.fn(() => storage.clear()),
+        getItem: vi.fn((key: string) => storage.get(key) ?? null),
+        removeItem: vi.fn((key: string) => storage.delete(key)),
+        setItem: vi.fn((key: string, value: string) => storage.set(key, value)),
+      },
+    });
+
+    window.localStorage.clear();
+
+    renderWithRouter(<NotesPage />);
+
+    await user.click(screen.getByRole('button', { name: /favorite note/i }));
+
+    expect(screen.getByRole('button', { name: /remove favorite/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(JSON.parse(window.localStorage.getItem('ums.favoriteNoteIds:user-1') ?? '[]')).toEqual(['1']);
+
+    await user.click(screen.getByRole('button', { name: /favorites/i }));
+
+    expect(screen.getByText(/chain rule notes/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /remove favorite/i }));
+
+    expect(screen.queryByText(/chain rule notes/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no notes found/i)).toBeInTheDocument();
   });
 
   it('warns before leaving a note with unsaved changes', async () => {

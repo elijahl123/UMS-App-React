@@ -80,8 +80,8 @@ const courses = [
 ];
 
 const classSessions = [
-  { id: 1, course_id: 1, day: 'Mon', start_time: '10:00', end_time: '10:50' },
-  { id: 2, course_id: 2, day: 'Wed', start_time: '13:00', end_time: '14:50' },
+  { id: 1, course_id: 1, day: 'Mon', start_time: '10:00', end_time: '10:50', location: 'Engineering Building E201' },
+  { id: 2, course_id: 2, day: 'Wed', start_time: '13:00', end_time: '14:50', location: 'Science Center S204' },
 ];
 
 const notes = [
@@ -150,6 +150,37 @@ const activeBillingStatus = {
   trialDaysRemaining: 0,
   hasAccess: true,
 };
+
+async function mockNotificationApis(page: Page) {
+  const preferences = {
+    userId: testUser.id,
+    enabled: true,
+    assignment24hEnabled: true,
+    assignment1hEnabled: true,
+    event10mEnabled: true,
+    class10mEnabled: true,
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '07:00',
+    timeZone: 'America/Los_Angeles',
+  };
+
+  await page.route('**/api/notifications/preferences', async (route) => {
+    await fulfillJson(route, preferences);
+  });
+
+  await page.route('**/api/notifications/sync', async (route) => {
+    await fulfillJson(route, { instances: [] });
+  });
+
+  await page.route('**/api/notifications/instances**', async (route) => {
+    await fulfillJson(route, []);
+  });
+
+  await page.route('**/api/notifications/read-all', async (route) => {
+    await fulfillJson(route, { ok: true });
+  });
+}
 
 async function mockActiveBillingApis(page: Page) {
   await page.route('**/api/billing/config', async (route) => {
@@ -253,6 +284,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
   });
 
   await mockActiveBillingApis(page);
+  await mockNotificationApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -375,6 +407,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
   });
 
   await mockActiveBillingApis(page);
+  await mockNotificationApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -487,6 +520,7 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
   });
 
   await mockActiveBillingApis(page);
+  await mockNotificationApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();

@@ -143,18 +143,19 @@ async function insertEvent(client: Queryable, userId: string, row: BrightspaceIm
         title,
         event_date,
         event_time,
+        event_timezone,
         description,
         user_id,
         source_provider,
         source_key
       )
-      VALUES ($1, $2::date, $3, $4, $5, $6, $7)
+      VALUES ($1, $2::date, $3::time, $4, $5, $6, $7, $8)
       ON CONFLICT (user_id, source_provider, source_key)
         WHERE user_id IS NOT NULL AND source_provider IS NOT NULL AND source_key IS NOT NULL
         DO NOTHING
       RETURNING id;
     `,
-    [row.title, row.date, row.time, description, userId, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey]
+    [row.title, row.date, row.time, IMPORT_TIME_ZONE, description, userId, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey]
   );
 
   return result.rowCount === 1;

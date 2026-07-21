@@ -99,6 +99,39 @@ vi.doMock('@/app/lib/billing/client', () => ({
   })),
 }));
 
+vi.doMock('@/app/lib/notifications/client', () => ({
+  getNotificationPreferences: vi.fn(async () => ({
+    userId: authState.user?.id ?? 'user-1',
+    enabled: false,
+    assignment24hEnabled: true,
+    assignment1hEnabled: true,
+    event10mEnabled: true,
+    class10mEnabled: true,
+    quietHoursEnabled: false,
+    quietHoursStart: null,
+    quietHoursEnd: null,
+    timeZone: 'America/Los_Angeles',
+  })),
+  updateNotificationPreferences: vi.fn(async (preferences) => ({
+    userId: authState.user?.id ?? 'user-1',
+    ...preferences,
+  })),
+  syncNotificationInstances: vi.fn(async () => []),
+  listNotificationInstances: vi.fn(async () => []),
+  markNotificationRead: vi.fn(async () => ({ ok: true })),
+  dismissNotification: vi.fn(async () => ({ ok: true })),
+  markAllNotificationsRead: vi.fn(async () => ({ ok: true })),
+  unreadNotificationCount: vi.fn(() => 0),
+}));
+
+vi.doMock('@/app/lib/notifications/scheduler', () => ({
+  getNotificationPermissionStatus: vi.fn(async () => 'unsupported'),
+  getNativePendingNotificationCount: vi.fn(async () => null),
+  requestNotificationPermission: vi.fn(async () => 'unsupported'),
+  showDueWebNotifications: vi.fn(async () => undefined),
+  syncAndScheduleNotifications: vi.fn(async () => []),
+}));
+
 vi.doMock('@/app/lib/stagingAccess/client', () => ({
   getStagingAccessConfig: vi.fn(async () => ({ enabled: authState.isStagingAccessControlEnabled })),
   getMyStagingAccess: vi.fn(async () => ({ enabled: authState.isStagingAccessControlEnabled, user: authState.stagingAccess })),

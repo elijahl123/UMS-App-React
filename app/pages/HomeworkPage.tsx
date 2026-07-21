@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
-import { Plus, Pencil, Trash2, CheckCircle2, AlertTriangle, CalendarClock, Sparkles, ChevronRight, RotateCcw, FileUp } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle,
+  CalendarClock,
+  Sparkles,
+  ChevronRight,
+  RotateCcw,
+  FileUp,
+  FileText,
+  Hourglass,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
 import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
@@ -20,9 +31,36 @@ interface Group {
   key: string;
   label: string;
   icon: typeof AlertTriangle;
-  headerClass: string;
+  iconClass: string;
+  iconBgClass: string;
+  textClass: string;
   items: Assignment[];
 }
+
+type GroupKey = 'late' | 'today' | 'upcoming' | 'completed';
+
+const groupPresentation: Record<GroupKey, Pick<Group, 'iconClass' | 'iconBgClass' | 'textClass'>> = {
+  late: {
+    iconClass: 'text-[var(--main-accent)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-accent)_14%,white)]',
+    textClass: 'text-[var(--main-accent)]',
+  },
+  today: {
+    iconClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)]',
+    textClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+  },
+  upcoming: {
+    iconClass: 'text-[var(--main-accent)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)]',
+    textClass: 'text-[var(--main-accent)]',
+  },
+  completed: {
+    iconClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-green)_48%,white)]',
+    textClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+  },
+};
 
 function HomeworkPage() {
   const { user } = useAuth();
@@ -45,6 +83,10 @@ function HomeworkPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
+  const [isDesktopLayout, setIsDesktopLayout] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia('(min-width: 768px)').matches;
+  });
 
   const courses = (courseRows ?? []).map(mapCourse);
   const assignments = (assignmentRows ?? []).map(mapAssignment);
@@ -56,6 +98,15 @@ function HomeworkPage() {
     const status = searchParams.get('status');
     setStatusFilter(status && statusValues.has(status) ? status : 'all');
   }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(min-width: 768px)');
+    const update = () => setIsDesktopLayout(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   const filtered = useMemo(() => {
     return assignments
@@ -70,12 +121,30 @@ function HomeworkPage() {
     const upcoming = filtered.filter((a) => a.status === 'upcoming');
     const completed = filtered.filter((a) => a.status === 'completed');
     return [
-      { key: 'late', label: 'Late', icon: AlertTriangle, headerClass: 'text-[#B3261E]', items: late },
-      { key: 'today', label: 'Due Today', icon: CalendarClock, headerClass: 'text-[#6B5A1E]', items: dueToday },
-      { key: 'upcoming', label: 'Upcoming', icon: Sparkles, headerClass: 'text-primary', items: upcoming },
-      { key: 'completed', label: 'Completed', icon: CheckCircle2, headerClass: 'text-[#24553D]', items: completed },
+      { key: 'late', label: 'Late', icon: AlertTriangle, ...groupPresentation.late, items: late },
+      { key: 'today', label: 'Due Today', icon: CalendarClock, ...groupPresentation.today, items: dueToday },
+      { key: 'upcoming', label: 'Upcoming', icon: Sparkles, ...groupPresentation.upcoming, items: upcoming },
+      { key: 'completed', label: 'Completed', icon: CheckCircle2, ...groupPresentation.completed, items: completed },
     ].filter((g) => g.items.length > 0);
   }, [filtered]);
+
+  const overviewItems = useMemo(() => {
+    const upcomingTotal = assignments.filter((a) => a.status === 'upcoming' || a.status === 'due_today').length;
+    const completedTotal = assignments.filter((a) => a.status === 'completed').length;
+    const lateTotal = assignments.filter((a) => a.status === 'late').length;
+
+    return [
+      { label: 'Total', value: assignments.length, icon: FileText, iconClass: 'text-[var(--main-accent)]' },
+      { label: 'Upcoming', value: upcomingTotal, icon: Hourglass, iconClass: 'text-[var(--text-secondary)]' },
+      {
+        label: 'Completed',
+        value: completedTotal,
+        icon: CheckCircle2,
+        iconClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+      },
+      { label: 'Late', value: lateTotal, icon: AlertTriangle, iconClass: 'text-[var(--main-accent)]' },
+    ];
+  }, [assignments]);
 
   const openAddDialog = () => {
     setEditing(null);
@@ -171,75 +240,141 @@ function HomeworkPage() {
     const colors = getCourseColor(course?.color);
     const dueTimeLabel = formatDueTime(a.dueTime);
     const dueTodayLabel = dueTimeLabel ? `Today at ${dueTimeLabel} ${formatTimeZoneLabel(a.dueTimeZone, a.dueDate)}` : 'Today';
+    const dueLabel = emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' });
+    const itemStyle = {
+      '--mobile-item-bg': colors.bg,
+      '--mobile-item-border': colors.border,
+      '--mobile-item-text': colors.text,
+    } as React.CSSProperties;
     return (
       <div
         key={a.id}
-        className="group flex flex-col gap-2 rounded-lg border-l-4 p-2 shadow-sm sm:flex-row sm:items-center sm:gap-3 sm:p-3"
-        style={{ borderLeftColor: colors.border, backgroundColor: colors.bg, color: colors.text }}
+        className="mobile-list-item group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 pl-4 sm:gap-4 sm:pl-5 md:gap-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
+        style={itemStyle}
       >
-        <span
-          className="hidden shrink-0 rounded-full px-1.5 py-0.5 text-[9px] sm:px-2 sm:text-[10px] font-bold sm:inline-block"
-          style={{ backgroundColor: 'rgb(255 255 255 / 0.45)', color: colors.text }}
+        <span className="mobile-list-rail absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 md:left-4 md:top-4 md:h-[calc(100%-2rem)] xl:top-5 xl:h-[calc(100%-2.5rem)]" />
+        <div
+          className="mobile-list-icon ml-5 h-10 w-10 rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
+          aria-hidden="true"
         >
-          {course?.code ?? '—'}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold">{a.name}</p>
-          <p className="truncate text-xs opacity-80 sm:hidden">{course?.code ?? '—'}</p>
+          <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-5 md:w-5 xl:h-7 xl:w-7" style={{ color: colors.text }} />
         </div>
-        <div className="flex flex-row-reverse items-center justify-between gap-2 sm:gap-3 sm:flex-row">
-          <span
-            className={`shrink-0 text-xs font-bold ${emphasis === 'late' ? 'text-[#B3261E]' : ''}`}
-          >
-            {emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' })}
-          </span>
-          <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity sm:gap-0.5 xl:opacity-0 xl:group-hover:opacity-100">
-            {a.status === 'completed' ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Mark incomplete" onClick={() => handleMarkIncomplete(a)}>
-                <RotateCcw className="h-4 w-4 text-[#24553D]" />
-              </Button>
-            ) : (
-              <Button variant="ghost" size="icon" className="h-7 w-7" title="Mark complete" onClick={() => handleMarkComplete(a)}>
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit" onClick={() => openEditDialog(a)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
+        <div className="min-w-0 space-y-1">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold leading-snug text-[var(--secondary-accent)] sm:text-base md:text-sm xl:text-base" title={a.name}>
+              {a.name}
+            </p>
+            <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-secondary)] sm:text-xs md:text-xs" title={course?.code ?? 'No course'}>
+              {course?.code ?? 'No course'}
+            </p>
+          </div>
+          <p className={`flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs md:text-xs ${emphasis === 'late' ? 'text-[var(--main-accent)]' : colors.text}`}>
+            <CalendarClock className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 md:h-3.5 md:w-3.5" />
+            <span className="min-w-0 truncate" title={dueLabel}>
+              {dueLabel}
+            </span>
+          </p>
+        </div>
+        <div className="mobile-action-tray flex w-fit shrink-0 overflow-hidden md:bg-white/60">
+          {a.status === 'completed' ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
-              title="Delete"
-              onClick={() => {
-                if (confirm('Are you sure you want to delete this assignment?')) {
-                  handleDelete(a.id);
-                }
-              }}
+              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
+              title="Mark incomplete"
+              onClick={() => handleMarkIncomplete(a)}
             >
-              <Trash2 className="h-4 w-4 text-destructive" />
+              <RotateCcw className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
             </Button>
-          </div>
+          ) : (
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Mark complete" onClick={() => handleMarkComplete(a)}>
+              <CheckCircle2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+            </Button>
+          )}
+          <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--secondary-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Edit" onClick={() => openEditDialog(a)}>
+            <Pencil className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+          </Button>
+          <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
+            title="Delete"
+            onClick={() => {
+              if (confirm('Are you sure you want to delete this assignment?')) {
+                handleDelete(a.id);
+              }
+            }}
+          >
+            <Trash2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+          </Button>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 md:h-full">
-      <Card className="h-auto min-h-0 md:h-full md:flex-1">
-        <CardHeader className="flex flex-col gap-4 p-4 pb-3 sm:flex-row sm:items-center sm:justify-between sm:p-6 sm:pb-4">
-          <div className="flex items-center gap-3">
-            <CardTitle className="text-xl sm:text-2xl">Homework</CardTitle>
-            {groups.find((g) => g.key === 'late') && (
-              <Badge className="bg-[#ffdcdd] text-[#B3261E] hover:bg-[#ffdcdd]" variant="secondary">
-                {groups.find((g) => g.key === 'late')?.items.length} late
-              </Badge>
-            )}
+    <div className="min-h-0 md:h-full md:overflow-hidden">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pb-2 md:h-full md:max-w-none md:gap-0 md:overflow-hidden md:rounded-lg md:border-2 md:border-primary md:bg-card">
+        <section className="mobile-page-header !pr-1 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
+          <div className="max-w-none">
+            <h1 className="mobile-page-title md:text-xl md:text-primary xl:text-2xl">Homework</h1>
+            <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem] md:hidden">
+              Stay on track and get everything done.
+            </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-end">
+          {isDesktopLayout && (
+            <div className="hidden min-w-0 grid-cols-2 items-center gap-2 md:grid xl:grid-cols-[auto_auto_auto_auto] xl:justify-end">
+              <Select value={courseFilter} onValueChange={setCourseFilter}>
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[200px] xl:px-4 xl:text-sm">
+                  <SelectValue placeholder="Filter by course" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Courses</SelectItem>
+                  {courses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="due_today">Due Today</SelectItem>
+                  <SelectItem value="late">Late</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+                onClick={() => setShowImportPanel((current) => !current)}
+              >
+                <FileUp className="h-4 w-4" />
+                {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+              </Button>
+              <Button
+                onClick={openAddDialog}
+                className="h-9 gap-2 rounded-md border-2 border-primary bg-[var(--secondary-color)] px-3 text-xs font-semibold text-primary shadow-none hover:bg-primary hover:text-primary-foreground xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+              >
+                <Plus className="h-4 w-4" />
+                Add Assignment
+              </Button>
+            </div>
+          )}
+        </section>
+
+        {!isDesktopLayout && <section className="grid gap-3 md:hidden">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:min-w-0">
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="w-full lg:w-[200px]">
+              <SelectTrigger className="mobile-control w-full px-4 md:w-[200px]">
                 <SelectValue placeholder="Filter by course" />
               </SelectTrigger>
               <SelectContent>
@@ -252,7 +387,7 @@ function HomeworkPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full lg:w-[160px]">
+              <SelectTrigger className="mobile-control w-full px-4 md:w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -263,19 +398,30 @@ function HomeworkPage() {
                 <SelectItem value="completed">Completed</SelectItem>
               </SelectContent>
             </Select>
-            <Button type="button" variant="outline" className="w-full gap-2 lg:w-auto" onClick={() => setShowImportPanel((current) => !current)}>
-              <FileUp className="h-4 w-4" />
-              {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
-            </Button>
-            <Button onClick={openAddDialog} className="w-full gap-2 lg:w-auto">
-              <Plus className="h-4 w-4" />
-              Add Assignment
-            </Button>
           </div>
-        </CardHeader>
-        <CardContent className="min-h-0 flex-1 overflow-visible px-4 pb-4 sm:px-6 md:overflow-auto">
+
+          <Button
+            type="button"
+            variant="outline"
+            className="mobile-secondary-action w-full gap-3 px-4 md:w-auto [&_svg]:size-4"
+            onClick={() => setShowImportPanel((current) => !current)}
+          >
+            <FileUp className="h-4 w-4" />
+            {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+          </Button>
+
+          <Button
+            onClick={openAddDialog}
+            className="mobile-primary-action w-full gap-3 px-5 md:w-auto [&_svg]:size-5"
+          >
+            <Plus className="h-5 w-5" />
+            Add Assignment
+          </Button>
+        </section>}
+
+        <section className="grid gap-5 md:min-h-0 md:flex-1 md:overflow-auto md:px-4 md:pb-4 xl:px-5 xl:pb-5">
           {showImportPanel && (
-            <div className="mb-6">
+            <div>
               <BrightspacePdfImportCard
                 title="Import Brightspace Assignments"
                 description="Download the Brightspace calendar as a PDF, preview the parsed rows, and import the items you want into Homework and Calendar."
@@ -283,27 +429,33 @@ function HomeworkPage() {
             </div>
           )}
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
+            <div className="mobile-surface flex flex-col items-center justify-center gap-2 px-5 py-12 text-center">
               <p className="text-sm font-semibold text-primary">No assignments found</p>
               <p className="text-xs text-muted-foreground">Try adjusting your filters or add a new assignment.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 md:gap-4 xl:gap-5">
               {groups.map((group) => (
-                <div key={group.key} className="flex flex-col gap-2">
+                <div key={group.key} className="flex flex-col gap-3 md:gap-2.5 xl:gap-3">
                   <button
                     type="button"
-                    className={`flex w-full items-center gap-2 text-left text-sm font-bold ${group.headerClass}`}
+                    className="flex w-full items-center gap-3 text-left"
                     onClick={() => toggleGroupCollapsed(group.key)}
                     aria-expanded={!collapsedGroups.has(group.key)}
                   >
-                    <ChevronRight className={`h-4 w-4 transition-transform ${collapsedGroups.has(group.key) ? '' : 'rotate-90'}`} />
-                    <group.icon className="h-4 w-4" />
-                    <span>{group.label}</span>
-                    <span className="text-xs font-medium text-muted-foreground">({group.items.length})</span>
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full md:h-9 md:w-9 xl:h-10 xl:w-10 ${group.iconBgClass}`}>
+                      <group.icon className={`h-5 w-5 md:h-4 md:w-4 xl:h-5 xl:w-5 ${group.iconClass}`} />
+                    </span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <span className="truncate text-xl font-bold text-[var(--secondary-accent)] sm:text-2xl md:text-lg xl:text-xl">{group.label}</span>
+                      <span className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2.5 text-sm font-bold md:h-7 md:min-w-7 md:text-xs xl:h-8 xl:min-w-8 xl:text-sm ${group.iconBgClass} ${group.textClass}`}>
+                        {group.items.length}
+                      </span>
+                    </span>
+                    <ChevronRight className={`h-5 w-5 shrink-0 ${group.textClass} transition-transform ${collapsedGroups.has(group.key) ? '' : 'rotate-90'}`} />
                   </button>
                   {!collapsedGroups.has(group.key) && (
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-3">
                       {group.items.map((a) =>
                         renderRow(a, getCourse(a.courseId), group.key === 'late' ? 'late' : group.key === 'today' ? 'today' : undefined)
                       )}
@@ -313,8 +465,24 @@ function HomeworkPage() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+
+          <div className="mobile-surface p-4 sm:p-5 md:hidden">
+            <p className="mobile-section-title sm:text-xl">Homework Overview</p>
+            <div className="mt-4 grid grid-cols-4">
+              {overviewItems.map((item, index) => (
+                <div
+                  key={item.label}
+                  className={`flex min-w-0 flex-col items-center gap-1.5 px-1.5 text-center sm:gap-2 sm:px-3 ${index > 0 ? 'border-l border-[var(--border-light)]' : ''}`}
+                >
+                  <item.icon className={`mb-0.5 h-5 w-5 sm:mb-1 sm:h-6 sm:w-6 ${item.iconClass}`} />
+                  <span className="text-xl font-bold leading-none text-[var(--secondary-accent)] sm:text-3xl">{item.value}</span>
+                  <span className="truncate text-[10px] font-medium text-[var(--text-secondary)] sm:text-sm">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
 
       <AssignmentFormDialog
         open={dialogOpen}
