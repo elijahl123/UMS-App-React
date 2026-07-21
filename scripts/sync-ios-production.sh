@@ -36,6 +36,10 @@ else
   echo "Syncing production iOS build from environment variables"
 fi
 
+if [ -z "${VITE_GOOGLE_IOS_REVERSED_CLIENT_ID:-}" ] && [[ "${VITE_GOOGLE_IOS_CLIENT_ID:-}" == *.apps.googleusercontent.com ]]; then
+  export VITE_GOOGLE_IOS_REVERSED_CLIENT_ID="com.googleusercontent.apps.${VITE_GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+fi
+
 export VITE_APP_ENV="${VITE_APP_ENV:-production}"
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://app.untitledmanagementsoftware.com/api}"
 export VITE_GOOGLE_REDIRECT_URI="${VITE_GOOGLE_REDIRECT_URI:-}"
