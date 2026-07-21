@@ -51,13 +51,14 @@ describe('Google OAuth helper', () => {
   });
 
   it('uses the iOS client, reversed-client redirect URI, and Firebase localhost request URI in Capacitor iOS', async () => {
+    vi.stubEnv('VITE_GOOGLE_IOS_CLIENT_ID', 'test-ios-client.apps.googleusercontent.com');
     const { getGoogleOAuthClientId, getGoogleOAuthRedirectUri, getGoogleOAuthRequestUri } = await loadGoogleOAuth('', {
       isNativePlatform: true,
       platform: 'ios',
     });
 
-    expect(getGoogleOAuthClientId()).toBe('546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks.apps.googleusercontent.com');
-    expect(getGoogleOAuthRedirectUri()).toBe('com.googleusercontent.apps.546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks:/oauth2redirect');
+    expect(getGoogleOAuthClientId()).toBe('test-ios-client.apps.googleusercontent.com');
+    expect(getGoogleOAuthRedirectUri()).toBe('com.googleusercontent.apps.test-ios-client:/oauth2redirect');
     expect(getGoogleOAuthRequestUri()).toBe('http://localhost');
   });
 
