@@ -6,8 +6,7 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 // http://localhost:5173 to the web OAuth client's authorized redirect URIs
 // and JavaScript origins while running the standalone dev app.
 const GOOGLE_WEB_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? 'YOUR_GOOGLE_OAUTH_CLIENT_ID';
-const GOOGLE_IOS_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID ?? '546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID ?? 'YOUR_GOOGLE_IOS_OAUTH_CLIENT_ID';
 const GOOGLE_IOS_REVERSED_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_IOS_REVERSED_CLIENT_ID ?? getReversedGoogleClientId(GOOGLE_IOS_CLIENT_ID);
 const GOOGLE_REDIRECT_URI = (import.meta.env.VITE_GOOGLE_REDIRECT_URI ?? '').trim();
@@ -17,7 +16,7 @@ const GOOGLE_OAUTH_TIMEOUT_MS = 15000;
 function getReversedGoogleClientId(clientId: string): string {
   return clientId.endsWith('.apps.googleusercontent.com')
     ? `com.googleusercontent.apps.${clientId.slice(0, -'.apps.googleusercontent.com'.length)}`
-    : 'com.googleusercontent.apps.546069511882-t2jlp0ek3g80l9s311d2b4n7i2jb01ks';
+    : 'YOUR_GOOGLE_IOS_REVERSED_OAUTH_CLIENT_ID';
 }
 
 function isGoogleSignInConfigured(): boolean {
