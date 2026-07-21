@@ -241,16 +241,20 @@ function HomeworkPage() {
     const dueTimeLabel = formatDueTime(a.dueTime);
     const dueTodayLabel = dueTimeLabel ? `Today at ${dueTimeLabel} ${formatTimeZoneLabel(a.dueTimeZone, a.dueDate)}` : 'Today';
     const dueLabel = emphasis === 'today' ? dueTodayLabel : formatAssignmentDue(a, { month: 'short', day: 'numeric', year: 'numeric' });
+    const itemStyle = {
+      '--mobile-item-bg': colors.bg,
+      '--mobile-item-border': colors.border,
+      '--mobile-item-text': colors.text,
+    } as React.CSSProperties;
     return (
       <div
         key={a.id}
-        className="group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-2.5 pl-4 shadow-[0_8px_20px_rgb(86_73_76/0.05)] sm:gap-4 sm:p-3 sm:pl-5 md:gap-3 md:p-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
-        style={{ borderColor: colors.border, backgroundColor: `color-mix(in srgb, ${colors.bg} 42%, white)`, color: colors.text }}
+        className="mobile-list-item group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 pl-4 sm:gap-4 sm:pl-5 md:gap-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
+        style={itemStyle}
       >
-        <span className="absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 rounded-full md:left-4 md:top-4 md:h-[calc(100%-2rem)] xl:top-5 xl:h-[calc(100%-2.5rem)]" style={{ backgroundColor: colors.border }} />
+        <span className="mobile-list-rail absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 md:left-4 md:top-4 md:h-[calc(100%-2rem)] xl:top-5 xl:h-[calc(100%-2.5rem)]" />
         <div
-          className="ml-5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
-          style={{ backgroundColor: `color-mix(in srgb, ${colors.bg} 62%, white)` }}
+          className="mobile-list-icon ml-5 h-10 w-10 rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
           aria-hidden="true"
         >
           <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-5 md:w-5 xl:h-7 xl:w-7" style={{ color: colors.text }} />
@@ -271,7 +275,7 @@ function HomeworkPage() {
             </span>
           </p>
         </div>
-        <div className="flex w-fit shrink-0 overflow-hidden rounded-lg border border-[var(--border-light)] bg-white/65 shadow-[0_6px_14px_rgb(86_73_76/0.05)] md:bg-white/60">
+        <div className="mobile-action-tray flex w-fit shrink-0 overflow-hidden md:bg-white/60">
           {a.status === 'completed' ? (
             <Button
               variant="ghost"
@@ -313,10 +317,12 @@ function HomeworkPage() {
   return (
     <div className="min-h-0 md:h-full md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pb-2 md:h-full md:max-w-none md:gap-0 md:overflow-hidden md:rounded-lg md:border-2 md:border-primary md:bg-card">
-        <section className="px-2 pb-1 pr-20 pt-3 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
-          <div className="max-w-[calc(100%-4.5rem)] sm:max-w-none">
-            <h1 className="text-3xl font-bold leading-tight text-[var(--secondary-accent)] sm:text-4xl md:text-xl md:text-primary xl:text-2xl">Homework</h1>
-            <p className="mt-2 text-sm font-medium text-[var(--text-secondary)] sm:text-base md:hidden">Stay on track and get everything done.</p>
+        <section className="mobile-page-header !pr-1 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
+          <div className="max-w-none">
+            <h1 className="mobile-page-title md:text-xl md:text-primary xl:text-2xl">Homework</h1>
+            <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem] md:hidden">
+              Stay on track and get everything done.
+            </p>
           </div>
           {isDesktopLayout && (
             <div className="hidden min-w-0 grid-cols-2 items-center gap-2 md:grid xl:grid-cols-[auto_auto_auto_auto] xl:justify-end">
@@ -368,7 +374,7 @@ function HomeworkPage() {
         {!isDesktopLayout && <section className="grid gap-3 md:hidden">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:min-w-0">
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="h-14 w-full rounded-lg border border-[var(--border-light)] bg-white px-5 text-sm font-semibold text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.04)] sm:text-base md:w-[200px]">
+              <SelectTrigger className="mobile-control w-full px-4 md:w-[200px]">
                 <SelectValue placeholder="Filter by course" />
               </SelectTrigger>
               <SelectContent>
@@ -381,7 +387,7 @@ function HomeworkPage() {
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-14 w-full rounded-lg border border-[var(--border-light)] bg-white px-5 text-sm font-semibold text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.04)] sm:text-base md:w-[180px]">
+              <SelectTrigger className="mobile-control w-full px-4 md:w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -397,7 +403,7 @@ function HomeworkPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-14 w-full gap-3 rounded-lg border border-[var(--border-light)] bg-[var(--secondary-color)] px-5 text-sm font-semibold text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.04)] hover:bg-[var(--secondary-accent-soft)] hover:text-[var(--secondary-accent)] sm:text-base md:w-auto [&_svg]:size-4"
+            className="mobile-secondary-action w-full gap-3 px-4 md:w-auto [&_svg]:size-4"
             onClick={() => setShowImportPanel((current) => !current)}
           >
             <FileUp className="h-4 w-4" />
@@ -406,9 +412,9 @@ function HomeworkPage() {
 
           <Button
             onClick={openAddDialog}
-            className="h-14 w-full gap-3 rounded-lg border-0 bg-[var(--main-color)] px-6 text-base font-semibold text-white shadow-[0_10px_22px_color-mix(in_srgb,var(--main-color)_34%,transparent)] hover:bg-[var(--main-color-shade)] sm:text-lg md:w-auto [&_svg]:size-6"
+            className="mobile-primary-action w-full gap-3 px-5 md:w-auto [&_svg]:size-5"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-5 w-5" />
             Add Assignment
           </Button>
         </section>}
@@ -423,7 +429,7 @@ function HomeworkPage() {
             </div>
           )}
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-white px-5 py-12 text-center shadow-[0_10px_24px_rgb(86_73_76/0.05)]">
+            <div className="mobile-surface flex flex-col items-center justify-center gap-2 px-5 py-12 text-center">
               <p className="text-sm font-semibold text-primary">No assignments found</p>
               <p className="text-xs text-muted-foreground">Try adjusting your filters or add a new assignment.</p>
             </div>
@@ -460,8 +466,8 @@ function HomeworkPage() {
             </div>
           )}
 
-          <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 shadow-[0_10px_26px_rgb(86_73_76/0.06)] sm:p-5 md:hidden">
-            <p className="text-lg font-bold text-[var(--secondary-accent)] sm:text-xl">Homework Overview</p>
+          <div className="mobile-surface p-4 sm:p-5 md:hidden">
+            <p className="mobile-section-title sm:text-xl">Homework Overview</p>
             <div className="mt-4 grid grid-cols-4">
               {overviewItems.map((item, index) => (
                 <div

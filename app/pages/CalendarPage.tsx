@@ -209,7 +209,7 @@ function CalendarPage() {
         <section className="-mx-3 -mt-[calc(0.75rem+env(safe-area-inset-top))] min-h-[calc(100dvh-6.25rem-env(safe-area-inset-bottom))] bg-background">
           <div className="relative overflow-hidden px-5 pb-4 pt-[calc(2.25rem+env(safe-area-inset-top))]">
             <div className="relative pr-20">
-              <h1 className="whitespace-nowrap text-[clamp(1.55rem,8vw,3.05rem)] font-bold leading-none text-[var(--secondary-accent)]">{monthLabel}</h1>
+              <h1 className="mobile-page-title whitespace-nowrap text-[clamp(1.55rem,8vw,2.6rem)] leading-none">{monthLabel}</h1>
             </div>
           </div>
 
@@ -219,7 +219,7 @@ function CalendarPage() {
                 <Button
                   size="icon"
                   variant="outline"
-                  className="h-11 w-11 rounded-lg border-primary/30 bg-card text-primary"
+                  className="mobile-control h-11 w-11 p-0 text-primary"
                   onClick={() => goToMonth(-1)}
                   aria-label="Previous month"
                 >
@@ -228,7 +228,7 @@ function CalendarPage() {
                 <Button
                   size="icon"
                   variant="outline"
-                  className="h-11 w-11 rounded-lg border-primary/30 bg-card text-primary"
+                  className="mobile-control h-11 w-11 p-0 text-primary"
                   onClick={() => goToMonth(1)}
                   aria-label="Next month"
                 >
@@ -238,14 +238,14 @@ function CalendarPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-11 min-w-24 rounded-lg border-primary/35 bg-card px-6 text-sm text-primary"
+                className="mobile-control h-11 min-w-24 px-6 text-primary"
                 onClick={goToToday}
               >
                 Today
               </Button>
               <Button
                 size="sm"
-                className="h-11 rounded-lg border-primary bg-primary px-3 text-sm text-primary-foreground shadow-[0_10px_20px_rgb(240_128_128/0.22)] hover:bg-[var(--main-color-shade)]"
+                className="mobile-primary-action h-11 px-3"
                 onClick={() => setAddEventOpen(true)}
               >
                 <Plus className="h-5 w-5" />
@@ -263,30 +263,34 @@ function CalendarPage() {
             />
 
             <div className="mt-4 flex items-center justify-between gap-4">
-              <h2 className="min-w-0 text-xl font-bold text-[var(--secondary-accent)]">Events for {selectedDateLabel}</h2>
+              <h2 className="mobile-section-title min-w-0">Events for {selectedDateLabel}</h2>
               <span className="shrink-0 text-sm font-medium text-[var(--text-secondary)]">{itemCountLabel}</span>
             </div>
 
             <div className="mt-4 grid gap-3 pb-4">
               {selectedItems.length === 0 ? (
-                <div className="rounded-lg border border-[var(--border-light)] bg-card px-4 py-5 text-sm text-[var(--text-secondary)]">
+                <div className="mobile-surface px-4 py-5 text-sm text-[var(--text-secondary)]">
                   Nothing scheduled for this day.
                 </div>
               ) : (
                 selectedItems.map((item) => {
                   const Icon = itemIcon(item.type);
+                  const itemStyle = {
+                    '--mobile-item-bg': item.color,
+                    '--mobile-item-border': item.borderColor,
+                    '--mobile-item-text': item.textColor,
+                  } as React.CSSProperties;
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      className="grid min-h-20 grid-cols-[0.35rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3 text-left shadow-[0_10px_24px_rgb(47_47_47/0.05)]"
-                      style={{ borderColor: item.borderColor, backgroundColor: item.color }}
+                      className="mobile-list-item grid min-h-20 grid-cols-[0.35rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3"
+                      style={itemStyle}
                       onClick={() => handleEventClick(item)}
                     >
-                      <span className="h-full min-h-12 rounded-full" style={{ backgroundColor: item.borderColor }} />
+                      <span className="mobile-list-rail h-full min-h-12" />
                       <span
-                        className="flex h-12 w-12 items-center justify-center rounded-lg border bg-white/50"
-                        style={{ borderColor: item.borderColor, color: item.textColor }}
+                        className="mobile-list-icon h-12 w-12"
                       >
                         <Icon className="h-5 w-5" />
                       </span>

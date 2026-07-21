@@ -62,35 +62,38 @@ function DashboardPage() {
   };
 
   const isLoading = coursesLoading || assignmentsLoading || sessionsLoading || eventsLoading;
-  const displayName = user?.firstName || user?.email?.split('@')[0] || 'Elijah';
   const statCards = [
     {
       label: 'Upcoming Assignments',
+      displayLabel: 'Upcoming',
       value: upcoming.length,
       icon: NotebookPen,
       to: '/homework?status=upcoming',
-      className: 'bg-[#fff2ef] text-[#f08080]',
+      className: 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)] text-[var(--main-accent)]',
     },
     {
       label: 'Class Today',
+      displayLabel: 'Classes',
       value: todaysSessions.length,
       icon: GraduationCap,
       to: '/class-schedule',
-      className: 'bg-[#fff8e8] text-[#d5a428]',
+      className: 'bg-[color-mix(in_srgb,var(--course-yellow)_44%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
     },
     {
       label: 'Late Assignments',
+      displayLabel: 'Late',
       value: late.length,
       icon: CheckCircle2,
       to: '/homework?status=late',
-      className: 'bg-[#edf9f3] text-[#43b977]',
+      className: 'bg-[color-mix(in_srgb,var(--course-green)_42%,white)] text-[color-mix(in_srgb,var(--course-green)_66%,var(--secondary-accent))]',
     },
     {
       label: 'Upcoming Events',
+      displayLabel: 'Events',
       value: upcomingEvents.length,
       icon: CalendarDays,
       to: '/calendar',
-      className: 'bg-[#f3f5ff] text-[#4f7fcb]',
+      className: 'bg-[color-mix(in_srgb,var(--course-blue)_42%,white)] text-[color-mix(in_srgb,var(--course-blue)_58%,var(--secondary-accent))]',
     },
   ];
 
@@ -99,13 +102,15 @@ function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 md:grid md:h-full md:grid-cols-2 md:grid-rows-2 md:gap-5 md:overflow-hidden xl:gap-6">
-      <div className="px-2 pb-1 pr-20 pt-3 md:hidden">
-        <h1 className="text-[1.65rem] font-bold leading-tight text-[var(--secondary-accent)]">Good morning, {displayName}</h1>
-        <p className="mt-1 text-sm font-medium text-[var(--text-secondary)]">Stay on top of your classes and assignments.</p>
+    <div className="mobile-page-stack md:grid md:h-full md:grid-cols-2 md:grid-rows-2 md:gap-5 md:overflow-hidden xl:gap-6">
+      <div className="mobile-page-header !pr-1 md:hidden">
+        <h1 className="mobile-page-title whitespace-nowrap text-[1.65rem] sm:text-[2rem]">Welcome to UMS</h1>
+        <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem]">
+          Stay on top of your classes and assignments.
+        </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-2 rounded-xl border border-[var(--border-light)] bg-card p-2 shadow-md md:hidden">
+      <div className="mobile-surface grid grid-cols-4 gap-2 p-2 md:hidden">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
@@ -113,13 +118,13 @@ function DashboardPage() {
               key={stat.label}
               to={stat.to}
               aria-label={`Open ${stat.label}`}
-              className={`min-h-[5.9rem] rounded-lg px-2.5 py-3 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring ${stat.className}`}
+              className={`min-h-[5.9rem] rounded-lg border border-white/70 px-2.5 py-3 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring ${stat.className}`}
             >
               <div className="mb-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface)]/70">
                 <Icon className="h-3.5 w-3.5" />
               </div>
               <p className="text-lg font-bold leading-none text-[var(--secondary-accent)]">{stat.value}</p>
-              <p className="mt-1 text-[9.5px] font-semibold leading-[1.08] text-[var(--secondary-accent)]">{stat.label}</p>
+              <p className="mt-1 text-[9.5px] font-semibold leading-[1.08] text-[var(--secondary-accent)]">{stat.displayLabel}</p>
             </Link>
           );
         })}

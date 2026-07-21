@@ -42,7 +42,7 @@ describe('data mappers and calendar utilities', () => {
       mapEvent({
         id: 1,
         title: 'Study Group',
-        event_date: '2026-07-10T00:00:00.000Z',
+        event_date: '2026-07-22T00:00:00.000Z',
         event_time: '16:00:00',
         event_timezone: 'America/Los_Angeles',
         description: 'Library room 2',
@@ -89,9 +89,8 @@ describe('data mappers and calendar utilities', () => {
     const itemsByDate = buildCalendarItems(2026, 6, assignments, sessions, events, courses);
 
     expect(toIsoDate(new Date(2026, 6, 10))).toBe('2026-07-10');
-    expect(itemsByDate.get('2026-07-10')?.map((item) => item.title)).toEqual(
-      expect.arrayContaining(['MATH 101: Limits Worksheet', 'Study Group'])
-    );
+    expect(itemsByDate.get('2026-07-10')?.map((item) => item.title)).toEqual(expect.arrayContaining(['MATH 101: Limits Worksheet']));
+    expect(itemsByDate.get('2026-07-22')?.map((item) => item.title)).toEqual(expect.arrayContaining(['Study Group']));
     expect(getCourseColor('course-blue').border).toBeTruthy();
   });
 });

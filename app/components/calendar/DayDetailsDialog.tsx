@@ -48,32 +48,40 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
           <p className="text-sm text-muted-foreground py-6 text-center">Nothing scheduled for this day.</p>
         ) : (
           <ul className="flex flex-col gap-2 max-h-96 overflow-y-auto">
-            {items.map((item) => (
-              <li
-                key={item.id}
-                onClick={() => item.type === 'event' && onEventClick?.(item)}
-                className={`flex items-start gap-3 rounded-lg border border-[var(--border-light)] p-3 ${
-                  item.type === 'event' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''
-                }`}
-                style={{ backgroundColor: item.color, borderColor: item.borderColor, color: item.textColor }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-[10px] uppercase">
-                      {typeLabels[item.type]}
-                    </Badge>
-                    {item.time && <span className="text-xs opacity-80">{formatTimeDisplay(item.time)}</span>}
+            {items.map((item) => {
+              const itemStyle = {
+                '--mobile-item-bg': item.color,
+                '--mobile-item-border': item.borderColor,
+                '--mobile-item-text': item.textColor,
+              } as React.CSSProperties;
+              return (
+                <li
+                  key={item.id}
+                  onClick={() => item.type === 'event' && onEventClick?.(item)}
+                  className={`mobile-list-item flex items-start gap-3 ${
+                    item.type === 'event' ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
+                  }`}
+                  style={itemStyle}
+                >
+                  <div className="mobile-list-rail min-h-14 w-1" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {typeLabels[item.type]}
+                      </Badge>
+                      {item.time && <span className="text-xs opacity-80">{formatTimeDisplay(item.time)}</span>}
+                    </div>
+                    <p className="mt-1 text-sm font-semibold">{item.title}</p>
+                    {item.type === 'class' && (item.raw as ClassSession).location && (
+                      <p className="mt-0.5 text-xs opacity-80">{(item.raw as ClassSession).location}</p>
+                    )}
+                    {'description' in item.raw && item.raw.description && (
+                      <p className="mt-0.5 text-xs opacity-80">{item.raw.description}</p>
+                    )}
                   </div>
-                  <p className="mt-1 text-sm font-semibold">{item.title}</p>
-                  {item.type === 'class' && (item.raw as ClassSession).location && (
-                    <p className="mt-0.5 text-xs opacity-80">{(item.raw as ClassSession).location}</p>
-                  )}
-                  {'description' in item.raw && item.raw.description && (
-                    <p className="mt-0.5 text-xs opacity-80">{item.raw.description}</p>
-                  )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </DialogContent>

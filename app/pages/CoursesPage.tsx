@@ -101,11 +101,11 @@ function CoursesPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <section className="flex min-h-0 flex-1 flex-col gap-4 md:gap-0 md:rounded-lg md:border-2 md:border-primary md:bg-card md:text-card-foreground md:shadow-none">
-      <header className="shrink-0 pr-20 md:flex md:flex-row md:items-center md:justify-between md:gap-4 md:p-6 md:pr-6">
+      <section className="mobile-page-stack flex-1 md:gap-0 md:rounded-lg md:border-2 md:border-primary md:bg-card md:text-card-foreground md:shadow-none">
+      <header className="mobile-page-header shrink-0 md:flex md:flex-row md:items-center md:justify-between md:gap-4 md:p-6 md:pr-6">
         <div className="min-w-0">
-          <h1 className="text-4xl font-bold leading-tight text-[var(--secondary-accent)] md:text-2xl md:leading-none md:text-primary">Courses</h1>
-          <p className="mt-2 text-sm font-medium text-[var(--text-secondary)] md:hidden">Manage your courses and materials.</p>
+          <h1 className="mobile-page-title md:text-2xl md:leading-none md:text-primary">Courses</h1>
+          <p className="mobile-page-kicker md:hidden">Manage your courses and materials.</p>
         </div>
         <Button onClick={openAddDialog} className="hidden gap-2 md:inline-flex">
           <Plus className="h-4 w-4" />
@@ -120,13 +120,13 @@ function CoursesPage() {
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="Search courses..."
-            className="h-14 rounded-lg border-[var(--border-light)] bg-[var(--surface)] pl-12 pr-4 text-base font-semibold text-[var(--secondary-accent)] shadow-[var(--shadow-xs)] placeholder:font-medium"
+            className="mobile-control pl-12 pr-4 placeholder:font-medium"
           />
         </div>
         <Button
           type="button"
           onClick={openAddDialog}
-          className="h-14 rounded-lg border-[var(--main-color)] bg-[var(--main-color)] px-4 text-white shadow-[var(--shadow-sm)] hover:border-[var(--main-color-shade)] hover:bg-[var(--main-color-shade)] sm:px-5"
+          className="mobile-primary-action px-4 sm:px-5"
         >
           <Plus className="h-5 w-5" />
           <span className="hidden sm:inline">Add Course</span>
@@ -134,7 +134,7 @@ function CoursesPage() {
         </Button>
       </div>
 
-      <div className="flex shrink-0 overflow-x-auto rounded-lg border border-[var(--border-light)] bg-[var(--surface)] p-1 shadow-[var(--shadow-xs)] md:hidden">
+      <div className="mobile-surface flex shrink-0 overflow-x-auto p-1 md:hidden">
         {tabs.map((tab) => {
           const isActive = courseFilter === tab.value;
           return (
@@ -157,13 +157,13 @@ function CoursesPage() {
 
       <div className="min-h-0 flex-1 overflow-visible md:overflow-auto md:px-6 md:pb-6 md:pt-0">
         {courses.length === 0 ? (
-          <div className="flex min-h-[18rem] flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] px-6 text-center shadow-[var(--shadow-xs)] md:min-h-0 md:border-0 md:bg-transparent md:py-16 md:shadow-none">
+          <div className="mobile-surface flex min-h-[18rem] flex-col items-center justify-center gap-2 px-6 text-center md:min-h-0 md:border-0 md:bg-transparent md:py-16 md:shadow-none">
             <GraduationCap className="h-9 w-9 text-[var(--main-accent)] md:h-8 md:w-8 md:text-muted-foreground" />
             <p className="text-sm font-bold text-[var(--secondary-accent)] md:font-semibold md:text-primary">No courses yet</p>
             <p className="text-xs font-medium text-[var(--text-secondary)]">Add your first course to get started.</p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="flex min-h-[14rem] flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] px-6 text-center shadow-[var(--shadow-xs)]">
+          <div className="mobile-surface flex min-h-[14rem] flex-col items-center justify-center gap-2 px-6 text-center">
             <Search className="h-8 w-8 text-[var(--text-secondary)]" />
             <p className="text-sm font-bold text-[var(--secondary-accent)]">No matching courses</p>
             <p className="text-xs font-medium text-[var(--text-secondary)]">Try a different search or filter.</p>
@@ -188,14 +188,17 @@ function CoursesPage() {
                       navigate(`/courses/${course.id}`);
                     }
                   }}
-                  className="group relative min-h-[142px] cursor-pointer overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--course-border)_58%,white)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--course-bg)_55%,white),color-mix(in_srgb,var(--course-bg)_18%,white))] p-3 pl-5 text-[var(--course-text)] shadow-[var(--shadow-xs)] transition-shadow hover:shadow-[var(--shadow-md)] sm:p-4 sm:pl-5 md:flex md:min-h-0 md:flex-col md:gap-3 md:rounded-xl md:border md:border-l-4 md:border-l-[var(--course-border)] md:bg-[var(--course-bg)] md:p-4 md:shadow-sm md:hover:shadow-md xl:[&_.course-actions]:opacity-0 xl:hover:[&_.course-actions]:opacity-100"
+                  className="mobile-list-item group relative min-h-[142px] cursor-pointer overflow-hidden p-3 pl-5 text-[var(--course-text)] sm:p-4 sm:pl-5 md:flex md:min-h-0 md:flex-col md:gap-3 md:rounded-xl md:border md:border-l-4 md:border-l-[var(--course-border)] md:bg-[var(--course-bg)] md:p-4 md:shadow-sm md:hover:shadow-md xl:[&_.course-actions]:opacity-0 xl:hover:[&_.course-actions]:opacity-100"
                   style={{
                     '--course-bg': colors.bg,
                     '--course-border': colors.border,
                     '--course-text': colors.text,
+                    '--mobile-item-bg': colors.bg,
+                    '--mobile-item-border': colors.border,
+                    '--mobile-item-text': colors.text,
                   } as React.CSSProperties}
                 >
-                  <span className="absolute bottom-4 left-4 top-4 w-1 rounded-full bg-[var(--course-border)] md:hidden" />
+                  <span className="mobile-list-rail absolute bottom-4 left-4 top-4 w-1 bg-[var(--course-border)] md:hidden" />
                   <div className="flex min-w-0 pl-8 pr-24 sm:pr-28 md:contents">
                     <div className="min-w-0 flex-1 pt-0.5">
                       <span

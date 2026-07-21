@@ -33,7 +33,7 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick, selectedDate,
     <div
       className={cn(
         'flex flex-col h-full min-h-0',
-        isMobile && 'rounded-xl border border-[var(--border-light)] bg-card p-3 shadow-[0_18px_38px_rgb(47_47_47/0.08)]',
+        isMobile && 'mobile-surface p-3',
         className
       )}
     >
@@ -83,7 +83,7 @@ function CalendarMonthGrid({ year, month, itemsByDate, onDayClick, selectedDate,
                   'inline-flex items-center justify-center font-semibold',
                   isMobile ? 'rounded-lg' : 'rounded-full',
                   isMobile ? 'h-7 w-7 text-sm' : 'h-5 w-5 text-[10px] sm:h-6 sm:w-6 sm:text-xs',
-                  (isToday || (isMobile && isSelected)) && 'bg-primary text-primary-foreground shadow-[0_8px_16px_rgb(240_128_128/0.28)]'
+                  (isToday || (isMobile && isSelected)) && 'bg-primary text-primary-foreground shadow-[0_8px_16px_rgb(248_173_157/0.28)]'
                 )}
               >
                 {date.getDate()}

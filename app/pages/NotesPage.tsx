@@ -188,11 +188,11 @@ function NotesPage() {
   return (
     <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden text-[var(--secondary-accent)]">
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-        <div className="flex flex-col gap-4 px-1 pb-1 md:gap-5 md:px-0">
-          <header className="pt-1 md:pt-2">
+        <div className="mobile-page-stack px-1 pb-1 md:gap-5 md:px-0">
+          <header className="mobile-page-header md:pr-0 md:pt-2">
             <div>
-              <h1 className="text-3xl font-bold leading-tight text-[var(--secondary-accent)] sm:text-5xl">Notes</h1>
-              <p className="mt-1 text-xs font-medium text-[var(--text-secondary)] sm:text-sm">Organize your notes by course.</p>
+              <h1 className="mobile-page-title sm:text-[2.25rem]">Notes</h1>
+              <p className="mobile-page-kicker">Organize your notes by course.</p>
             </div>
           </header>
 
@@ -204,13 +204,13 @@ function NotesPage() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search notes..."
-                className="h-12 rounded-lg border-[var(--border-light)] bg-[var(--surface)] pl-10 pr-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.05)] placeholder:text-[var(--text-secondary)] sm:h-14 sm:pl-12 sm:pr-4 sm:text-sm"
+                className="mobile-control pl-10 pr-3 placeholder:text-[var(--text-secondary)] sm:pl-12 sm:pr-4"
               />
             </label>
             <Button
               type="button"
               onClick={() => navigate('/notes/new')}
-              className="h-12 rounded-lg border-0 bg-[var(--main-color)] px-3 text-xs font-bold text-white shadow-[0_10px_22px_rgb(248_173_157/0.26)] hover:bg-[var(--main-color-shade)] sm:h-14 sm:min-w-40 sm:px-6 sm:text-sm"
+              className="mobile-primary-action px-3 sm:min-w-40 sm:px-6"
             >
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Add Note
@@ -219,7 +219,7 @@ function NotesPage() {
 
           <section className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
             <Select value={courseFilter} onValueChange={setCourseFilter}>
-              <SelectTrigger className="h-12 rounded-lg border-[var(--border-light)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.04)] sm:h-14 sm:px-4 sm:text-sm">
+              <SelectTrigger className="mobile-control px-3 font-bold sm:px-4">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
               <SelectContent>
@@ -237,7 +237,7 @@ function NotesPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-12 rounded-lg border-[var(--border-light)] bg-[var(--surface)] px-3 text-[var(--secondary-accent)] shadow-[0_6px_18px_rgb(86_73_76/0.04)] hover:bg-[var(--secondary-accent-soft)] hover:text-[var(--secondary-accent)] sm:h-14 sm:min-w-32 sm:px-4"
+                  className="mobile-control px-3 hover:bg-[var(--secondary-accent-soft)] hover:text-[var(--secondary-accent)] sm:min-w-32 sm:px-4"
                 >
                   <SlidersHorizontal className="h-4 w-4 sm:h-5 sm:w-5" />
                   <span className="hidden sm:inline">Filter</span>
@@ -261,7 +261,7 @@ function NotesPage() {
                 className={cn(
                   'flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color-shade)] sm:h-11 sm:gap-3 sm:px-4 sm:text-sm',
                   activeTab === tab
-                    ? 'bg-[rgb(248_173_157/0.16)] text-[var(--main-color-shade)]'
+                    ? 'bg-[color-mix(in_srgb,var(--main-color)_16%,white)] text-[var(--main-color-shade)]'
                     : 'bg-transparent text-[var(--secondary-accent)] hover:bg-[var(--secondary-accent-soft)]'
                 )}
                 onClick={() => setActiveTab(tab)}
@@ -271,7 +271,7 @@ function NotesPage() {
                   className={cn(
                     'min-w-6 rounded-full px-2 py-0.5 text-center text-[11px] sm:min-w-7 sm:py-1 sm:text-xs',
                     activeTab === tab
-                      ? 'bg-[rgb(255_255_255/0.70)] text-[var(--secondary-accent)]'
+                      ? 'bg-white/70 text-[var(--secondary-accent)]'
                       : 'bg-[var(--secondary-accent-soft)] text-[var(--secondary-accent)]'
                   )}
                 >
@@ -289,7 +289,7 @@ function NotesPage() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-8 gap-1 px-1 text-xs font-bold text-[var(--main-color-shade)] hover:bg-[rgb(248_173_157/0.14)] hover:text-[var(--main-color-shade)] sm:h-9 sm:text-sm"
+                className="h-8 gap-1 px-1 text-xs font-bold text-[var(--main-color-shade)] hover:bg-[color-mix(in_srgb,var(--main-color)_14%,white)] hover:text-[var(--main-color-shade)] sm:h-9 sm:text-sm"
                 onClick={() => {
                   setSearchQuery('');
                   setCourseFilter('all');
@@ -303,7 +303,7 @@ function NotesPage() {
           </section>
 
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] px-4 py-12 text-center shadow-[0_8px_22px_rgb(86_73_76/0.04)] sm:py-16">
+            <div className="mobile-surface flex flex-col items-center justify-center gap-2 px-4 py-12 text-center sm:py-16">
               <StickyNote className="h-8 w-8 text-[var(--main-color-shade)] sm:h-9 sm:w-9" />
               <p className="text-sm font-bold text-[var(--secondary-accent)]">No notes found</p>
               <p className="max-w-xs text-xs font-medium text-[var(--text-secondary)]">
@@ -320,6 +320,12 @@ function NotesPage() {
                 const preview = stripHtml(note.content);
                 const isFavorite = favoriteNoteIds.has(note.id);
                 const railColor = isFavorite ? 'var(--main-color)' : index % 4 === 3 ? 'var(--course-yellow)' : colors.border;
+                const itemStyle = {
+                  '--mobile-item-bg': colors.bg,
+                  '--mobile-item-border': isFavorite ? 'var(--main-color)' : colors.border,
+                  '--mobile-item-text': colors.text,
+                  '--mobile-rail-color': railColor,
+                } as React.CSSProperties;
                 return (
                   <article
                     key={note.id}
@@ -332,10 +338,10 @@ function NotesPage() {
                         navigate(`/notes/${note.id}`);
                       }
                     }}
-                    className="group grid cursor-pointer grid-cols-[0.25rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border p-3 text-left shadow-none outline-none transition-all hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[0.3rem_minmax(0,1fr)_auto]"
-                    style={{ backgroundColor: colors.bg, borderColor: isFavorite ? 'var(--main-color)' : colors.border, color: colors.text }}
+                    className="mobile-list-item group grid cursor-pointer grid-cols-[0.25rem_minmax(0,1fr)_auto] items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:grid-cols-[0.3rem_minmax(0,1fr)_auto]"
+                    style={itemStyle}
                   >
-                    <div className="h-14 rounded-full" style={{ backgroundColor: railColor }} />
+                    <div className="mobile-list-rail h-14 bg-[var(--mobile-rail-color)]" />
                     <div className="min-w-0">
                       <p className="truncate text-xs font-bold sm:text-sm">
                         {course ? `${course.code}: ` : ''}
@@ -353,7 +359,7 @@ function NotesPage() {
                         aria-label={isFavorite ? 'Remove favorite' : 'Favorite note'}
                         aria-pressed={isFavorite}
                         className={cn(
-                          'h-8 w-8 shrink-0 hover:bg-[rgb(255_255_255/0.45)]',
+                          'h-8 w-8 shrink-0 hover:bg-white/45',
                           isFavorite ? 'text-[var(--main-color-shade)]' : 'opacity-80 hover:text-[var(--main-color-shade)]'
                         )}
                         onClick={(event) => {
@@ -370,7 +376,7 @@ function NotesPage() {
                             variant="ghost"
                             size="icon"
                             title="Note actions"
-                            className="h-8 w-8 opacity-80 hover:bg-[rgb(255_255_255/0.45)]"
+                            className="h-8 w-8 opacity-80 hover:bg-white/45"
                             onClick={(event) => event.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />
@@ -380,7 +386,7 @@ function NotesPage() {
                           <DropdownMenuItem onClick={() => navigate(`/notes/${note.id}`)}>Open note</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-[var(--main-accent)] focus:bg-[rgb(248_173_157/0.16)] focus:text-[var(--main-accent)]"
+                            className="text-[var(--main-accent)] focus:bg-[color-mix(in_srgb,var(--main-color)_16%,white)] focus:text-[var(--main-accent)]"
                             onClick={() => handleDelete(note.id)}
                           >
                             <Trash2 className="h-4 w-4" />

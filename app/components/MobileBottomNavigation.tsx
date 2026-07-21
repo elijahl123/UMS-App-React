@@ -29,9 +29,9 @@ import type { Assignment, CalendarEvent, ClassSession, Course } from '@/app/data
 type AddTarget = 'assignment' | 'event' | 'course' | 'class' | null;
 
 const baseNavClass =
-  'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-primary';
+  'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-1.5 text-[11px] font-semibold text-[var(--text-secondary)] transition-colors hover:text-primary';
 const mobileSheetClass =
-  'top-auto bottom-0 max-h-[calc(100dvh-1rem)] translate-y-0 overflow-y-auto rounded-b-none pb-[calc(1.25rem+env(safe-area-inset-bottom))] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom md:bottom-auto md:top-[50%] md:max-h-[85vh] md:translate-y-[-50%] md:rounded-lg md:pb-6';
+  'top-auto bottom-0 max-h-[calc(100dvh-1rem)] translate-y-0 overflow-y-auto rounded-b-none border-[var(--border-light)] bg-[var(--surface)] pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-[0_-14px_34px_rgb(86_73_76/0.12)] data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom md:bottom-auto md:top-[50%] md:max-h-[85vh] md:translate-y-[-50%] md:rounded-lg md:pb-6';
 
 function MobileBottomNavigation() {
   const navigate = useNavigate();
@@ -121,7 +121,7 @@ function MobileBottomNavigation() {
     onClick: () => void,
     variant: 'default' | 'secondary' | 'outline' = 'outline'
   ) => (
-    <Button type="button" variant={variant} className="h-12 justify-start gap-3" onClick={onClick}>
+    <Button type="button" variant={variant} className="mobile-control justify-start gap-3 px-4" onClick={onClick}>
       {icon}
       <span>{label}</span>
     </Button>
@@ -130,15 +130,15 @@ function MobileBottomNavigation() {
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-light)] bg-background/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-8px_24px_rgb(15_23_42/0.10)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-light)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--secondary-color))] px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_26px_rgb(86_73_76/0.10)] backdrop-blur md:hidden"
         aria-label="Mobile primary navigation"
       >
         <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
-          <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'text-primary')}>
+          <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
             <Gauge className="h-5 w-5" />
             <span>Home</span>
           </NavLink>
-          <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'text-primary')}>
+          <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
             <Calendar className="h-5 w-5" />
             <span>Calendar</span>
           </NavLink>
@@ -146,18 +146,18 @@ function MobileBottomNavigation() {
             <Button
               type="button"
               size="icon"
-              className="mb-1 h-16 w-16 rounded-full shadow-lg"
+              className="mb-1 h-16 w-16 rounded-full border-[var(--main-color)] bg-[var(--main-color)] text-white shadow-[0_12px_26px_rgb(248_173_157/0.30)] hover:bg-[var(--main-color-shade)]"
               aria-label="Add anything"
               onClick={() => setAddOpen(true)}
             >
               <Plus className="h-8 w-8" />
             </Button>
           </div>
-          <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'text-primary')}>
+          <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
             <BookOpen className="h-5 w-5" />
             <span>Homework</span>
           </NavLink>
-          <button type="button" className={cn(baseNavClass, isMoreActive && 'text-primary')} onClick={() => setMoreOpen(true)}>
+          <button type="button" className={cn(baseNavClass, isMoreActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')} onClick={() => setMoreOpen(true)}>
             <Menu className="h-5 w-5" />
             <span>More</span>
           </button>
@@ -170,23 +170,23 @@ function MobileBottomNavigation() {
             <DialogTitle>Add</DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">
-            <Button type="button" className="h-12 justify-start gap-3" disabled={!hasCourses} onClick={() => openAddTarget('assignment')}>
+            <Button type="button" className="mobile-primary-action justify-start gap-3 px-4" disabled={!hasCourses} onClick={() => openAddTarget('assignment')}>
               <BookOpen className="h-4 w-4" />
               <span>Add Assignment</span>
             </Button>
-            <Button type="button" className="h-12 justify-start gap-3" variant="outline" onClick={() => openAddTarget('event')}>
+            <Button type="button" className="mobile-control justify-start gap-3 px-4" variant="outline" onClick={() => openAddTarget('event')}>
               <Calendar className="h-4 w-4" />
               <span>Add Event</span>
             </Button>
-            <Button type="button" className="h-12 justify-start gap-3" variant="outline" onClick={() => openAddTarget('course')}>
+            <Button type="button" className="mobile-control justify-start gap-3 px-4" variant="outline" onClick={() => openAddTarget('course')}>
               <GraduationCap className="h-4 w-4" />
               <span>Add Course</span>
             </Button>
-            <Button type="button" className="h-12 justify-start gap-3" variant="outline" disabled={!hasCourses} onClick={() => openAddTarget('class')}>
+            <Button type="button" className="mobile-control justify-start gap-3 px-4" variant="outline" disabled={!hasCourses} onClick={() => openAddTarget('class')}>
               <Clock className="h-4 w-4" />
               <span>Add Class</span>
             </Button>
-            <Button type="button" className="h-12 justify-start gap-3" variant="outline" onClick={handleNoteAdd}>
+            <Button type="button" className="mobile-control justify-start gap-3 px-4" variant="outline" onClick={handleNoteAdd}>
               <FileText className="h-4 w-4" />
               <span>Add Note</span>
             </Button>

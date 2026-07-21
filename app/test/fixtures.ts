@@ -27,7 +27,7 @@ export const sessions: ClassSession[] = [
 ];
 
 export const events: CalendarEvent[] = [
-  { id: '1', title: 'Study Group', date: '2026-07-10', time: '16:00', timeZone: 'America/Los_Angeles', description: 'Library room 2' },
+  { id: '1', title: 'Study Group', date: '2026-07-22', time: '16:00', timeZone: 'America/Los_Angeles', description: 'Library room 2' },
 ];
 
 export const notes: Note[] = [

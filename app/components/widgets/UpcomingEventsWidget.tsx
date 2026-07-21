@@ -18,7 +18,7 @@ function UpcomingEventsWidget({ events, onAdd, compact = false }: Props) {
   const hiddenCount = events.length - visibleEvents.length;
 
   return (
-    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+    <Card className="mobile-surface !border !border-[var(--border-light)] md:rounded-lg md:!border-2 md:!border-primary md:shadow-none">
       <CardHeader className={`shrink-0 gap-2 p-4 pb-3 ${compact ? 'flex-row items-center justify-between space-y-0 sm:p-4 sm:pb-2' : 'sm:flex-row sm:items-center sm:justify-between sm:space-y-0 sm:p-6 sm:pb-4'}`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
@@ -33,7 +33,7 @@ function UpcomingEventsWidget({ events, onAdd, compact = false }: Props) {
       </CardHeader>
       <CardContent className={events.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {events.length === 0 ? (
-          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoEvents.svg"
               alt="No events"
@@ -46,26 +46,33 @@ function UpcomingEventsWidget({ events, onAdd, compact = false }: Props) {
           </div>
         ) : (
           <ul className="flex flex-col gap-2">
-            {visibleEvents.map((e) => (
-              <li key={e.id}>
-                <Link
-                  to={`/calendar?date=${encodeURIComponent(e.date)}`}
-                  className={`flex items-center rounded-lg border transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${compact ? 'gap-3 p-3' : 'gap-3 p-3'}`}
-                  style={{ backgroundColor: 'var(--course-blue)', borderColor: '#9fb6e6', color: '#1F3A66' }}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface)]/55">
-                    <Calendar className="h-5 w-5" />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`truncate font-bold ${compact ? 'text-sm' : 'text-sm'}`}>{e.title}</p>
-                    <p className="text-xs opacity-80">{e.date}</p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-[#1F3A66]/65" />
-                </Link>
-              </li>
-            ))}
+            {visibleEvents.map((e) => {
+              const itemStyle = {
+                '--mobile-item-bg': 'var(--course-blue)',
+                '--mobile-item-border': 'color-mix(in srgb, var(--course-blue) 72%, var(--secondary-accent))',
+                '--mobile-item-text': 'color-mix(in srgb, var(--course-blue) 48%, var(--secondary-accent))',
+              } as React.CSSProperties;
+              return (
+                <li key={e.id}>
+                  <Link
+                    to={`/calendar?date=${encodeURIComponent(e.date)}`}
+                    className={`mobile-list-item flex items-center focus:outline-none focus:ring-2 focus:ring-ring ${compact ? 'gap-3' : 'gap-3'}`}
+                    style={itemStyle}
+                  >
+                    <span className="mobile-list-icon h-9 w-9 rounded-full border-0">
+                      <Calendar className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate font-bold ${compact ? 'text-sm' : 'text-sm'}`}>{e.title}</p>
+                      <p className="text-xs opacity-80">{e.date}</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 shrink-0 opacity-65" />
+                  </Link>
+                </li>
+              );
+            })}
             {hiddenCount > 0 && (
-              <li className="rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-muted-foreground">
+              <li className="mobile-more-row">
                 +{hiddenCount} more
               </li>
             )}

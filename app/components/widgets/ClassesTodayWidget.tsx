@@ -49,7 +49,7 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
   };
 
   return (
-    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+    <Card className="mobile-surface !border !border-[var(--border-light)] md:rounded-lg md:!border-2 md:!border-primary md:shadow-none">
       <CardHeader className={`shrink-0 p-4 pb-3 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
@@ -60,7 +60,7 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
       </CardHeader>
       <CardContent className={sessions.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {sessions.length === 0 ? (
-          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoClassesToday.svg"
               alt="No classes today"
@@ -77,11 +77,16 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
               const course = getCourse(session.courseId);
               const colors = getCourseColor(course?.color);
               const openClassContext = () => navigate(`/class-schedule?courseId=${encodeURIComponent(session.courseId)}`);
+              const itemStyle = {
+                '--mobile-item-bg': colors.bg,
+                '--mobile-item-border': colors.border,
+                '--mobile-item-text': colors.text,
+              } as React.CSSProperties;
               return (
                 <div
                   key={session.id}
-                  className={`rounded-lg border transition-all hover:shadow-sm ${compact ? 'p-3' : 'p-4'}`}
-                  style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                  className={`mobile-list-item ${compact ? 'p-3' : 'p-4'}`}
+                  style={itemStyle}
                 >
                   <button
                     type="button"
@@ -117,7 +122,7 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
               );
             })}
             {hiddenCount > 0 && (
-              <div className="rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-muted-foreground">
+              <div className="mobile-more-row">
                 +{hiddenCount} more
               </div>
             )}

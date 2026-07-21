@@ -22,7 +22,7 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
   };
 
   return (
-    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+    <Card className="mobile-surface !border !border-[var(--border-light)] md:rounded-lg md:!border-2 md:!border-primary md:shadow-none">
       <CardHeader className={`shrink-0 p-4 pb-3 ${compact ? 'sm:p-4 sm:pb-2' : 'sm:p-6 sm:pb-4'}`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
@@ -33,13 +33,13 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
       </CardHeader>
       <CardContent className={assignments.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {assignments.length === 0 ? (
-          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoLateAssignments.svg"
               alt="No late assignments"
               className={compact ? 'hidden h-16 w-auto max-w-[60%] sm:block xl:h-20' : 'h-[clamp(5.5rem,18vw,8rem)] w-auto max-w-[70%]'}
             />
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-emerald-600 md:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--course-green)_70%,white)] bg-[color-mix(in_srgb,var(--course-green)_52%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] md:hidden">
               <Check className="h-5 w-5" />
             </span>
             <div>
@@ -52,15 +52,20 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
             {visibleAssignments.map((a) => {
               const course = getCourse(a.courseId);
               const colors = getCourseColor(course?.color);
+              const itemStyle = {
+                '--mobile-item-bg': colors.bg,
+                '--mobile-item-border': colors.border,
+                '--mobile-item-text': colors.text,
+              } as React.CSSProperties;
               return (
                 <li key={a.id}>
                   <button
                     type="button"
-                    className="flex w-full gap-2 rounded-lg border p-2 text-left transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    className="mobile-list-item flex w-full gap-2 p-2 focus:outline-none focus:ring-2 focus:ring-ring"
+                    style={itemStyle}
                     onClick={() => openHomework(a)}
                   >
-                    <div className="w-1 shrink-0 rounded-full" style={{ backgroundColor: colors.border }} />
+                    <div className="mobile-list-rail w-1" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-bold sm:text-sm">
                         {course?.code}: {a.name}
@@ -74,7 +79,7 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
               );
             })}
             {hiddenCount > 0 && (
-              <li className="rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-muted-foreground">
+              <li className="mobile-more-row">
                 +{hiddenCount} more
               </li>
             )}

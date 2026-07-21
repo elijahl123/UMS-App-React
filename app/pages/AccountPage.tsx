@@ -637,7 +637,7 @@ function AccountPage() {
 
               {notificationsError && <p className="text-sm font-medium text-destructive">{notificationsError}</p>}
               {notificationsSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   {notificationsSuccess}
                 </p>
@@ -743,7 +743,7 @@ function AccountPage() {
             {accountEmailsLoading && <p className="text-sm text-muted-foreground">Loading email addresses...</p>}
             {accountEmailError && <p className="text-sm font-medium text-destructive">{accountEmailError}</p>}
             {accountEmailSuccess && (
-              <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
                 <CheckCircle2 className="h-4 w-4" />
                 {accountEmailSuccess}
               </p>
@@ -846,7 +846,7 @@ function AccountPage() {
               />
               {profileError && <p className="text-sm font-medium text-destructive">{profileError}</p>}
               {profileSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   Profile updated successfully.
                 </p>
@@ -914,7 +914,7 @@ function AccountPage() {
               </div>
               {passwordError && <p className="text-sm font-medium text-destructive">{passwordError}</p>}
               {passwordSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   Password updated successfully.
                 </p>

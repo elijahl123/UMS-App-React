@@ -83,7 +83,7 @@ describe('page rendering', () => {
     renderWithRouter(<CalendarPage />);
 
     expect(screen.getByRole('heading', { name: /july 2026/i })).toBeInTheDocument();
-    await user.click(screen.getAllByRole('button', { name: /10/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /22/i })[0]);
     expect(await screen.findByText(/study group/i)).toBeInTheDocument();
   });
 

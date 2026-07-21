@@ -22,7 +22,7 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd, compact = fals
   const hiddenCount = assignments.length - visibleAssignments.length;
 
   return (
-    <Card className="rounded-xl border border-[var(--border-light)] shadow-md md:rounded-lg md:border-2 md:border-primary md:shadow-none">
+    <Card className="mobile-surface !border !border-[var(--border-light)] md:rounded-lg md:!border-2 md:!border-primary md:shadow-none">
       <CardHeader className={`shrink-0 gap-2 p-4 pb-3 ${compact ? 'flex-row items-center justify-between space-y-0 sm:p-4 sm:pb-2' : 'sm:flex-row sm:items-center sm:justify-between sm:space-y-0 sm:p-6 sm:pb-4'}`}>
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary md:hidden">
@@ -37,7 +37,7 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd, compact = fals
       </CardHeader>
       <CardContent className={assignments.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {assignments.length === 0 ? (
-          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50/70 py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoAssignments.svg"
               alt="No assignments"
@@ -53,14 +53,19 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd, compact = fals
             {visibleAssignments.map((a) => {
               const course = getCourse(a.courseId);
               const colors = getCourseColor(course?.color);
+              const itemStyle = {
+                '--mobile-item-bg': colors.bg,
+                '--mobile-item-border': colors.border,
+                '--mobile-item-text': colors.text,
+              } as React.CSSProperties;
               return (
                 <li key={a.id}>
                   <Link
                     to={`/homework?courseId=${encodeURIComponent(a.courseId)}&status=${encodeURIComponent(a.status)}`}
-                    className={`flex items-center rounded-lg border transition-all hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring ${compact ? 'gap-3 p-3' : 'gap-3 p-3'}`}
-                    style={{ backgroundColor: colors.bg, borderColor: colors.border, color: colors.text }}
+                    className={`mobile-list-item flex items-center focus:outline-none focus:ring-2 focus:ring-ring ${compact ? 'gap-3' : 'gap-3'}`}
+                    style={itemStyle}
                   >
-                    <div className="h-14 w-1 shrink-0 rounded-full" style={{ backgroundColor: colors.border }} />
+                    <div className="mobile-list-rail h-14 w-1" />
                     <div className="flex-1 min-w-0">
                       <p className={`truncate font-bold ${compact ? 'text-sm' : 'text-sm'}`}>
                         {course ? `${course.code}: ` : ''}
@@ -76,7 +81,7 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd, compact = fals
               );
             })}
             {hiddenCount > 0 && (
-              <li className="rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-muted-foreground">
+              <li className="mobile-more-row">
                 +{hiddenCount} more
               </li>
             )}
