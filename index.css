@@ -207,6 +207,118 @@ body {
   font-family: inherit;
 }
 
+@keyframes mobile-swipe-left {
+  from {
+    opacity: 0.92;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mobile-swipe-right {
+  from {
+    opacity: 0.92;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-mobile-swipe-left {
+  animation: mobile-swipe-left 180ms ease-out;
+}
+
+.animate-mobile-swipe-right {
+  animation: mobile-swipe-right 180ms ease-out;
+}
+
+@layer utilities {
+  .mobile-page-stack {
+    @apply flex min-h-0 flex-col gap-4 text-[var(--secondary-accent)];
+  }
+
+  .mobile-page-header {
+    @apply px-1 pb-1 pr-20 pt-2;
+  }
+
+  .mobile-page-title {
+    @apply text-[1.85rem] font-bold leading-tight text-[var(--secondary-accent)];
+  }
+
+  .mobile-page-kicker {
+    @apply mt-1 text-sm font-medium leading-snug text-[var(--text-secondary)];
+  }
+
+  .mobile-surface {
+    @apply rounded-lg border border-[var(--border-light)] bg-[var(--surface)] shadow-[0_10px_26px_rgb(86_73_76/0.055)];
+  }
+
+  .mobile-control {
+    @apply h-12 rounded-lg border border-[var(--border-light)] bg-[var(--surface)] text-sm font-semibold text-[var(--secondary-accent)] shadow-[0_8px_20px_rgb(86_73_76/0.045)];
+  }
+
+  .mobile-primary-action {
+    @apply h-12 rounded-lg border border-[var(--main-color)] bg-[var(--main-color)] text-sm font-bold text-white shadow-[0_10px_22px_rgb(248_173_157/0.24)] hover:border-[var(--main-color-shade)] hover:bg-[var(--main-color-shade)];
+  }
+
+  .mobile-secondary-action {
+    @apply h-12 rounded-lg border border-[var(--border-light)] bg-[var(--secondary-accent-soft)] text-sm font-semibold text-[var(--secondary-accent)] shadow-[0_8px_20px_rgb(86_73_76/0.04)] hover:bg-[var(--secondary-color)] hover:text-[var(--secondary-accent)];
+  }
+
+  .mobile-section-title {
+    @apply text-lg font-bold leading-tight text-[var(--secondary-accent)];
+  }
+
+  .mobile-list-item {
+    @apply rounded-lg border p-3 text-left shadow-[0_8px_22px_rgb(86_73_76/0.045)] transition-all;
+    background: color-mix(in srgb, var(--mobile-item-bg, var(--surface)) 52%, white);
+    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 76%, white);
+    color: var(--mobile-item-text, var(--secondary-accent));
+  }
+
+  .mobile-list-item:hover {
+    box-shadow: 0 10px 24px rgb(86 73 76 / 0.065);
+  }
+
+  .mobile-list-rail {
+    @apply shrink-0 rounded-full;
+    background: var(--mobile-item-border, var(--main-color));
+  }
+
+  .mobile-list-icon {
+    @apply flex shrink-0 items-center justify-center rounded-lg border bg-white/45;
+    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 58%, white);
+    color: var(--mobile-item-text, var(--secondary-accent));
+  }
+
+  .mobile-action-tray {
+    @apply rounded-lg border border-[var(--border-light)] bg-white/70 shadow-[0_6px_14px_rgb(86_73_76/0.045)];
+  }
+
+  .mobile-more-row {
+    @apply rounded-lg border border-[var(--border-light)] px-3 py-1.5 text-center text-xs font-semibold text-[var(--text-secondary)];
+    background: color-mix(in srgb, var(--surface) 72%, var(--secondary-color));
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  .mobile-page-title {
+    font-size: 2.25rem;
+  }
+
+  .mobile-control,
+  .mobile-primary-action,
+  .mobile-secondary-action {
+    height: 3.5rem;
+    font-size: 1rem;
+  }
+}
+
 /* Rich text editor (Tiptap) content styling */
 .ProseMirror {
   outline: none;

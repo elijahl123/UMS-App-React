@@ -71,7 +71,22 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[App] Unhandled rejection:', event.reason);
+  const reason = event.reason;
+  if (reason instanceof Error) {
+    console.error('[App] Unhandled rejection:', {
+      name: reason.name,
+      message: reason.message,
+      stack: reason.stack,
+    });
+    return;
+  }
+
+  if (reason && typeof reason === 'object') {
+    console.error('[App] Unhandled rejection:', JSON.stringify(reason));
+    return;
+  }
+
+  console.error('[App] Unhandled rejection:', reason);
 });
 
 async function bootstrap() {

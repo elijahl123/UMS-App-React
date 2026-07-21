@@ -56,9 +56,9 @@ class FakeImportClient {
     }
 
     if (text.includes('INSERT INTO events')) {
-      const userId = String(values?.[4]);
-      const sourceProvider = String(values?.[5]);
-      const sourceKey = String(values?.[6]);
+      const userId = String(values?.[5]);
+      const sourceProvider = String(values?.[6]);
+      const sourceKey = String(values?.[7]);
       expect(sourceProvider).toBe(BRIGHTSPACE_SOURCE_PROVIDER);
       const key = `${userId}:${sourceProvider}:${sourceKey}`;
       if (this.events.has(key)) {

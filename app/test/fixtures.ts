@@ -22,12 +22,12 @@ export const assignments: Assignment[] = [
 ];
 
 export const sessions: ClassSession[] = [
-  { id: '1', courseId: '1', day: 'Fri', startTime: '09:00:00', endTime: '10:15:00' },
-  { id: '2', courseId: '2', day: 'Mon', startTime: '13:00:00', endTime: '14:15:00' },
+  { id: '1', courseId: '1', day: 'Fri', startTime: '09:00:00', endTime: '10:15:00', location: 'Science Center S202' },
+  { id: '2', courseId: '2', day: 'Mon', startTime: '13:00:00', endTime: '14:15:00', location: 'Arts Hall 104' },
 ];
 
 export const events: CalendarEvent[] = [
-  { id: '1', title: 'Study Group', date: '2026-07-10', time: '16:00', description: 'Library room 2' },
+  { id: '1', title: 'Study Group', date: '2026-07-22', time: '16:00', timeZone: 'America/Los_Angeles', description: 'Library room 2' },
 ];
 
 export const notes: Note[] = [
@@ -74,12 +74,14 @@ export const dbRows = {
     day: session.day,
     start_time: session.startTime,
     end_time: session.endTime,
+    location: session.location ?? null,
   })),
   loadEvents: events.map((event) => ({
     id: Number(event.id),
     title: event.title,
     event_date: event.date,
     event_time: event.time ?? null,
+    event_timezone: event.timeZone,
     description: event.description ?? null,
   })),
   loadNotes: notes.map((note) => ({

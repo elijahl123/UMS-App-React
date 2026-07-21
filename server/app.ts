@@ -9,6 +9,7 @@ import { billingRouter, billingWebhookRouter } from './routes/billing';
 import { brightspaceCalendarRouter } from './routes/brightspaceCalendar';
 import { emailRouter, publicEmailRouter } from './routes/email';
 import { stagingAccessRouter } from './routes/stagingAccess';
+import { notificationsRouter } from './notifications';
 
 export function createApp() {
   const app = express();
@@ -32,6 +33,7 @@ export function createApp() {
   app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/email', emailRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   return app;
 }

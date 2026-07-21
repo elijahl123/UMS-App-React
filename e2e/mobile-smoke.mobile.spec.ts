@@ -1,8 +1,10 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { mockAuthenticatedApp, mockPublicAppApis } from './support/appMocks';
 import {
+  dragMobilePage,
   expectMobileBottomNavVisible,
   expectNoHorizontalPageOverflow,
+  swipeMobilePage,
   watchForRuntimeErrors,
 } from './support/mobileAssertions';
 
@@ -91,6 +93,69 @@ test.describe('mobile authenticated smoke tests', () => {
     await page.getByRole('button', { name: 'Add Event' }).click();
 
     await expect(page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Add Event' }) })).toBeVisible();
+    await expectNoHorizontalPageOverflow(page);
+    expect(runtimeErrors).toEqual([]);
+  });
+
+  test('swipes between main app pages on mobile', async ({ page }) => {
+    const runtimeErrors = watchForRuntimeErrors(page);
+
+    await openAuthenticatedRoute(page, '/');
+
+    await expect(page.getByRole('heading', { name: 'Upcoming Assignments' })).toBeVisible();
+    await swipeMobilePage(page, 'left');
+    await expect(page).toHaveURL(/#\/calendar$/);
+    await expect(page.getByRole('button', { name: 'Add Event' })).toBeVisible();
+
+    await swipeMobilePage(page, 'right');
+    await expect(page).toHaveURL(/#\/$/);
+    await expect(page.getByRole('heading', { name: 'Upcoming Assignments' })).toBeVisible();
+
+    await swipeMobilePage(page, 'left');
+    await swipeMobilePage(page, 'left');
+    await expect(page).toHaveURL(/#\/homework$/);
+    await expect(page.getByRole('heading', { name: 'Homework' })).toBeVisible();
+
+    await swipeMobilePage(page, 'left');
+    await expect(page).toHaveURL(/#\/notes$/);
+    await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible();
+    await expectNoHorizontalPageOverflow(page);
+    expect(runtimeErrors).toEqual([]);
+  });
+
+  test('ignores vertical drags and protected interaction areas while swiping', async ({ page }) => {
+    const runtimeErrors = watchForRuntimeErrors(page);
+
+    await openAuthenticatedRoute(page, '/calendar');
+
+    await dragMobilePage(page, { startX: 210, startY: 160, endX: 188, endY: 520 });
+    await expect(page).toHaveURL(/#\/calendar$/);
+
+    await page.getByRole('button', { name: 'Add Event' }).click();
+    const dialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Add Event' }) });
+    await expect(dialog).toBeVisible();
+    await dialog.dispatchEvent('pointerdown', {
+      bubbles: true,
+      clientX: 340,
+      clientY: 360,
+      isPrimary: true,
+      pointerId: 44,
+      pointerType: 'touch',
+    });
+    await dialog.dispatchEvent('pointerup', {
+      bubbles: true,
+      clientX: 40,
+      clientY: 368,
+      isPrimary: true,
+      pointerId: 44,
+      pointerType: 'touch',
+    });
+    await expect(page).toHaveURL(/#\/calendar$/);
+
+    await openAuthenticatedRoute(page, '/notes/new');
+    await page.locator('.ProseMirror').fill('This note should not trigger route swipes.');
+    await expect(page.locator('[data-mobile-swipe-region="inactive"]')).toBeVisible();
+    await expect(page).toHaveURL(/#\/notes\/new$/);
     await expectNoHorizontalPageOverflow(page);
     expect(runtimeErrors).toEqual([]);
   });
