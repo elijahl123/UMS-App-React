@@ -16,6 +16,7 @@ const schema = z.object({
   day: z.enum(days),
   startTime: z.string().min(1, 'Start time is required').regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
   endTime: z.string().min(1, 'End time is required').regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  location: z.string().max(120, 'Location must be 120 characters or fewer').optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -29,7 +30,7 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-const emptyValues: FormValues = { courseId: '', day: 'Mon', startTime: '', endTime: '' };
+const emptyValues: FormValues = { courseId: '', day: 'Mon', startTime: '', endTime: '', location: '' };
 
 // Normalize time to HH:MM format, handling HH:MM:SS from database
 function normalizeTime(time: string): string {
@@ -63,6 +64,7 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
               day: session.day,
               startTime: normalizeTime(session.startTime),
               endTime: normalizeTime(session.endTime),
+              location: session.location ?? '',
             }
           : emptyValues
       );
@@ -74,6 +76,7 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
       ...values,
       startTime: normalizeTime(values.startTime),
       endTime: normalizeTime(values.endTime),
+      location: values.location?.trim() || undefined,
       id: session?.id,
     });
     onOpenChange(false);
@@ -180,6 +183,19 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Science Center S202" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter className="flex items-center justify-between">
               {isEdit && onDelete ? (
                 <Button type="button" variant="destructive" onClick={handleDelete}>

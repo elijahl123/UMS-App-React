@@ -32,6 +32,7 @@ export interface ClassSession {
   day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
   startTime: string; // HH:MM format (24-hour)
   endTime: string; // HH:MM format (24-hour)
+  location?: string;
 }
 
 export interface Note {

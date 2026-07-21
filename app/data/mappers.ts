@@ -35,6 +35,7 @@ interface DbClassSession {
   day: string;
   start_time: string;
   end_time: string;
+  location?: string | null;
 }
 
 interface DbEvent {
@@ -92,6 +93,7 @@ export function mapClassSession(row: DbClassSession): ClassSession {
     day: row.day as ClassSession['day'],
     startTime: row.start_time,
     endTime: row.end_time,
+    location: row.location?.trim() || undefined,
   };
 }
 

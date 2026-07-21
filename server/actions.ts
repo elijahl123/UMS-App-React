@@ -138,7 +138,7 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   loadClassSessions: (params) => ({
     text: `
-      SELECT s.id, s.course_id, s.day, s.start_time::text AS start_time, s.end_time::text AS end_time
+      SELECT s.id, s.course_id, s.day, s.start_time::text AS start_time, s.end_time::text AS end_time, s.location
       FROM class_sessions s
       JOIN courses c ON c.id = s.course_id
       WHERE c.user_id = $1
@@ -149,13 +149,20 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   createClassSession: (params) => ({
     text: `
-      INSERT INTO class_sessions (course_id, day, start_time, end_time)
-      SELECT c.id, $1, $2::time, $3::time
+      INSERT INTO class_sessions (course_id, day, start_time, end_time, location)
+      SELECT c.id, $1, $2::time, $3::time, NULLIF($4, '')
       FROM courses c
-      WHERE c.id = $4::bigint AND c.user_id = $5
-      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time;
+      WHERE c.id = $5::bigint AND c.user_id = $6
+      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time, location;
     `,
-    values: [required(params, 'day'), required(params, 'startTime'), required(params, 'endTime'), required(params, 'courseId'), required(params, 'userId')],
+    values: [
+      required(params, 'day'),
+      required(params, 'startTime'),
+      required(params, 'endTime'),
+      params.location ?? null,
+      required(params, 'courseId'),
+      required(params, 'userId'),
+    ],
   }),
 
   updateClassSession: (params) => ({
@@ -164,19 +171,21 @@ const actionBuilders: Record<string, ActionBuilder> = {
       SET course_id = $1::bigint,
           day = $2,
           start_time = $3::time,
-          end_time = $4::time
-      WHERE id = $5::bigint
+          end_time = $4::time,
+          location = NULLIF($5, '')
+      WHERE id = $6::bigint
         AND EXISTS (
           SELECT 1 FROM courses c
-          WHERE c.id = $1::bigint AND c.user_id = $6
+          WHERE c.id = $1::bigint AND c.user_id = $7
         )
-      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time;
+      RETURNING id, course_id, day, start_time::text AS start_time, end_time::text AS end_time, location;
     `,
     values: [
       required(params, 'courseId'),
       required(params, 'day'),
       required(params, 'startTime'),
       required(params, 'endTime'),
+      params.location ?? null,
       required(params, 'id'),
       required(params, 'userId'),
     ],

@@ -47,7 +47,8 @@ function formatItemTime(item: CalendarItem): string {
     const session = item.raw as ClassSession;
     const start = formatTime(session.startTime);
     const end = formatTime(session.endTime);
-    return start && end ? `${start} - ${end}` : 'Class session';
+    const time = start && end ? `${start} - ${end}` : 'Class session';
+    return session.location ? `${time} · ${session.location}` : time;
   }
 
   const time = formatTime(item.type === 'assignment' ? (item.raw as Assignment).dueTime : (item.raw as CalendarEvent).time);

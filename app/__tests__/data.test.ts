@@ -28,7 +28,16 @@ describe('data mappers and calendar utilities', () => {
         description: null,
       })
     ).toEqual(assignments[0]);
-    expect(mapClassSession({ id: 1, course_id: 1, day: 'Fri', start_time: '09:00:00', end_time: '10:15:00' })).toEqual(sessions[0]);
+    expect(
+      mapClassSession({
+        id: 1,
+        course_id: 1,
+        day: 'Fri',
+        start_time: '09:00:00',
+        end_time: '10:15:00',
+        location: 'Science Center S202',
+      })
+    ).toEqual(sessions[0]);
     expect(
       mapEvent({
         id: 1,

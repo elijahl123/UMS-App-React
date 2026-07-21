@@ -22,8 +22,8 @@ export const assignments: Assignment[] = [
 ];
 
 export const sessions: ClassSession[] = [
-  { id: '1', courseId: '1', day: 'Fri', startTime: '09:00:00', endTime: '10:15:00' },
-  { id: '2', courseId: '2', day: 'Mon', startTime: '13:00:00', endTime: '14:15:00' },
+  { id: '1', courseId: '1', day: 'Fri', startTime: '09:00:00', endTime: '10:15:00', location: 'Science Center S202' },
+  { id: '2', courseId: '2', day: 'Mon', startTime: '13:00:00', endTime: '14:15:00', location: 'Arts Hall 104' },
 ];
 
 export const events: CalendarEvent[] = [
@@ -74,6 +74,7 @@ export const dbRows = {
     day: session.day,
     start_time: session.startTime,
     end_time: session.endTime,
+    location: session.location ?? null,
   })),
   loadEvents: events.map((event) => ({
     id: Number(event.id),

@@ -1,7 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Clock, GraduationCap } from 'lucide-react';
+import { BookOpen, Clock, GraduationCap, MapPin } from 'lucide-react';
 import type { ClassSession, Course } from '@/app/data/types';
 import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay } from '@/app/data/classSchedule';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
@@ -94,6 +94,12 @@ function ClassesTodayWidget({ sessions, courses, compact = false }: Props) {
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <span>{formatTimeDisplay(session.startTime)} - {formatTimeDisplay(session.endTime)}</span>
                       </p>
+                      {session.location && (
+                        <p className="mt-1 flex items-center gap-1.5 truncate text-xs opacity-80">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span>{session.location}</span>
+                        </p>
+                      )}
                     </div>
                   </button>
                   <Button

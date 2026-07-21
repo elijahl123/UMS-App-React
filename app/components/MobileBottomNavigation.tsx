@@ -110,6 +110,7 @@ function MobileBottomNavigation() {
       day: values.day,
       startTime: values.startTime,
       endTime: values.endTime,
+      location: values.location?.trim() || null,
       userId: user?.id,
     });
   };

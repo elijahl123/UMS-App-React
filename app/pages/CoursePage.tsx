@@ -305,6 +305,7 @@ function CoursePage() {
                     </div>
                     <span className="text-xs font-semibold opacity-80">
                       {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
+                      {s.location ? ` · ${s.location}` : ''}
                     </span>
                   </div>
                 ))}

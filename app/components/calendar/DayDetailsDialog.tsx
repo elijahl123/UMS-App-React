@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { CalendarItem } from '@/app/data/calendarUtils';
+import type { ClassSession } from '@/app/data/types';
 
 interface Props {
   open: boolean;
@@ -64,6 +65,9 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
                     {item.time && <span className="text-xs opacity-80">{formatTimeDisplay(item.time)}</span>}
                   </div>
                   <p className="mt-1 text-sm font-semibold">{item.title}</p>
+                  {item.type === 'class' && (item.raw as ClassSession).location && (
+                    <p className="mt-0.5 text-xs opacity-80">{(item.raw as ClassSession).location}</p>
+                  )}
                   {'description' in item.raw && item.raw.description && (
                     <p className="mt-0.5 text-xs opacity-80">{item.raw.description}</p>
                   )}

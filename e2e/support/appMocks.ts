@@ -80,8 +80,8 @@ const courses = [
 ];
 
 const classSessions = [
-  { id: 1, course_id: 1, day: 'Mon', start_time: '10:00', end_time: '10:50' },
-  { id: 2, course_id: 2, day: 'Wed', start_time: '13:00', end_time: '14:50' },
+  { id: 1, course_id: 1, day: 'Mon', start_time: '10:00', end_time: '10:50', location: 'Engineering Building E201' },
+  { id: 2, course_id: 2, day: 'Wed', start_time: '13:00', end_time: '14:50', location: 'Science Center S204' },
 ];
 
 const notes = [
