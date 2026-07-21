@@ -43,6 +43,75 @@ ensure_node() {
 
 ensure_node
 
+write_info_plist() {
+  local plist_path="ios/App/App/Info.plist"
+  local ios_url_scheme="${VITE_GOOGLE_IOS_REVERSED_CLIENT_ID:-YOUR_GOOGLE_IOS_REVERSED_OAUTH_CLIENT_ID}"
+
+  mkdir -p "$(dirname "$plist_path")"
+  cat > "$plist_path" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Untitled Management Software</string>
+	<key>CFBundleExecutable</key>
+	<string>\$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>\$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>\$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>\$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>${ios_url_scheme}</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>\$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+	<key>CAPACITOR_DEBUG</key>
+	<string>\$(CAPACITOR_DEBUG)</string>
+</dict>
+</plist>
+PLIST
+
+  /usr/bin/plutil -lint "$plist_path"
+}
+
 echo "Xcode Cloud repository root: $repo_root"
 echo "Node: $(command -v node || true) $(node --version 2>/dev/null || true)"
 echo "npm: $(command -v npm || true) $(npm --version 2>/dev/null || true)"
@@ -82,6 +151,9 @@ if [ -n "${VITE_FIREBASE_API_KEY:-}" ] && [ -n "${VITE_GOOGLE_IOS_CLIENT_ID:-}" 
 else
   echo "VITE_FIREBASE_API_KEY or VITE_GOOGLE_IOS_CLIENT_ID is not set; using committed web assets"
 fi
+
+echo "Writing generated iOS Info.plist"
+write_info_plist
 
 echo "Refreshing Capacitor iOS package metadata"
 npx cap sync ios
