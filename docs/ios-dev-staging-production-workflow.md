@@ -309,6 +309,26 @@ VITE_API_BASE_URL=https://app.untitledmanagementsoftware.com/api
 VITE_STAGING_ACCESS_CONTROL_ENABLED=false
 ```
 
+## Xcode Cloud Production Builds
+
+Xcode Cloud starts from a fresh checkout, so `node_modules` is not present when
+Xcode resolves Swift packages. Capacitor's generated Swift package references
+local plugin packages under `node_modules/@capacitor/*`, so the workflow uses
+`ci_scripts/ci_post_clone.sh` to run `npm ci` before Xcode package resolution.
+
+Configure the production Xcode Cloud workflow with these environment variables
+or provide an equivalent `GOOGLE_SERVICE_INFO_PLIST` path:
+
+```sh
+VITE_FIREBASE_API_KEY="<production-firebase-api-key>"
+VITE_GOOGLE_IOS_CLIENT_ID="<production-ios-client-id>"
+VITE_GOOGLE_IOS_REVERSED_CLIENT_ID="<production-reversed-client-id>"
+```
+
+The post-clone script then runs `npm run ios:sync:production`, which builds the
+web bundle, syncs Capacitor, and verifies the production API URL is present in
+the generated iOS assets.
+
 In Xcode:
 
 1. Select the production bundle ID: `com.untitledmanagementsoftware.app`.

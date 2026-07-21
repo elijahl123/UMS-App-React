@@ -42,6 +42,23 @@ export VITE_GOOGLE_REDIRECT_URI="${VITE_GOOGLE_REDIRECT_URI:-}"
 export VITE_STAGING_ACCESS_CONTROL_ENABLED="${VITE_STAGING_ACCESS_CONTROL_ENABLED:-false}"
 
 echo "Using production API base URL: $VITE_API_BASE_URL"
+
+if command -v curl >/dev/null 2>&1; then
+  billing_config_status="$(
+    curl -sS -o /dev/null -w "%{http_code}" \
+      -H "Origin: capacitor://localhost" \
+      "$VITE_API_BASE_URL/billing/config" || true
+  )"
+
+  if [ "$billing_config_status" != "200" ]; then
+    echo "Production API did not allow the native iOS origin for billing config." >&2
+    echo "Expected 200 from: $VITE_API_BASE_URL/billing/config" >&2
+    echo "Got HTTP status: $billing_config_status" >&2
+    echo "Check production APP_ORIGINS includes capacitor://localhost, then restart the API service." >&2
+    exit 1
+  fi
+fi
+
 npm run cap:sync
 
 if ! grep -R --fixed-strings "$VITE_API_BASE_URL" ios/App/App/public/assets >/dev/null 2>&1; then
