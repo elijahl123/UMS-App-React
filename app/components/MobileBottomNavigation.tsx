@@ -50,6 +50,17 @@ function MobileBottomNavigation() {
   const courses = (courseRows ?? []).map(mapCourse);
   const hasCourses = courses.length > 0;
   const isMoreActive = /^\/(notes|courses|class-schedule|account|admin)\b/.test(location.pathname);
+  const displayEmail = user?.loginEmail ?? user?.email;
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || displayEmail || 'Your account';
+  const initials =
+    [user?.firstName?.charAt(0), user?.lastName?.charAt(0)].filter(Boolean).join('') ||
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0))
+      .join('') ||
+    'U';
 
   const openAddTarget = (target: Exclude<AddTarget, null>) => {
     setAddOpen(false);
@@ -126,6 +137,29 @@ function MobileBottomNavigation() {
       <span>{label}</span>
     </Button>
   );
+
+  const accountCard = user ? (
+    <button
+      type="button"
+      className="mobile-list-item flex w-full items-center gap-3 px-3.5 py-3.5"
+      onClick={() => handleMoreNavigate('/account')}
+      style={{
+        '--mobile-item-bg': 'color-mix(in srgb, var(--main-color) 18%, white)',
+        '--mobile-item-border': 'color-mix(in srgb, var(--main-color) 58%, white)',
+        '--mobile-item-text': 'var(--secondary-accent)',
+      } as React.CSSProperties}
+      aria-label="Open account settings"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--main-color)_28%,white)] text-sm font-bold uppercase text-[var(--main-accent)]">
+        {initials}
+      </span>
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-sm font-bold text-[var(--secondary-accent)]">{displayName}</span>
+        {displayEmail && <span className="block truncate text-xs font-medium text-[var(--text-secondary)]">{displayEmail}</span>}
+      </span>
+      <User className="h-4 w-4 shrink-0 text-[var(--main-accent)]" />
+    </button>
+  ) : null;
 
   return (
     <>
@@ -208,8 +242,15 @@ function MobileBottomNavigation() {
               stagingAccess?.role === 'admin' &&
               renderMoreButton('Staging Access', <Shield className="h-4 w-4" />, () => handleMoreNavigate('/admin/staging-access'))}
             {renderMoreButton('Feedback', <MessageSquare className="h-4 w-4" />, () => setMoreOpen(false), 'secondary')}
-            {renderMoreButton('Account', <User className="h-4 w-4" />, () => handleMoreNavigate('/account'), 'secondary')}
-            {renderMoreButton('Log Out', <LogOut className="h-4 w-4" />, handleLogout, 'outline')}
+            {accountCard}
+            <Button
+              type="button"
+              className="h-12 justify-start gap-3 rounded-lg border border-[var(--secondary-accent)] bg-[var(--secondary-accent)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgb(86_73_76/0.12)] hover:border-[var(--secondary-accent-hover)] hover:bg-[var(--secondary-accent-hover)] hover:text-white"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Log Out</span>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
