@@ -35,7 +35,7 @@ describe('page rendering', () => {
 
     expect(screen.getByText(/upcoming assignments/i)).toBeInTheDocument();
     expect(screen.getByText(/late assignments/i)).toBeInTheDocument();
-    expect(screen.getByText(/study group/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /upcoming events/i })).toBeInTheDocument();
   });
 
   it('renders the homework board with grouped assignments', () => {
