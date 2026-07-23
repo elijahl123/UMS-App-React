@@ -9,28 +9,6 @@ describe('App routes', () => {
     window.location.hash = '#/';
   });
 
-  it('renders the public privacy policy at the clean app-store URL without authentication', async () => {
-    authState.user = null;
-    window.history.pushState({}, '', '/privacy-policy');
-    window.location.hash = '';
-
-    render(<App />);
-
-    expect(await screen.findByRole('heading', { name: /privacy policy/i })).toBeInTheDocument();
-    expect(screen.getByText(/privacy@untitledmanagementsoftware\.com/i)).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /welcome back/i })).not.toBeInTheDocument();
-  });
-
-  it('renders the public privacy policy from app hash navigation without authentication', async () => {
-    authState.user = null;
-    window.location.hash = '#/privacy-policy';
-
-    render(<App />);
-
-    expect(await screen.findByRole('heading', { name: /privacy policy/i })).toBeInTheDocument();
-    expect(screen.getByText(/not directed to children under 13/i)).toBeInTheDocument();
-  });
-
   it('redirects unauthenticated users from protected pages to login', async () => {
     authState.user = null;
     window.location.hash = '#/homework';

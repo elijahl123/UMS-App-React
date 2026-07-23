@@ -14,7 +14,6 @@ import ForgotPasswordPage from '@/app/pages/ForgotPasswordPage';
 import ResetPasswordPage from '@/app/pages/ResetPasswordPage';
 import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
 import BillingPage from '@/app/pages/BillingPage';
-import PrivacyPolicyPage from '@/app/pages/PrivacyPolicyPage';
 import DashboardPage from '@/app/pages/DashboardPage';
 import CalendarPage from '@/app/pages/CalendarPage';
 import HomeworkPage from '@/app/pages/HomeworkPage';
@@ -95,10 +94,6 @@ function StagingAdminRoute({ children }: { children: ReactNode }) {
 }
 
 function App() {
-  if (window.location.pathname.replace(/\/+$/, '') === '/privacy-policy') {
-    return <PrivacyPolicyPage />;
-  }
-
   return (
     <HashRouter>
       <AuthProvider>
@@ -111,7 +106,6 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/billing" element={<BillingPage />} />
             <Route element={<SubscriptionRoute />}>
