@@ -34,21 +34,6 @@ export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   return fetch(apiUrl(path), { ...init, signal: controller.signal }).finally(() => window.clearTimeout(timeoutId));
 }
 
-export function getApiBaseUrl(): string {
-  const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').trim().replace(/\/+$/, '');
-  return configuredBaseUrl || '/api';
-}
-
-export function apiUrl(path = ''): string {
-  const normalizedPath = path.replace(/^\/+/, '');
-  const baseUrl = getApiBaseUrl();
-  return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
-}
-
-export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  return fetch(apiUrl(path), init);
-}
-
 export function setApiAuthToken(token: string | null) {
   authToken = token;
 }
