@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, FileText, Plus } from 'lucide-react';
+import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, FileText, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { mapCourse, mapAssignment, mapClassSession, mapEvent } from '@/app/data/mappers';
 import { buildCalendarItems, toIsoDate, type CalendarItem } from '@/app/data/calendarUtils';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
@@ -12,6 +12,7 @@ import AddEventDialog from '@/app/components/widgets/AddEventDialog';
 import EditEventDialog from '@/app/components/widgets/EditEventDialog';
 import type { Assignment, CalendarEvent, ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { getGoogleCalendarStatus, syncGoogleCalendar, type GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
 
 function parseDateParam(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -52,6 +53,10 @@ function formatItemTime(item: CalendarItem): string {
   }
 
   const time = formatTime(item.type === 'assignment' ? (item.raw as Assignment).dueTime : (item.raw as CalendarEvent).time);
+  if (item.type === 'event') {
+    const end = formatTime((item.raw as CalendarEvent).endTime);
+    if (time && end) return `${time} - ${end}`;
+  }
   return time ?? (item.type === 'assignment' ? 'Due all day' : 'All day');
 }
 
@@ -65,6 +70,11 @@ function itemIcon(type: CalendarItem['type']) {
   if (type === 'assignment') return FileText;
   if (type === 'class') return BookOpen;
   return CalendarDays;
+}
+
+function requestError(err: unknown, fallback: string): string {
+  const response = err as { error?: { message?: string } };
+  return response?.error?.message ?? fallback;
 }
 
 function useIsDesktopCalendar() {
@@ -102,6 +112,9 @@ function CalendarPage() {
   const [addEventOpen, setAddEventOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<(CalendarEvent & { id: string }) | null>(null);
   const [editEventOpen, setEditEventOpen] = useState(false);
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false);
+  const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
 
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows, assignmentsLoading] = useLoadAction('loadAssignments', [], { userId: user?.id });
@@ -115,6 +128,61 @@ function CalendarPage() {
   const assignments = (assignmentRows ?? []).map(mapAssignment);
   const sessions = (sessionRows ?? []).map(mapClassSession);
   const events = (eventRows ?? []).map(mapEvent);
+
+  const refreshGoogleCalendarStatus = useCallback(async () => {
+    if (!user?.id) return null;
+    const status = await getGoogleCalendarStatus();
+    setGoogleCalendarStatus(status);
+    return status;
+  }, [user?.id]);
+
+  const handleGoogleCalendarSync = useCallback(async () => {
+    setGoogleCalendarLoading(true);
+    setGoogleCalendarError(null);
+    try {
+      await syncGoogleCalendar();
+      await refreshEvents();
+      await refreshGoogleCalendarStatus();
+    } catch (err) {
+      setGoogleCalendarError(requestError(err, 'Unable to sync Google Calendar.'));
+    } finally {
+      setGoogleCalendarLoading(false);
+    }
+  }, [refreshEvents, refreshGoogleCalendarStatus]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let isMounted = true;
+    setGoogleCalendarLoading(true);
+    refreshGoogleCalendarStatus()
+      .then(async (status) => {
+        if (!isMounted || !status?.connected) return;
+        const lastSyncedAt = status.lastSyncedAt ? new Date(status.lastSyncedAt).getTime() : 0;
+        const isStale = !lastSyncedAt || Date.now() - lastSyncedAt > 10 * 60 * 1000;
+        if (isStale) {
+          await syncGoogleCalendar();
+          if (isMounted) {
+            await refreshEvents();
+            await refreshGoogleCalendarStatus();
+          }
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          setGoogleCalendarError(requestError(err, 'Unable to load Google Calendar status.'));
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setGoogleCalendarLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshEvents, refreshGoogleCalendarStatus, user?.id]);
 
   useEffect(() => {
     const linkedDate = parseDateParam(searchParams.get('date'));
@@ -155,6 +223,7 @@ function CalendarPage() {
       time: values.time ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
+      endTime: values.endTime ?? null,
       userId: user?.id,
     });
     refreshEvents();
@@ -168,6 +237,7 @@ function CalendarPage() {
         title: event.title,
         date: event.date,
         time: event.time,
+        endTime: event.endTime,
         timeZone: event.timeZone,
         description: event.description,
       });
@@ -181,6 +251,7 @@ function CalendarPage() {
       title: values.title,
       date: values.date,
       time: values.time ?? null,
+      endTime: values.endTime ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
       userId: user?.id,
@@ -202,6 +273,12 @@ function CalendarPage() {
   const selectedItems = itemsByDate.get(selectedDate) ?? [];
   const selectedDateLabel = formatSelectedDate(selectedDate);
   const itemCountLabel = `${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}`;
+  const googleCalendarConnected = Boolean(googleCalendarStatus?.connected);
+  const googleCalendarLabel = googleCalendarConnected
+    ? googleCalendarStatus?.lastSyncedAt
+      ? `Synced ${new Date(googleCalendarStatus.lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      : 'Sync ready'
+    : 'Google Calendar';
 
   return (
     <>
@@ -252,6 +329,25 @@ function CalendarPage() {
                 <span>Add Event</span>
               </Button>
             </div>
+            {googleCalendarConnected && (
+              <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-[var(--border-light)] px-3 py-2 text-xs text-[var(--text-secondary)]">
+                <span className="truncate">{googleCalendarError ?? googleCalendarLabel}</span>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 p-0"
+                  onClick={handleGoogleCalendarSync}
+                  disabled={googleCalendarLoading || googleCalendarStatus?.syncInProgress}
+                  aria-label="Sync Google Calendar"
+                >
+                  {googleCalendarLoading || googleCalendarStatus?.syncInProgress ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            )}
 
             <CalendarMonthGrid
               year={cursor.year}
@@ -320,6 +416,23 @@ function CalendarPage() {
               <CardTitle>{monthLabel}</CardTitle>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {googleCalendarConnected && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={handleGoogleCalendarSync}
+                  disabled={googleCalendarLoading || googleCalendarStatus?.syncInProgress}
+                  title={googleCalendarError ?? googleCalendarLabel}
+                >
+                  {googleCalendarLoading || googleCalendarStatus?.syncInProgress ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Sync now
+                </Button>
+              )}
               <Button size="icon" variant="outline" onClick={() => goToMonth(-1)} aria-label="Previous month">
                 <ChevronLeft className="h-4 w-4" />
               </Button>

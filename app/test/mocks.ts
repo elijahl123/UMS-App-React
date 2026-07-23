@@ -3,6 +3,7 @@ import { dbRows, mockUser } from '@/app/test/fixtures';
 import type { AppUser, StagingAccessUser } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
+import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
 
 type AuthActionResult = { success: boolean; error?: string; trialStartedNow?: boolean };
 
@@ -109,6 +110,31 @@ export const billingState = {
   } as BillingPaymentMethod | null,
 };
 
+export const googleCalendarState = {
+  status: {
+    configured: true,
+    connected: false,
+    googleEmail: null,
+    calendarId: null,
+    lastSyncedAt: null,
+    lastError: null,
+    syncInProgress: false,
+  } as GoogleCalendarStatus,
+};
+
+export const googleCalendarActions = {
+  getGoogleCalendarStatus: vi.fn(async () => googleCalendarState.status),
+  connectGoogleCalendar: vi.fn(async () => ({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?mock=1' })),
+  syncGoogleCalendar: vi.fn(async () => ({
+    importedCount: 1,
+    updatedCount: 0,
+    deletedCount: 0,
+    pushedCount: 0,
+    fullSync: false,
+  })),
+  disconnectGoogleCalendar: vi.fn(async () => ({ ok: true })),
+};
+
 export function resetMockState() {
   authState.user = mockUser;
   authState.idToken = 'mock-id-token';
@@ -145,6 +171,16 @@ export function resetMockState() {
     wallet: null,
     billingName: 'Jane Doe',
   };
+  googleCalendarState.status = {
+    configured: true,
+    connected: false,
+    googleEmail: null,
+    calendarId: null,
+    lastSyncedAt: null,
+    lastError: null,
+    syncInProgress: false,
+  };
   Object.values(authActions).forEach((mock) => mock.mockClear());
   Object.values(accountEmailActions).forEach((mock) => mock.mockClear());
+  Object.values(googleCalendarActions).forEach((mock) => mock.mockClear());
 }

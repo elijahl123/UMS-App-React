@@ -207,8 +207,16 @@ const actionBuilders: Record<string, ActionBuilder> = {
         title,
         event_date::text AS event_date,
         event_time::text AS event_time,
+        end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
-        description
+        description,
+        source_provider,
+        source_key,
+        google_calendar_id,
+        google_event_id,
+        google_etag,
+        google_updated_at,
+        updated_at
       FROM events
       WHERE user_id = $1
       ORDER BY event_date, event_time NULLS LAST;
@@ -218,20 +226,29 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   createEvent: (params) => ({
     text: `
-      INSERT INTO events (title, event_date, event_time, event_timezone, description, user_id)
-      VALUES ($1, $2::date, NULLIF($3, '')::time, $4, $5, $6)
+      INSERT INTO events (title, event_date, event_time, end_time, event_timezone, description, user_id)
+      VALUES ($1, $2::date, NULLIF($3, '')::time, NULLIF($4, '')::time, $5, $6, $7)
       RETURNING
         id,
         title,
         event_date::text AS event_date,
         event_time::text AS event_time,
+        end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
-        description;
+        description,
+        source_provider,
+        source_key,
+        google_calendar_id,
+        google_event_id,
+        google_etag,
+        google_updated_at,
+        updated_at;
     `,
     values: [
       required(params, 'title'),
       required(params, 'date'),
       params.time ?? null,
+      params.endTime ?? null,
       params.timeZone ?? 'UTC',
       params.description ?? null,
       required(params, 'userId'),
@@ -244,21 +261,32 @@ const actionBuilders: Record<string, ActionBuilder> = {
       SET title = $1,
           event_date = $2::date,
           event_time = NULLIF($3, '')::time,
-          event_timezone = $4,
-          description = $5
-      WHERE id = $6::bigint AND user_id = $7
+          end_time = NULLIF($4, '')::time,
+          event_timezone = $5,
+          description = $6,
+          updated_at = NOW()
+      WHERE id = $7::bigint AND user_id = $8
       RETURNING
         id,
         title,
         event_date::text AS event_date,
         event_time::text AS event_time,
+        end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
-        description;
+        description,
+        source_provider,
+        source_key,
+        google_calendar_id,
+        google_event_id,
+        google_etag,
+        google_updated_at,
+        updated_at;
     `,
     values: [
       required(params, 'title'),
       required(params, 'date'),
       params.time ?? null,
+      params.endTime ?? null,
       params.timeZone ?? 'UTC',
       params.description ?? null,
       required(params, 'id'),

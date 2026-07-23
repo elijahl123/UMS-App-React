@@ -100,6 +100,7 @@ function MobileBottomNavigation() {
       title: values.title,
       date: values.date,
       time: values.time ?? null,
+      endTime: values.endTime ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
       userId: user?.id,

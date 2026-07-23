@@ -17,7 +17,15 @@ import NotesPage from '@/app/pages/NotesPage';
 import ResetPasswordPage from '@/app/pages/ResetPasswordPage';
 import SignupPage from '@/app/pages/SignupPage';
 import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
-import { accountEmailActions, accountEmailState, authActions, authState, billingState } from '@/app/test/mocks';
+import {
+  accountEmailActions,
+  accountEmailState,
+  authActions,
+  authState,
+  billingState,
+  googleCalendarActions,
+  googleCalendarState,
+} from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 
 function renderRoute(path: string, element: React.ReactElement, route = path) {
@@ -190,6 +198,26 @@ describe('page rendering', () => {
     expect(authActions.signInWithGoogle).toHaveBeenCalled();
   });
 
+  it('syncs Google Calendar from the account page', async () => {
+    const user = userEvent.setup();
+    googleCalendarState.status = {
+      configured: true,
+      connected: true,
+      googleEmail: 'jane@gmail.com',
+      calendarId: 'primary',
+      lastSyncedAt: '2026-07-22T10:00:00.000Z',
+      lastError: null,
+      syncInProgress: false,
+    };
+
+    renderWithRouter(<AccountPage />);
+
+    expect(await screen.findByText(/jane@gmail\.com/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /sync now/i }));
+
+    expect(googleCalendarActions.syncGoogleCalendar).toHaveBeenCalled();
+  });
+
   it('deletes an account after email confirmation', async () => {
     const user = userEvent.setup();
     renderWithRouter(<AccountPage />);
@@ -212,6 +240,25 @@ describe('page rendering', () => {
     expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /connect google/i })).not.toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
+  });
+
+  it('syncs Google Calendar from the calendar page', async () => {
+    const user = userEvent.setup();
+    googleCalendarState.status = {
+      configured: true,
+      connected: true,
+      googleEmail: 'jane@gmail.com',
+      calendarId: 'primary',
+      lastSyncedAt: new Date().toISOString(),
+      lastError: null,
+      syncInProgress: false,
+    };
+
+    renderWithRouter(<CalendarPage />);
+
+    await user.click(await screen.findByRole('button', { name: /sync google calendar/i }));
+
+    expect(googleCalendarActions.syncGoogleCalendar).toHaveBeenCalled();
   });
 
   it('adds and resends verification for an additional account email', async () => {
