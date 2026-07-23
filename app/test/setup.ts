@@ -2,7 +2,15 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import React from 'react';
-import { accountEmailActions, apiState, authActions, authState, billingState, resetMockState } from '@/app/test/mocks';
+import {
+  accountEmailActions,
+  apiState,
+  authActions,
+  authState,
+  billingState,
+  googleCalendarActions,
+  resetMockState,
+} from '@/app/test/mocks';
 
 afterEach(() => {
   cleanup();
@@ -37,6 +45,10 @@ vi.doMock('@/app/lib/auth/AuthContext', () => ({
 
 vi.doMock('@/app/lib/accountEmails/client', () => ({
   ...accountEmailActions,
+}));
+
+vi.doMock('@/app/lib/googleCalendar/client', () => ({
+  ...googleCalendarActions,
 }));
 
 vi.doMock('@/app/lib/api/hooks', () => ({

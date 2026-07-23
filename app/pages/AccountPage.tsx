@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,6 +19,9 @@ import {
   Trash2,
   BellRing,
   BellOff,
+  CalendarDays,
+  RefreshCw,
+  Unlink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -44,6 +47,13 @@ import {
   type NotificationPermissionStatus,
 } from '@/app/lib/notifications/scheduler';
 import { NotificationInbox } from '@/app/components/NotificationCenter';
+import {
+  connectGoogleCalendar,
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+  syncGoogleCalendar,
+  type GoogleCalendarStatus,
+} from '@/app/lib/googleCalendar/client';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -100,6 +110,7 @@ function AccountPage() {
     deleteAccount,
   } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [resendSubmitting, setResendSubmitting] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -133,6 +144,11 @@ function AccountPage() {
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
   const [notificationsSuccess, setNotificationsSuccess] = useState<string | null>(null);
   const [nativePendingNotificationCount, setNativePendingNotificationCount] = useState<number | null>(null);
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false);
+  const [googleCalendarSubmitting, setGoogleCalendarSubmitting] = useState(false);
+  const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
+  const [googleCalendarSuccess, setGoogleCalendarSuccess] = useState<string | null>(null);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -189,6 +205,19 @@ function AccountPage() {
     }
   }, []);
 
+  const loadGoogleCalendarConnection = useCallback(async () => {
+    setGoogleCalendarLoading(true);
+    setGoogleCalendarError(null);
+    try {
+      setGoogleCalendarStatus(await getGoogleCalendarStatus());
+    } catch (err) {
+      setGoogleCalendarStatus(null);
+      setGoogleCalendarError(requestError(err, 'Unable to load Google Calendar status.'));
+    } finally {
+      setGoogleCalendarLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return;
 
@@ -233,6 +262,25 @@ function AccountPage() {
       isMounted = false;
     };
   }, [loadNotificationSettings, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    loadGoogleCalendarConnection().catch((err) => {
+      setGoogleCalendarError(requestError(err, 'Unable to load Google Calendar status.'));
+      setGoogleCalendarLoading(false);
+    });
+  }, [loadGoogleCalendarConnection, user]);
+
+  useEffect(() => {
+    const result = searchParams.get('googleCalendar');
+    if (result === 'connected') {
+      setGoogleCalendarSuccess('Google Calendar connected. Initial sync is starting.');
+      void loadGoogleCalendarConnection();
+    } else if (result === 'error') {
+      setGoogleCalendarError(searchParams.get('message') ?? 'Google Calendar connection failed.');
+    }
+  }, [loadGoogleCalendarConnection, searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -392,6 +440,56 @@ function AccountPage() {
     await saveNotificationPreferences({ ...notificationPreferences, ...changes });
   };
 
+  const handleGoogleCalendarConnect = async () => {
+    setGoogleCalendarSubmitting(true);
+    setGoogleCalendarError(null);
+    setGoogleCalendarSuccess(null);
+    try {
+      const result = await connectGoogleCalendar();
+      window.location.assign(result.authorizationUrl);
+    } catch (err) {
+      setGoogleCalendarError(requestError(err, 'Unable to start Google Calendar connection.'));
+      setGoogleCalendarSubmitting(false);
+    }
+  };
+
+  const handleGoogleCalendarSync = async () => {
+    setGoogleCalendarSubmitting(true);
+    setGoogleCalendarError(null);
+    setGoogleCalendarSuccess(null);
+    try {
+      const result = await syncGoogleCalendar();
+      setGoogleCalendarSuccess(
+        `Synced ${result.importedCount + result.updatedCount + result.deletedCount + result.pushedCount} change${result.importedCount + result.updatedCount + result.deletedCount + result.pushedCount === 1 ? '' : 's'}.`
+      );
+      await loadGoogleCalendarConnection();
+      window.dispatchEvent(new CustomEvent('ums-api-action-mutated', { detail: { name: 'createEvent' } }));
+      window.dispatchEvent(new CustomEvent('ums-notifications-changed'));
+    } catch (err) {
+      setGoogleCalendarError(requestError(err, 'Unable to sync Google Calendar.'));
+    } finally {
+      setGoogleCalendarSubmitting(false);
+    }
+  };
+
+  const handleGoogleCalendarDisconnect = async () => {
+    const confirmed = window.confirm('Disconnect Google Calendar sync for this account?');
+    if (!confirmed) return;
+
+    setGoogleCalendarSubmitting(true);
+    setGoogleCalendarError(null);
+    setGoogleCalendarSuccess(null);
+    try {
+      await disconnectGoogleCalendar();
+      setGoogleCalendarSuccess('Google Calendar disconnected.');
+      await loadGoogleCalendarConnection();
+    } catch (err) {
+      setGoogleCalendarError(requestError(err, 'Unable to disconnect Google Calendar.'));
+    } finally {
+      setGoogleCalendarSubmitting(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     const acceptableEmails = [accountPrimaryEmail, user?.email].filter((email): email is string => Boolean(email));
     const normalizedConfirmation = deleteConfirmation.trim().toLowerCase();
@@ -451,6 +549,9 @@ function AccountPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
         <p className="text-sm text-muted-foreground">Manage your profile, subscription, connected accounts, and password.</p>
+        <Link to="/privacy-policy" className="mt-1 inline-flex text-sm font-semibold text-primary hover:underline">
+          Privacy Policy
+        </Link>
       </div>
 
       {!user.emailVerified && (
@@ -501,6 +602,95 @@ function AccountPage() {
       </Card>
 
       <BrightspacePdfImportCard />
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            <CardTitle>Google Calendar</CardTitle>
+          </div>
+          <CardDescription>Sync standalone UMS events with your primary Google Calendar.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {googleCalendarLoading && !googleCalendarStatus ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading Google Calendar...
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {googleCalendarStatus?.connected ? 'Connected' : 'Not connected'}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {googleCalendarStatus?.connected
+                    ? googleCalendarStatus.googleEmail ?? 'Google Calendar connected'
+                    : googleCalendarStatus?.configured === false
+                      ? 'Google Calendar is not configured yet.'
+                      : 'Connect Google Calendar to sync events.'}
+                </p>
+                {googleCalendarStatus?.lastSyncedAt && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Last synced {new Date(googleCalendarStatus.lastSyncedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                {googleCalendarStatus?.connected ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2 sm:w-auto"
+                      disabled={googleCalendarSubmitting || googleCalendarStatus.syncInProgress}
+                      onClick={handleGoogleCalendarSync}
+                    >
+                      {googleCalendarSubmitting || googleCalendarStatus.syncInProgress ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      Sync now
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2 sm:w-auto"
+                      disabled={googleCalendarSubmitting}
+                      onClick={handleGoogleCalendarDisconnect}
+                    >
+                      <Unlink className="h-4 w-4" />
+                      Disconnect
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full gap-2 sm:w-auto"
+                    disabled={googleCalendarSubmitting || googleCalendarStatus?.configured === false}
+                    onClick={handleGoogleCalendarConnect}
+                  >
+                    {googleCalendarSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FcGoogle className="h-4 w-4" />}
+                    Connect Calendar
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          {(googleCalendarError || googleCalendarStatus?.lastError) && (
+            <p className="text-sm font-medium text-destructive">
+              {googleCalendarError ?? googleCalendarStatus?.lastError}
+            </p>
+          )}
+          {googleCalendarSuccess && (
+            <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+              <CheckCircle2 className="h-4 w-4" />
+              {googleCalendarSuccess}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

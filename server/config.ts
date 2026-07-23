@@ -63,4 +63,9 @@ export const config = {
   stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? process.env.VITE_STRIPE_PUBLISHABLE_KEY,
   stripeMonthlyPriceId: process.env.STRIPE_MONTHLY_PRICE_ID,
   stripeYearlyPriceId: process.env.STRIPE_YEARLY_PRICE_ID,
+  googleCalendarClientId: process.env.GOOGLE_CALENDAR_CLIENT_ID ?? process.env.VITE_GOOGLE_CLIENT_ID,
+  googleCalendarClientSecret: process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
+  googleCalendarRedirectUri: process.env.GOOGLE_CALENDAR_REDIRECT_URI
+    ?? `${(process.env.APP_BASE_URL ?? appOrigin).replace(/\/+$/, '')}/api/google-calendar/oauth/callback`,
+  googleTokenEncryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
 };

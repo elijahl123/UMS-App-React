@@ -182,6 +182,32 @@ async function mockNotificationApis(page: Page) {
   });
 }
 
+async function mockGoogleCalendarApis(page: Page) {
+  const status = {
+    configured: true,
+    connected: false,
+    googleEmail: null,
+    calendarId: null,
+    lastSyncedAt: null,
+    lastError: null,
+    syncInProgress: false,
+  };
+
+  await page.route('**/api/google-calendar/status', async (route) => {
+    await fulfillJson(route, status);
+  });
+
+  await page.route('**/api/google-calendar/sync', async (route) => {
+    await fulfillJson(route, {
+      importedCount: 0,
+      updatedCount: 0,
+      deletedCount: 0,
+      pushedCount: 0,
+      fullSync: false,
+    });
+  });
+}
+
 async function mockActiveBillingApis(page: Page) {
   await page.route('**/api/billing/config', async (route) => {
     await fulfillJson(route, {
@@ -285,6 +311,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
 
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
+  await mockGoogleCalendarApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -408,6 +435,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
 
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
+  await mockGoogleCalendarApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -521,6 +549,7 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
 
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
+  await mockGoogleCalendarApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();

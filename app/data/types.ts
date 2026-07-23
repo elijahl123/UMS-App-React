@@ -49,8 +49,11 @@ export interface CalendarEvent {
   title: string;
   date: string; // ISO date
   time?: string;
+  endTime?: string;
   timeZone: string;
   description?: string;
+  sourceProvider?: string;
+  googleEventId?: string;
 }
 
 export type NotificationSourceType = 'assignment' | 'event' | 'class_session';

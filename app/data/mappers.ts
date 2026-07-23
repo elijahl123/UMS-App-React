@@ -43,8 +43,11 @@ interface DbEvent {
   title: string;
   event_date: string;
   event_time: string | null;
+  end_time?: string | null;
   event_timezone?: string | null;
   description: string | null;
+  source_provider?: string | null;
+  google_event_id?: string | null;
 }
 
 interface DbNote {
@@ -98,6 +101,9 @@ export function mapClassSession(row: DbClassSession): ClassSession {
 }
 
 export function mapEvent(row: DbEvent): CalendarEvent {
+  const endTime = normalizeTimeString(row.end_time);
+  const sourceProvider = row.source_provider ?? undefined;
+  const googleEventId = row.google_event_id ?? undefined;
   return {
     id: String(row.id),
     title: row.title,
@@ -105,6 +111,9 @@ export function mapEvent(row: DbEvent): CalendarEvent {
     time: normalizeTimeString(row.event_time),
     timeZone: row.event_timezone || DEFAULT_DUE_TIME_ZONE,
     description: row.description ?? undefined,
+    ...(endTime ? { endTime } : {}),
+    ...(sourceProvider ? { sourceProvider } : {}),
+    ...(googleEventId ? { googleEventId } : {}),
   };
 }
 

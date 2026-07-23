@@ -13,6 +13,7 @@ const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   date: z.string().min(1, 'Date is required'),
   time: z.string().optional(),
+  endTime: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -27,13 +28,14 @@ interface Props {
 function AddEventDialog({ open, onOpenChange, onSubmit }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', date: '', time: '', description: '' },
+    defaultValues: { title: '', date: '', time: '', endTime: '', description: '' },
   });
 
   const handleSubmit = (values: FormValues) => {
     onSubmit({
       ...values,
       time: values.time || undefined,
+      endTime: values.endTime || undefined,
       timeZone: getBrowserTimeZone(),
       description: values.description || undefined,
     });
@@ -81,6 +83,19 @@ function AddEventDialog({ open, onOpenChange, onSubmit }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Time (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Time (optional)</FormLabel>
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>

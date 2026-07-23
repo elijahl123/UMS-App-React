@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { getActionQuery } from '../actions';
 import { pool } from '../db';
 import { ApiError } from '../errors';
+import { readEventBeforeDelete, syncEventMutationToGoogle } from '../googleCalendarSync';
 import { syncNotificationInstancesForUser } from '../notifications';
 
 export const actionsRouter = Router();
@@ -21,12 +22,19 @@ const notificationMutationActions = new Set([
 actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Response) => {
   try {
     const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
+    const beforeDelete =
+      req.auth?.uid && req.params.name === 'deleteEvent' && req.body?.id
+        ? await readEventBeforeDelete(req.auth.uid, String(req.body.id))
+        : null;
     const query = getActionQuery(req.params.name, params);
     if (!query) {
       return res.status(404).json({ error: { message: 'UNKNOWN_ACTION' } });
     }
 
     const result = await pool.query(query.text, query.values ?? []);
+    if (req.auth?.uid && ['createEvent', 'updateEvent', 'deleteEvent'].includes(req.params.name)) {
+      await syncEventMutationToGoogle(req.auth.uid, req.params.name, result.rows, beforeDelete);
+    }
     if (req.auth?.uid && notificationMutationActions.has(req.params.name)) {
       await syncNotificationInstancesForUser(req.auth.uid);
     }

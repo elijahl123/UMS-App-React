@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { CalendarItem } from '@/app/data/calendarUtils';
-import type { ClassSession } from '@/app/data/types';
+import type { CalendarEvent, ClassSession } from '@/app/data/types';
 
 interface Props {
   open: boolean;
@@ -26,6 +26,14 @@ function formatTimeDisplay(time: string): string {
   const period = hours < 12 ? 'a.m.' : 'p.m.';
   const displayHour = hours % 12 === 0 ? 12 : hours % 12;
   return `${displayHour}:${minutes} ${period}`;
+}
+
+function formatItemTime(item: CalendarItem): string | null {
+  if (!item.time) return null;
+  const start = formatTimeDisplay(item.time);
+  if (item.type !== 'event') return start;
+  const endTime = (item.raw as CalendarEvent).endTime;
+  return endTime ? `${start} - ${formatTimeDisplay(endTime)}` : start;
 }
 
 function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Props) {
@@ -69,7 +77,7 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
                       <Badge variant="outline" className="text-[10px] uppercase">
                         {typeLabels[item.type]}
                       </Badge>
-                      {item.time && <span className="text-xs opacity-80">{formatTimeDisplay(item.time)}</span>}
+                      {formatItemTime(item) && <span className="text-xs opacity-80">{formatItemTime(item)}</span>}
                     </div>
                     <p className="mt-1 text-sm font-semibold">{item.title}</p>
                     {item.type === 'class' && (item.raw as ClassSession).location && (

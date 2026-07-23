@@ -14,6 +14,7 @@ const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   date: z.string().min(1, 'Date is required'),
   time: z.string().optional(),
+  endTime: z.string().optional(),
   description: z.string().optional(),
 });
 
@@ -30,7 +31,7 @@ interface Props {
 function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', date: '', time: '', description: '' },
+    defaultValues: { title: '', date: '', time: '', endTime: '', description: '' },
   });
 
   useEffect(() => {
@@ -39,6 +40,7 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         title: event.title,
         date: event.date,
         time: event.time ?? '',
+        endTime: event.endTime ?? '',
         description: event.description ?? '',
       });
     }
@@ -50,6 +52,7 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         ...values,
         id: event.id,
         time: values.time || undefined,
+        endTime: values.endTime || undefined,
         timeZone: event.timeZone || getBrowserTimeZone(),
         description: values.description || undefined,
       });
@@ -106,6 +109,19 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Time (optional)</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Time (optional)</FormLabel>
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>
