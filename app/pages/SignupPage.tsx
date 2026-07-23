@@ -131,6 +131,13 @@ function SignupPage() {
               Log in
             </Link>
           </p>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            By creating an account, you agree to our{' '}
+            <Link to="/privacy-policy" className="font-semibold text-primary hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </CardContent>
       </Card>
     </div>

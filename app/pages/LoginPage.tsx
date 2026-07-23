@@ -116,6 +116,13 @@ function LoginPage() {
               Sign up
             </Link>
           </p>
+          <p className="mt-3 text-center text-xs text-muted-foreground">
+            By using UMS, you agree to our{' '}
+            <Link to="/privacy-policy" className="font-semibold text-primary hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </CardContent>
       </Card>
     </div>
