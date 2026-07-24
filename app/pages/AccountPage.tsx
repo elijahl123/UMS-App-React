@@ -549,9 +549,14 @@ function AccountPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
         <p className="text-sm text-muted-foreground">Manage your profile, subscription, connected accounts, and password.</p>
-        <Link to="/privacy-policy" className="mt-1 inline-flex text-sm font-semibold text-primary hover:underline">
-          Privacy Policy
-        </Link>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          <a href="https://untitledmanagementsoftware.com/terms/" className="font-semibold text-primary hover:underline">
+            Terms of Service
+          </a>
+          <a href="https://untitledmanagementsoftware.com/privacy-policy/" className="font-semibold text-primary hover:underline">
+            Privacy Policy
+          </a>
+        </div>
       </div>
 
       {!user.emailVerified && (

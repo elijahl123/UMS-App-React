@@ -118,9 +118,13 @@ function LoginPage() {
           </p>
           <p className="mt-3 text-center text-xs text-muted-foreground">
             By using UMS, you agree to our{' '}
-            <Link to="/privacy-policy" className="font-semibold text-primary hover:underline">
+            <a href="https://untitledmanagementsoftware.com/terms/" className="font-semibold text-primary hover:underline">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="https://untitledmanagementsoftware.com/privacy-policy/" className="font-semibold text-primary hover:underline">
               Privacy Policy
-            </Link>
+            </a>
             .
           </p>
         </CardContent>

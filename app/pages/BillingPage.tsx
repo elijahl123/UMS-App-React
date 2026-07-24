@@ -658,10 +658,14 @@ function BillingPage() {
               )}
             </p>
             <p className="text-xs text-muted-foreground">
-              Review how UMS handles account, calendar, notification, and billing data in the{' '}
-              <Link to="/privacy-policy" className="font-semibold text-primary hover:underline">
+              Review UMS legal terms and data practices in the{' '}
+              <a href="https://untitledmanagementsoftware.com/terms/" className="font-semibold text-primary hover:underline">
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a href="https://untitledmanagementsoftware.com/privacy-policy/" className="font-semibold text-primary hover:underline">
                 Privacy Policy
-              </Link>
+              </a>
               .
             </p>
           </CardContent>
