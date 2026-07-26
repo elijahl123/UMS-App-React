@@ -1,7 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { CalendarItem } from '@/app/data/calendarUtils';
-import type { CalendarEvent, ClassSession } from '@/app/data/types';
+import type { CalendarEvent, ClassSession, StudyDay } from '@/app/data/types';
+import { Check } from 'lucide-react';
+import { formatStudyMinutes } from '@/app/data/studyPlans';
 
 interface Props {
   open: boolean;
@@ -9,12 +11,16 @@ interface Props {
   date: string | null;
   items: CalendarItem[];
   onEventClick?: (item: CalendarItem) => void;
+  onItemClick?: (item: CalendarItem) => void;
+  onStudyTaskToggle?: (planId: string, taskId: string, completed: boolean) => void;
 }
 
 const typeLabels: Record<CalendarItem['type'], string> = {
   assignment: 'Assignment',
   class: 'Class',
   event: 'Event',
+  study: 'Study',
+  exam: 'Exam',
 };
 
 function formatTimeDisplay(time: string): string {
@@ -36,7 +42,7 @@ function formatItemTime(item: CalendarItem): string | null {
   return endTime ? `${start} - ${formatTimeDisplay(endTime)}` : start;
 }
 
-function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Props) {
+function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick, onItemClick, onStudyTaskToggle }: Props) {
   const formattedDate = date
     ? new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
         weekday: 'long',
@@ -65,9 +71,12 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
               return (
                 <li
                   key={item.id}
-                  onClick={() => item.type === 'event' && onEventClick?.(item)}
+                  onClick={() => {
+                    if (item.type === 'event') onEventClick?.(item);
+                    if (item.type === 'exam') onItemClick?.(item);
+                  }}
                   className={`mobile-list-item flex items-start gap-3 ${
-                    item.type === 'event' ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
+                    item.type === 'event' || item.type === 'exam' ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
                   }`}
                   style={itemStyle}
                 >
@@ -85,6 +94,37 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick }: Pro
                     )}
                     {'description' in item.raw && item.raw.description && (
                       <p className="mt-0.5 text-xs opacity-80">{item.raw.description}</p>
+                    )}
+                    {item.type === 'study' && (
+                      <div className="mt-3 space-y-2">
+                        {(item.raw as StudyDay).tasks.map((task) => (
+                          <button
+                            key={task.id}
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-md bg-white/45 px-2 py-2 text-left"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onStudyTaskToggle?.(task.planId, task.id, !task.completedAt);
+                            }}
+                          >
+                            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${task.completedAt ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/40'}`}>
+                              {task.completedAt && <Check className="h-3 w-3" />}
+                            </span>
+                            <span className={`min-w-0 flex-1 text-xs font-semibold ${task.completedAt ? 'line-through opacity-60' : ''}`}>{task.title}</span>
+                            <span className="text-[10px] opacity-75">{formatStudyMinutes(task.estimatedMinutes)}</span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-primary hover:underline"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onItemClick?.(item);
+                          }}
+                        >
+                          Open full study plan
+                        </button>
+                      </div>
                     )}
                   </div>
                 </li>

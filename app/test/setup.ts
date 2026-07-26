@@ -10,6 +10,8 @@ import {
   billingState,
   googleCalendarActions,
   resetMockState,
+  studyPlanActions,
+  studyPlanState,
 } from '@/app/test/mocks';
 
 afterEach(() => {
@@ -49,6 +51,81 @@ vi.doMock('@/app/lib/accountEmails/client', () => ({
 
 vi.doMock('@/app/lib/googleCalendar/client', () => ({
   ...googleCalendarActions,
+}));
+
+vi.doMock('@/app/lib/studyPlans/client', () => ({
+  ...studyPlanActions,
+}));
+
+vi.doMock('@/app/lib/studyPlans/useStudyPlans', () => ({
+  useStudyPlanSummaries: (courseId?: string) => [
+    courseId ? studyPlanState.plans.filter((plan) => plan.courseId === courseId) : studyPlanState.plans,
+    false,
+    null,
+    vi.fn(async () => undefined),
+    vi.fn(),
+  ],
+  useStudyPlanDefinition: (planId?: string) => [
+    studyPlanState.plans.find((plan) => plan.id === planId) ?? null,
+    false,
+    null,
+    vi.fn(async () => undefined),
+    vi.fn(),
+  ],
+  useStudyPlanTasks: (planId: string | undefined, from: string, to: string) => [
+    studyPlanState.plans
+      .find((plan) => plan.id === planId)
+      ?.tasks.filter((task) => task.scheduledDate >= from && task.scheduledDate < to) ?? [],
+    false,
+    null,
+    vi.fn(async () => undefined),
+    vi.fn(),
+  ],
+  useStudyPlanDashboard: () => [
+    {
+      plans: studyPlanState.plans.filter((plan) => !plan.archived).slice(0, 3),
+      tasks: studyPlanState.plans.flatMap((plan) =>
+        plan.archived
+          ? []
+          : plan.tasks
+              .filter((task) => task.scheduledDate === new Date().toISOString().slice(0, 10) && !task.completedAt)
+              .map((task) => ({
+                ...task,
+                courseId: plan.courseId,
+                courseCode: plan.courseCode,
+                courseName: plan.courseName,
+                courseColor: plan.courseColor,
+              }))
+      ),
+      activePlanCount: studyPlanState.plans.filter((plan) => !plan.archived).length,
+      overduePlanCount: studyPlanState.plans.filter((plan) => !plan.archived && plan.overdueTasks > 0).length,
+      urgentPlan: studyPlanState.plans.find((plan) => !plan.archived && plan.overdueTasks > 0) ?? null,
+      nextStudyDate: studyPlanState.plans.map((plan) => plan.nextStudyDate).filter(Boolean).sort()[0] ?? null,
+    },
+    false,
+    null,
+    vi.fn(async () => undefined),
+    vi.fn(),
+  ],
+  useStudyPlanCalendar: (from: string, to: string) => [
+    {
+      from,
+      to,
+      plans: studyPlanState.plans.filter((plan) =>
+        !plan.archived && (
+          (plan.examDate >= from && plan.examDate < to)
+          || plan.tasks.some((task) => task.scheduledDate >= from && task.scheduledDate < to)
+        )
+      ),
+      tasks: studyPlanState.plans.flatMap((plan) =>
+        plan.archived ? [] : plan.tasks.filter((task) => task.scheduledDate >= from && task.scheduledDate < to)
+      ),
+    },
+    false,
+    null,
+    vi.fn(async () => undefined),
+    vi.fn(),
+  ],
 }));
 
 vi.doMock('@/app/lib/api/hooks', () => ({

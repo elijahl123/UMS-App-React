@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
-import type { AppUser, StagingAccessUser } from '@/app/data/types';
+import type { AppUser, StagingAccessUser, StudyPlan } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
@@ -135,6 +135,29 @@ export const googleCalendarActions = {
   disconnectGoogleCalendar: vi.fn(async () => ({ ok: true })),
 };
 
+export const studyPlanState = {
+  plans: [] as StudyPlan[],
+};
+
+export const studyPlanActions = {
+  saveStudyPlan: vi.fn(async (_input: unknown, planId?: string) => ({
+    planId: planId ?? 'plan-1',
+  })),
+  refreshStudyPlan: vi.fn(async (planId: string) => ({ planId, refreshed: true })),
+  setStudyTaskCompleted: vi.fn(async (_planId: string, taskId: string, completed: boolean) => ({
+    id: taskId,
+    completedAt: completed ? '2026-07-25T12:00:00.000Z' : null,
+  })),
+  setStudyPlanArchived: vi.fn(async (planId: string, archived: boolean) => ({ id: planId, archived })),
+  deleteStudyPlan: vi.fn(async () => undefined),
+  studyPlanErrorMessage: vi.fn(() => 'Unable to save the study plan.'),
+  parseStudyTopics: (value: string) =>
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+|(?:week|topic|module)\s+\d+\s*[:.-]?\s*)/i, '').trim())
+      .filter(Boolean),
+};
+
 export function resetMockState() {
   authState.user = mockUser;
   authState.idToken = 'mock-id-token';
@@ -180,7 +203,11 @@ export function resetMockState() {
     lastError: null,
     syncInProgress: false,
   };
+  studyPlanState.plans = [];
   Object.values(authActions).forEach((mock) => mock.mockClear());
   Object.values(accountEmailActions).forEach((mock) => mock.mockClear());
   Object.values(googleCalendarActions).forEach((mock) => mock.mockClear());
+  Object.values(studyPlanActions).forEach((mock) => {
+    if (typeof mock === 'function' && 'mockClear' in mock) mock.mockClear();
+  });
 }

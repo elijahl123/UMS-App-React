@@ -24,6 +24,8 @@ import NotesPage from '@/app/pages/NotesPage';
 import NotesEditorPage from '@/app/pages/NotesEditorPage';
 import AccountPage from '@/app/pages/AccountPage';
 import StagingAccessPage from '@/app/pages/StagingAccessPage';
+import StudyPlanPage from '@/app/pages/StudyPlanPage';
+import StudyPlanSetupPage from '@/app/pages/StudyPlanSetupPage';
 
 function FallbackRoute() {
   const location = useLocation();
@@ -119,6 +121,9 @@ function App() {
                 <Route path="/notes/:noteId" element={<NotesEditorPage />} />
                 <Route path="/courses" element={<CoursesPage />} />
                 <Route path="/courses/:courseId" element={<CoursePage />} />
+                <Route path="/courses/:courseId/study-plans/new" element={<StudyPlanSetupPage />} />
+                <Route path="/courses/:courseId/study-plans/:planId" element={<StudyPlanPage />} />
+                <Route path="/courses/:courseId/study-plans/:planId/edit" element={<StudyPlanSetupPage />} />
                 <Route path="/account" element={<AccountPage />} />
                 <Route
                   path="/admin/staging-access"

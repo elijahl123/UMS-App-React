@@ -56,6 +56,100 @@ export interface CalendarEvent {
   googleEventId?: string;
 }
 
+export type ExamType = 'midterm' | 'final';
+export type StudyDifficulty = 'light' | 'medium' | 'heavy';
+export type StudyPhase = 'learn' | 'practice' | 'recall';
+
+export interface StudyAvailability {
+  weekday: number; // 0 = Sunday
+  minutes: number;
+}
+
+export interface StudyTopic {
+  id: string;
+  planId: string;
+  title: string;
+  difficulty: StudyDifficulty;
+  position: number;
+  active: boolean;
+  totalTasks?: number;
+  completedTasks?: number;
+}
+
+export interface StudyTask {
+  id: string;
+  planId: string;
+  topicId: string;
+  phase: StudyPhase;
+  title: string;
+  scheduledDate: string;
+  estimatedMinutes: number;
+  completedAt: string | null;
+  sequence: number;
+}
+
+export interface StudyPlanSummary {
+  id: string;
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  courseColor: string;
+  examType: ExamType;
+  examDate: string;
+  startDate: string;
+  timeZone: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  totalTasks: number;
+  completedTasks: number;
+  overdueTasks: number;
+  studyDaysLeft: number;
+  activeTopics: number;
+  nextStudyDate: string | null;
+  nextTaskTitle: string | null;
+}
+
+export interface StudyPlanDefinition extends StudyPlanSummary {
+  availability: StudyAvailability[];
+  topics: StudyTopic[];
+}
+
+export interface StudyPlan extends StudyPlanDefinition {
+  tasks: StudyTask[];
+}
+
+export interface StudyDashboardTask extends StudyTask {
+  courseId: string;
+  courseCode: string;
+  courseName: string;
+  courseColor: string;
+}
+
+export interface StudyDashboardData {
+  plans: StudyPlanSummary[];
+  tasks: StudyDashboardTask[];
+  activePlanCount: number;
+  overduePlanCount: number;
+  urgentPlan: StudyPlanSummary | null;
+  nextStudyDate: string | null;
+}
+
+export interface StudyCalendarData {
+  from: string;
+  to: string;
+  plans: StudyPlanSummary[];
+  tasks: StudyTask[];
+}
+
+export interface StudyDay {
+  planId: string;
+  courseId: string;
+  date: string;
+  estimatedMinutes: number;
+  tasks: StudyTask[];
+}
+
 export type NotificationSourceType = 'assignment' | 'event' | 'class_session';
 
 export interface NotificationPreferences {

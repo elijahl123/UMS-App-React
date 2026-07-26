@@ -16,6 +16,7 @@ import {
   ClipboardList,
   CalendarDays,
   StickyNote,
+  Target,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,8 @@ import { getCourseColor } from '@/app/data/courseColors';
 import { formatAssignmentDue, formatIsoDate, normalizeDateString } from '@/app/data/assignmentDates';
 import type { Course, CourseLink } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { useStudyPlanSummaries } from '@/app/lib/studyPlans/useStudyPlans';
+import { formatStudyDate, isStudyPlanBehind, studyPlanProgress } from '@/app/data/studyPlans';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -62,6 +65,7 @@ function CoursePage() {
   const [sessionRows, sessionsLoading] = useLoadAction('loadClassSessions', [], { userId: user?.id });
   const [noteRows] = useLoadAction('loadNotes', [], { userId: user?.id });
   const [linkRows, , , reloadLinks] = useLoadAction('loadCourseLinks', [], { userId: user?.id });
+  const [studyPlans] = useStudyPlanSummaries(courseId, user?.id);
   const [editCourse] = useMutateAction('updateCourse');
   const [removeCourse] = useMutateAction('deleteCourse');
   const [addLink] = useMutateAction('createCourseLink');
@@ -319,6 +323,59 @@ function CoursePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4" style={{ color: colors.text }} />
+            <CardTitle className="text-base">Study Plans</CardTitle>
+          </div>
+          <Button size="sm" className="gap-1.5" onClick={() => navigate(`/courses/${course.id}/study-plans/new`)}>
+            <Plus className="h-3.5 w-3.5" />
+            Create Plan
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {studyPlans.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm font-semibold">No exam study plan yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Turn your course topics into a realistic daily schedule.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {studyPlans.map((plan) => {
+                const progress = studyPlanProgress(plan);
+                const behind = isStudyPlanBehind(plan);
+                return (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => navigate(`/courses/${course.id}/study-plans/${plan.id}`)}
+                    className="mobile-list-item text-left sm:p-4"
+                    style={courseItemStyle}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-bold capitalize">{plan.examType} study plan</p>
+                        <p className="text-xs opacity-80">Exam {formatStudyDate(plan.examDate)}</p>
+                      </div>
+                      <Badge variant="secondary" className={behind ? 'bg-destructive/10 text-destructive' : ''}>
+                        {plan.archived ? 'Archived' : behind ? 'Refresh' : `${progress.percent}%`}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/60">
+                      <div className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: colors.border }} />
+                    </div>
+                    <p className="mt-2 truncate text-xs opacity-80">
+                      {plan.nextTaskTitle ? `Next: ${plan.nextTaskTitle}` : 'All study tasks complete'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">

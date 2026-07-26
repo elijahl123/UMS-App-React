@@ -208,6 +208,33 @@ async function mockGoogleCalendarApis(page: Page) {
   });
 }
 
+async function mockStudyPlanApis(page: Page) {
+  await page.route('**/api/study-plans**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/dashboard')) {
+      await fulfillJson(route, {
+        plans: [],
+        tasks: [],
+        activePlanCount: 0,
+        overduePlanCount: 0,
+        urgentPlan: null,
+        nextStudyDate: null,
+      });
+      return;
+    }
+    if (url.pathname.endsWith('/calendar')) {
+      await fulfillJson(route, {
+        from: url.searchParams.get('from'),
+        to: url.searchParams.get('to'),
+        plans: [],
+        tasks: [],
+      });
+      return;
+    }
+    await fulfillJson(route, { plans: [] });
+  });
+}
+
 async function mockActiveBillingApis(page: Page) {
   await page.route('**/api/billing/config', async (route) => {
     await fulfillJson(route, {
@@ -312,6 +339,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
   await mockGoogleCalendarApis(page);
+  await mockStudyPlanApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -436,6 +464,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
   await mockGoogleCalendarApis(page);
+  await mockStudyPlanApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
@@ -550,6 +579,7 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
   await mockActiveBillingApis(page);
   await mockNotificationApis(page);
   await mockGoogleCalendarApis(page);
+  await mockStudyPlanApis(page);
 
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();

@@ -11,6 +11,7 @@ import { emailRouter, publicEmailRouter } from './routes/email';
 import { googleCalendarOAuthRouter, googleCalendarRouter } from './routes/googleCalendar';
 import { stagingAccessRouter } from './routes/stagingAccess';
 import { notificationsRouter } from './notifications';
+import { studyPlansRouter } from './routes/studyPlans';
 
 export function createApp() {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/email', emailRouter);
   app.use('/api/google-calendar', googleCalendarRouter);
   app.use('/api/notifications', notificationsRouter);
+  app.use('/api/study-plans', studyPlansRouter);
 
   return app;
 }

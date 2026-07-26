@@ -167,6 +167,8 @@ test.describe('mobile authenticated smoke tests', () => {
     { path: '/homework', primary: (page) => page.getByRole('heading', { name: 'Homework' }), hasShell: true },
     { path: '/notes', primary: (page) => page.getByRole('heading', { name: 'Notes' }), hasShell: true },
     { path: '/courses', primary: (page) => page.getByRole('heading', { name: 'Courses' }), hasShell: true },
+    { path: '/courses/1', primary: (page) => page.getByRole('heading', { name: 'Software Engineering Project' }), hasShell: true },
+    { path: '/courses/1/study-plans/new', primary: (page) => page.getByRole('heading', { name: 'Create Study Plan' }), hasShell: false },
     { path: '/account', primary: (page) => page.getByRole('heading', { name: 'Account', exact: true }), hasShell: true },
     { path: '/billing', primary: (page) => page.getByRole('heading', { name: 'Subscribe to UMS' }), hasShell: false },
   ];

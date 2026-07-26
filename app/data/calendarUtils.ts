@@ -1,9 +1,18 @@
-import type { Assignment, CalendarEvent, ClassSession, Course } from '@/app/data/types';
+import type {
+  Assignment,
+  CalendarEvent,
+  ClassSession,
+  Course,
+  StudyCalendarData,
+  StudyDay,
+  StudyPlanSummary,
+} from '@/app/data/types';
 import { getCourseColor, type CourseColor } from '@/app/data/courseColors';
+import { groupStudyDays } from '@/app/data/studyPlans';
 
 export interface CalendarItem {
   id: string;
-  type: 'assignment' | 'class' | 'event';
+  type: 'assignment' | 'class' | 'event' | 'study' | 'exam';
   title: string;
   date: string; // ISO date (yyyy-mm-dd)
   time?: string;
@@ -11,7 +20,7 @@ export interface CalendarItem {
   textColor: string;
   borderColor: string;
   course?: Course;
-  raw: Assignment | ClassSession | CalendarEvent;
+  raw: Assignment | ClassSession | CalendarEvent | StudyDay | StudyPlanSummary;
 }
 
 const dayNames: ClassSession['day'][] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -41,7 +50,8 @@ export function buildCalendarItems(
   assignments: Assignment[],
   classSessions: ClassSession[],
   events: CalendarEvent[],
-  courses: Course[]
+  courses: Course[],
+  studyCalendar?: StudyCalendarData
 ): Map<string, CalendarItem[]> {
   const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
   const map = new Map<string, CalendarItem[]>();
@@ -83,6 +93,45 @@ export function buildCalendarItems(
       raw: e,
     });
   });
+
+  const studyPlans = studyCalendar?.plans ?? [];
+  const studyTasks = studyCalendar?.tasks ?? [];
+  studyPlans
+    .filter((plan) => !plan.archived)
+    .forEach((plan) => {
+      const course = getCourse(plan.courseId);
+      const colors = getCourseColor(course?.color ?? plan.courseColor);
+      groupStudyDays({
+        id: plan.id,
+        courseId: plan.courseId,
+        tasks: studyTasks.filter((task) => task.planId === plan.id),
+      }).forEach((day) => {
+        addItem(day.date, {
+          id: `study-${plan.id}-${day.date}`,
+          type: 'study',
+          title: `${course?.code ?? plan.courseCode}: Study plan`,
+          date: day.date,
+          color: colors.bg,
+          textColor: colors.text,
+          borderColor: colors.border,
+          course,
+          raw: day,
+        });
+      });
+      if (plan.examDate >= (studyCalendar?.from ?? '') && plan.examDate < (studyCalendar?.to ?? '9999-12-31')) {
+        addItem(plan.examDate, {
+          id: `exam-${plan.id}`,
+          type: 'exam',
+          title: `${course?.code ?? plan.courseCode}: ${plan.examType === 'final' ? 'Final exam' : 'Midterm exam'}`,
+          date: plan.examDate,
+          color: colors.bg,
+          textColor: colors.text,
+          borderColor: colors.border,
+          course,
+          raw: plan,
+        });
+      }
+    });
 
   const gridDates = getMonthGridDates(year, month);
   gridDates.forEach((date) => {
