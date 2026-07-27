@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { describe, expect, it } from 'vitest';
-import { isMissingStripeCustomerError } from '../billing';
+import { isMissingStripeCustomerError } from '../stripeErrors';
 
 describe('Stripe customer recovery', () => {
   it('recognizes a missing customer response that can be repaired', () => {

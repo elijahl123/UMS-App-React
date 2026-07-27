@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { config } from './config';
 import { pool } from './db';
 import { ApiError } from './errors';
+import { isMissingStripeCustomerError } from './stripeErrors';
 
 export type BillingInterval = 'monthly' | 'yearly';
 
@@ -42,14 +43,6 @@ export function priceIdForInterval(interval: BillingInterval): string {
     throw new ApiError(interval === 'yearly' ? 'STRIPE_YEARLY_PRICE_ID is required' : 'STRIPE_MONTHLY_PRICE_ID is required', 500);
   }
   return priceId;
-}
-
-export function isMissingStripeCustomerError(err: unknown): boolean {
-  if (!(err instanceof Stripe.errors.StripeInvalidRequestError)) {
-    return false;
-  }
-
-  return err.code === 'resource_missing' && err.param === 'customer';
 }
 
 async function canReuseStripeCustomer(stripe: Stripe, customerId: string): Promise<boolean> {
