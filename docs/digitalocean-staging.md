@@ -53,7 +53,7 @@ APP_ENV=staging
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
 APP_ORIGINS=https://dev.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
-DATABASE_URL=<staging-managed-postgres-url>
+DATABASE_URL=postgres://<user>:<password>@host.docker.internal:5432/<database>
 STAGING_ACCESS_CONTROL_ENABLED=true
 STAGING_ADMIN_EMAILS=<comma-separated-admin-emails>
 VITE_FIREBASE_API_KEY=<staging-firebase-api-key>
@@ -76,6 +76,20 @@ GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
 The `VITE_*` values used by browser code are built in GitHub Actions, not read
 from this file. `VITE_FIREBASE_API_KEY` remains here because the API also uses
 it for Firebase Identity Toolkit requests.
+
+If staging Postgres runs directly on the droplet, it must accept connections
+from the fixed Compose subnet `172.30.0.0/24`. Keep port 5432 closed in both
+the DigitalOcean Cloud Firewall and the host firewall. Add this rule to
+`pg_hba.conf`, use `scram-sha-256`, and set Postgres `listen_addresses` so it
+can receive the Docker bridge connection:
+
+```text
+host  umsdb  ums  172.30.0.0/24  scram-sha-256
+```
+
+The API and migration containers resolve the droplet through
+`host.docker.internal`; never use `127.0.0.1` for a host database from inside
+a container.
 
 Install `deploy/nginx.conf.example` as the site configuration, set
 `server_name` to `dev.untitledmanagementsoftware.com`, test it, and reload:
@@ -107,12 +121,10 @@ Environment variables:
 - `VITE_GOOGLE_IOS_REVERSED_CLIENT_ID` — blank when not needed.
 - `VITE_GOOGLE_REDIRECT_URI` — blank to use the current origin.
 
-Environment secrets:
-
-- `SSH_HOST`
-- `SSH_USER`
-- `SSH_PORT` — optional; defaults to `22`.
-- `SSH_PRIVATE_KEY`
+The caller maps the existing repository secrets `STAGING_SSH_HOST`,
+`STAGING_SSH_USER`, optional `STAGING_SSH_PORT`, and
+`STAGING_SSH_PRIVATE_KEY` into the reusable release workflow. They do not need
+to be duplicated as environment secrets.
 
 Pushing to `staging` runs lint, unit tests, both builds, publishes public GHCR
 images, applies migrations, replaces the containers, and checks

@@ -11,6 +11,8 @@ services:
     init: true
     restart: unless-stopped
     stop_grace_period: 15s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test:
         - CMD
@@ -49,9 +51,14 @@ services:
       - dist-server/migrate.js
     init: true
     restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - app
 
 networks:
   app:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

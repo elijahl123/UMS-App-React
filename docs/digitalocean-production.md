@@ -60,11 +60,13 @@ Certbot-managed certificate.
 Create a protected GitHub environment named `production`. Require manual
 approval if desired.
 
-Use the same environment variable and secret names documented for staging,
-with production values:
+Use the same environment variable names documented for staging, with
+production values:
 
 - Variables: the public browser `VITE_*` configuration.
-- Secrets: `SSH_HOST`, `SSH_USER`, optional `SSH_PORT`, and `SSH_PRIVATE_KEY`.
+- Existing repository secrets: `PRODUCTION_SSH_HOST`,
+  `PRODUCTION_SSH_USER`, optional `PRODUCTION_SSH_PORT`, and
+  `PRODUCTION_SSH_PRIVATE_KEY` are mapped by the caller workflow.
 
 The release job passes `VITE_APP_ENV=production` and disables the frontend
 staging-access flag automatically.

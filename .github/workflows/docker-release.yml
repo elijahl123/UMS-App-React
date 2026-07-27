@@ -11,6 +11,15 @@ on:
         description: Immutable environment-SHA image tag
         required: true
         type: string
+    secrets:
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+      SSH_PORT:
+        required: false
+      SSH_PRIVATE_KEY:
+        required: true
 
 permissions:
   contents: read
