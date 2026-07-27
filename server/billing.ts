@@ -44,6 +44,26 @@ export function priceIdForInterval(interval: BillingInterval): string {
   return priceId;
 }
 
+export function isMissingStripeCustomerError(err: unknown): boolean {
+  if (!(err instanceof Stripe.errors.StripeInvalidRequestError)) {
+    return false;
+  }
+
+  return err.code === 'resource_missing' && err.param === 'customer';
+}
+
+async function canReuseStripeCustomer(stripe: Stripe, customerId: string): Promise<boolean> {
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    return !('deleted' in customer && customer.deleted);
+  } catch (err) {
+    if (isMissingStripeCustomerError(err)) {
+      return false;
+    }
+    throw err;
+  }
+}
+
 export async function ensureBillingTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS user_subscriptions (
@@ -114,11 +134,11 @@ export async function getOrCreateCustomer(params: { userId: string; email: strin
   );
 
   const existingCustomerId = existing.rows[0]?.stripe_customer_id as string | undefined;
-  if (existingCustomerId) {
+  const stripe = stripeClient();
+  if (existingCustomerId && await canReuseStripeCustomer(stripe, existingCustomerId)) {
     return existingCustomerId;
   }
 
-  const stripe = stripeClient();
   const customer = await stripe.customers.create({
     email: params.email,
     name: params.name ?? undefined,
