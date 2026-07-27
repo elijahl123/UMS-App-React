@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://user:pass@localhost:5432/test';
 process.env.GOOGLE_TOKEN_ENCRYPTION_KEY = 'test-google-token-encryption-key';
+process.env.GOOGLE_CALENDAR_CLIENT_ID = 'test-google-calendar-client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CALENDAR_CLIENT_SECRET = 'test-google-calendar-client-secret';
 
 afterEach(() => {
