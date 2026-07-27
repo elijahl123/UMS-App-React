@@ -9,6 +9,19 @@ afterEach(() => {
 });
 
 describe('Google Calendar sync utilities', () => {
+  it('requests only the approved owned-events Calendar scope', async () => {
+    const { pool } = await import('../db');
+    vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [] } as never);
+    const { buildGoogleCalendarAuthUrl } = await import('../googleCalendarSync');
+
+    const authorizationUrl = new URL(await buildGoogleCalendarAuthUrl('user-1'));
+    const scopes = authorizationUrl.searchParams.get('scope')?.split(' ') ?? [];
+
+    expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events.owned');
+    expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events');
+    expect(authorizationUrl.searchParams.has('include_granted_scopes')).toBe(false);
+  });
+
   it('encrypts tokens and validates signed OAuth state', async () => {
     const {
       decryptGoogleToken,

@@ -280,7 +280,6 @@ export async function buildGoogleCalendarAuthUrl(userId: string): Promise<string
     response_type: 'code',
     scope: `openid email profile ${CALENDAR_SCOPE}`,
     access_type: 'offline',
-    include_granted_scopes: 'true',
     state: signGoogleCalendarState(userId),
   });
 
