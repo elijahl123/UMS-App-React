@@ -5,9 +5,11 @@ import { ApiError } from '../errors';
 import {
   buildGoogleCalendarAuthUrl,
   disconnectGoogleCalendar,
+  getOwnedGoogleCalendars,
   getGoogleCalendarStatus,
   handleGoogleCalendarCallback,
   runGoogleCalendarSync,
+  updateGoogleCalendarSettings,
 } from '../googleCalendarSync';
 
 export const googleCalendarRouter = Router();
@@ -32,10 +34,7 @@ googleCalendarOAuthRouter.get('/callback', async (req: Request, res: Response) =
       throw new ApiError('Missing Google Calendar OAuth callback data.', 400);
     }
 
-    const result = await handleGoogleCalendarCallback(code, state);
-    runGoogleCalendarSync(result.userId).catch((err) => {
-      console.error('[google-calendar] Initial sync failed:', err);
-    });
+    await handleGoogleCalendarCallback(code, state);
     return redirectToAccount(res, { googleCalendar: 'connected' });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Google Calendar connection failed.';
@@ -58,6 +57,32 @@ googleCalendarRouter.post('/connect', async (req, res) => {
   try {
     const user = await authenticatedFirebaseUser(req);
     return res.json({ authorizationUrl: await buildGoogleCalendarAuthUrl(user.uid) });
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 500;
+    const message = err instanceof Error ? err.message : 'SERVER_ERROR';
+    return res.status(status).json({ error: { message } });
+  }
+});
+
+googleCalendarRouter.get('/calendars', async (req, res) => {
+  try {
+    const user = await authenticatedFirebaseUser(req);
+    return res.json(await getOwnedGoogleCalendars(user.uid));
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 500;
+    const message = err instanceof Error ? err.message : 'SERVER_ERROR';
+    return res.status(status).json({ error: { message } });
+  }
+});
+
+googleCalendarRouter.put('/settings', async (req, res) => {
+  try {
+    const user = await authenticatedFirebaseUser(req);
+    const calendarIds = Array.isArray(req.body?.calendarIds)
+      ? req.body.calendarIds.filter((value: unknown): value is string => typeof value === 'string')
+      : [];
+    const historyMonths = Number(req.body?.historyMonths);
+    return res.json(await updateGoogleCalendarSettings(user.uid, calendarIds, historyMonths));
   } catch (err) {
     const status = err instanceof ApiError ? err.status : 500;
     const message = err instanceof Error ? err.message : 'SERVER_ERROR';

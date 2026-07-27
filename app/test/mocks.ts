@@ -119,11 +119,26 @@ export const googleCalendarState = {
     lastSyncedAt: null,
     lastError: null,
     syncInProgress: false,
+    historyMonths: 6,
+    selectedCalendarIds: [],
+    setupCompleted: false,
+    reauthorizationRequired: false,
   } as GoogleCalendarStatus,
 };
 
 export const googleCalendarActions = {
   getGoogleCalendarStatus: vi.fn(async () => googleCalendarState.status),
+  getOwnedGoogleCalendars: vi.fn(async () => [
+    {
+      id: 'primary',
+      summary: 'Primary calendar',
+      timeZone: 'America/Los_Angeles',
+      backgroundColor: '#4285f4',
+      primary: true,
+      selected: true,
+    },
+  ]),
+  updateGoogleCalendarSettings: vi.fn(async () => googleCalendarState.status),
   connectGoogleCalendar: vi.fn(async () => ({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?mock=1' })),
   syncGoogleCalendar: vi.fn(async () => ({
     importedCount: 1,
@@ -202,6 +217,10 @@ export function resetMockState() {
     lastSyncedAt: null,
     lastError: null,
     syncInProgress: false,
+    historyMonths: 6,
+    selectedCalendarIds: [],
+    setupCompleted: false,
+    reauthorizationRequired: false,
   };
   studyPlanState.plans = [];
   Object.values(authActions).forEach((mock) => mock.mockClear());

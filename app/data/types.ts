@@ -54,6 +54,9 @@ export interface CalendarEvent {
   description?: string;
   sourceProvider?: string;
   googleEventId?: string;
+  googleCalendarId?: string;
+  recurringSeriesId?: string;
+  recurrenceOriginalStart?: string;
 }
 
 export type ExamType = 'midterm' | 'final';

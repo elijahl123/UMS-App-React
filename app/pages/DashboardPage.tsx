@@ -29,12 +29,19 @@ import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
 
 function DashboardPage() {
   const { user } = useAuth();
+  const dashboardToday = toIsoDate(new Date());
+  const dashboardEndDate = new Date();
+  dashboardEndDate.setFullYear(dashboardEndDate.getFullYear() + 2);
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows, assignmentsLoading, , refreshAssignments] = useLoadAction('loadAssignments', [], {
     userId: user?.id,
   });
   const [sessionRows, sessionsLoading] = useLoadAction('loadClassSessions', [], { userId: user?.id });
-  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], { userId: user?.id });
+  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], {
+    userId: user?.id,
+    from: dashboardToday,
+    to: toIsoDate(dashboardEndDate),
+  });
   const [studyDashboard, studyPlansLoading, , refreshStudyDashboard, setStudyDashboard] =
     useStudyPlanDashboard(user?.id);
   const [busyStudyTask, setBusyStudyTask] = useState<string | null>(null);

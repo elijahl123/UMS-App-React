@@ -10,15 +10,20 @@ afterEach(() => {
 });
 
 describe('Google Calendar sync utilities', () => {
-  it('requests only the approved owned-events Calendar scope', async () => {
+  it('requests owned events plus only the non-sensitive read-only CalendarList scope', async () => {
     const { pool } = await import('../db');
     vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [] } as never);
     const { buildGoogleCalendarAuthUrl } = await import('../googleCalendarSync');
 
     const authorizationUrl = new URL(await buildGoogleCalendarAuthUrl('user-1'));
     const scopes = authorizationUrl.searchParams.get('scope')?.split(' ') ?? [];
+    const calendarScopes = scopes.filter((scope) => scope.startsWith('https://www.googleapis.com/auth/calendar'));
 
     expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events.owned');
+    expect(calendarScopes).toEqual([
+      'https://www.googleapis.com/auth/calendar.events.owned',
+      'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    ]);
     expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events');
     expect(authorizationUrl.searchParams.has('include_granted_scopes')).toBe(false);
   });

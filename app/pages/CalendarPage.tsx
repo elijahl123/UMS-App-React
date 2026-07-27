@@ -137,7 +137,11 @@ function CalendarPage() {
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows, assignmentsLoading] = useLoadAction('loadAssignments', [], { userId: user?.id });
   const [sessionRows, sessionsLoading] = useLoadAction('loadClassSessions', [], { userId: user?.id });
-  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], { userId: user?.id });
+  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], {
+    userId: user?.id,
+    from: studyRangeFrom,
+    to: studyRangeTo,
+  });
   const [studyCalendar, studyPlansLoading, , refreshStudyCalendar, setStudyCalendar] =
     useStudyPlanCalendar(studyRangeFrom, studyRangeTo, user?.id);
   const [addEvent] = useMutateAction('createEvent');
@@ -177,7 +181,12 @@ function CalendarPage() {
     setGoogleCalendarLoading(true);
     refreshGoogleCalendarStatus()
       .then(async (status) => {
-        if (!isMounted || !status?.connected) return;
+        if (
+          !isMounted
+          || !status?.connected
+          || !status.setupCompleted
+          || status.reauthorizationRequired
+        ) return;
         const lastSyncedAt = status.lastSyncedAt ? new Date(status.lastSyncedAt).getTime() : 0;
         const isStale = !lastSyncedAt || Date.now() - lastSyncedAt > 10 * 60 * 1000;
         if (isStale) {
@@ -260,6 +269,11 @@ function CalendarPage() {
         endTime: event.endTime,
         timeZone: event.timeZone,
         description: event.description,
+        sourceProvider: event.sourceProvider,
+        googleEventId: event.googleEventId,
+        googleCalendarId: event.googleCalendarId,
+        recurringSeriesId: event.recurringSeriesId,
+        recurrenceOriginalStart: event.recurrenceOriginalStart,
       });
       setEditEventOpen(true);
     }
@@ -302,6 +316,8 @@ function CalendarPage() {
       endTime: values.endTime ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
+      recurringSeriesId: values.recurringSeriesId,
+      recurrenceOriginalStart: values.recurrenceOriginalStart,
       userId: user?.id,
     });
     refreshEvents();
@@ -309,7 +325,12 @@ function CalendarPage() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    await deleteEventMutation({ id: eventId, userId: user?.id });
+    await deleteEventMutation({
+      id: eventId,
+      recurringSeriesId: editingEvent?.recurringSeriesId,
+      recurrenceOriginalStart: editingEvent?.recurrenceOriginalStart,
+      userId: user?.id,
+    });
     refreshEvents();
     setEditEventOpen(false);
   };
@@ -321,7 +342,11 @@ function CalendarPage() {
   const selectedItems = itemsByDate.get(selectedDate) ?? [];
   const selectedDateLabel = formatSelectedDate(selectedDate);
   const itemCountLabel = `${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}`;
-  const googleCalendarConnected = Boolean(googleCalendarStatus?.connected);
+  const googleCalendarConnected = Boolean(
+    googleCalendarStatus?.connected
+    && googleCalendarStatus.setupCompleted
+    && !googleCalendarStatus.reauthorizationRequired
+  );
   const googleCalendarLabel = googleCalendarConnected
     ? googleCalendarStatus?.lastSyncedAt
       ? `Synced ${new Date(googleCalendarStatus.lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`

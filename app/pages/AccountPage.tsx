@@ -50,8 +50,11 @@ import { NotificationInbox } from '@/app/components/NotificationCenter';
 import {
   connectGoogleCalendar,
   disconnectGoogleCalendar,
+  getOwnedGoogleCalendars,
   getGoogleCalendarStatus,
   syncGoogleCalendar,
+  updateGoogleCalendarSettings,
+  type GoogleOwnedCalendar,
   type GoogleCalendarStatus,
 } from '@/app/lib/googleCalendar/client';
 
@@ -149,6 +152,9 @@ function AccountPage() {
   const [googleCalendarSubmitting, setGoogleCalendarSubmitting] = useState(false);
   const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
   const [googleCalendarSuccess, setGoogleCalendarSuccess] = useState<string | null>(null);
+  const [googleOwnedCalendars, setGoogleOwnedCalendars] = useState<GoogleOwnedCalendar[]>([]);
+  const [googleSelectedCalendarIds, setGoogleSelectedCalendarIds] = useState<string[]>([]);
+  const [googleHistoryMonths, setGoogleHistoryMonths] = useState(6);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -209,7 +215,19 @@ function AccountPage() {
     setGoogleCalendarLoading(true);
     setGoogleCalendarError(null);
     try {
-      setGoogleCalendarStatus(await getGoogleCalendarStatus());
+      const status = await getGoogleCalendarStatus();
+      setGoogleCalendarStatus(status);
+      setGoogleHistoryMonths(status.historyMonths);
+      setGoogleSelectedCalendarIds(status.selectedCalendarIds);
+      if (status.connected && !status.reauthorizationRequired) {
+        const calendars = await getOwnedGoogleCalendars();
+        setGoogleOwnedCalendars(calendars);
+        setGoogleSelectedCalendarIds(
+          calendars.filter((calendar) => calendar.selected).map((calendar) => calendar.id)
+        );
+      } else {
+        setGoogleOwnedCalendars([]);
+      }
     } catch (err) {
       setGoogleCalendarStatus(null);
       setGoogleCalendarError(requestError(err, 'Unable to load Google Calendar status.'));
@@ -275,7 +293,7 @@ function AccountPage() {
   useEffect(() => {
     const result = searchParams.get('googleCalendar');
     if (result === 'connected') {
-      setGoogleCalendarSuccess('Google Calendar connected. Initial sync is starting.');
+      setGoogleCalendarSuccess('Google Calendar connected. Choose calendars, then save and import.');
       void loadGoogleCalendarConnection();
     } else if (result === 'error') {
       setGoogleCalendarError(searchParams.get('message') ?? 'Google Calendar connection failed.');
@@ -472,8 +490,37 @@ function AccountPage() {
     }
   };
 
+  const handleGoogleCalendarSettingsSave = async () => {
+    setGoogleCalendarSubmitting(true);
+    setGoogleCalendarError(null);
+    setGoogleCalendarSuccess(null);
+    try {
+      await updateGoogleCalendarSettings(googleSelectedCalendarIds, googleHistoryMonths);
+      const result = await syncGoogleCalendar(true);
+      setGoogleCalendarSuccess(
+        `Imported ${result.importedCount + result.updatedCount} event record${result.importedCount + result.updatedCount === 1 ? '' : 's'} from ${googleSelectedCalendarIds.length} calendar${googleSelectedCalendarIds.length === 1 ? '' : 's'}.`
+      );
+      await loadGoogleCalendarConnection();
+      window.dispatchEvent(new CustomEvent('ums-api-action-mutated', { detail: { name: 'createEvent' } }));
+      window.dispatchEvent(new CustomEvent('ums-notifications-changed'));
+    } catch (err) {
+      setGoogleCalendarError(requestError(err, 'Unable to save Google Calendar import settings.'));
+    } finally {
+      setGoogleCalendarSubmitting(false);
+    }
+  };
+
+  const handleGoogleCalendarSelectionChange = (calendar: GoogleOwnedCalendar, selected: boolean) => {
+    if (calendar.primary) return;
+    setGoogleSelectedCalendarIds((current) =>
+      selected ? [...new Set([...current, calendar.id])] : current.filter((id) => id !== calendar.id)
+    );
+  };
+
   const handleGoogleCalendarDisconnect = async () => {
-    const confirmed = window.confirm('Disconnect Google Calendar sync for this account?');
+    const confirmed = window.confirm(
+      'Disconnect Google Calendar? Imported Google-only events will be removed, while UMS-created events will remain.'
+    );
     if (!confirmed) return;
 
     setGoogleCalendarSubmitting(true);
@@ -614,7 +661,7 @@ function AccountPage() {
             <CalendarDays className="h-5 w-5 text-primary" />
             <CardTitle>Google Calendar</CardTitle>
           </div>
-          <CardDescription>Sync standalone UMS events with your primary Google Calendar.</CardDescription>
+          <CardDescription>Import compact events from owned calendars and sync UMS events with your primary calendar.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {googleCalendarLoading && !googleCalendarStatus ? (
@@ -642,13 +689,17 @@ function AccountPage() {
                 )}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                {googleCalendarStatus?.connected ? (
+                {googleCalendarStatus?.connected && !googleCalendarStatus.reauthorizationRequired ? (
                   <>
                     <Button
                       type="button"
                       variant="outline"
                       className="w-full gap-2 sm:w-auto"
-                      disabled={googleCalendarSubmitting || googleCalendarStatus.syncInProgress}
+                      disabled={
+                        googleCalendarSubmitting
+                        || googleCalendarStatus.syncInProgress
+                        || !googleCalendarStatus.setupCompleted
+                      }
                       onClick={handleGoogleCalendarSync}
                     >
                       {googleCalendarSubmitting || googleCalendarStatus.syncInProgress ? (
@@ -677,11 +728,84 @@ function AccountPage() {
                     onClick={handleGoogleCalendarConnect}
                   >
                     {googleCalendarSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FcGoogle className="h-4 w-4" />}
-                    Connect Calendar
+                    {googleCalendarStatus?.reauthorizationRequired ? 'Reconnect Calendar' : 'Connect Calendar'}
                   </Button>
                 )}
               </div>
             </div>
+          )}
+          {googleCalendarStatus?.connected && !googleCalendarStatus.reauthorizationRequired && (
+            <div className="flex flex-col gap-4 rounded-md border p-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Calendars to import</p>
+                <p className="text-sm text-muted-foreground">
+                  The primary calendar is required because new UMS events are written there.
+                </p>
+              </div>
+              {googleOwnedCalendars.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading owned calendars...
+                </div>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {googleOwnedCalendars.map((calendar) => (
+                    <label key={calendar.id} className="flex items-start gap-3 rounded-md border p-3 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={calendar.primary || googleSelectedCalendarIds.includes(calendar.id)}
+                        disabled={calendar.primary || googleCalendarSubmitting}
+                        onChange={(event) => handleGoogleCalendarSelectionChange(calendar, event.target.checked)}
+                      />
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2 font-medium text-foreground">
+                          <span
+                            className="h-3 w-3 shrink-0 rounded-full border"
+                            style={{ backgroundColor: calendar.backgroundColor ?? 'var(--course-blue)' }}
+                          />
+                          <span className="truncate">{calendar.summary}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          {calendar.primary ? 'Primary · required' : calendar.timeZone}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium text-foreground">Import history</span>
+                  <select
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
+                    value={googleHistoryMonths}
+                    disabled={googleCalendarSubmitting}
+                    onChange={(event) => setGoogleHistoryMonths(Number(event.target.value))}
+                  >
+                    {[1, 3, 6, 12, 24].map((months) => (
+                      <option key={months} value={months}>
+                        Past {months} month{months === 1 ? '' : 's'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  type="button"
+                  className="w-full gap-2 sm:w-auto"
+                  disabled={googleCalendarSubmitting || googleOwnedCalendars.length === 0}
+                  onClick={handleGoogleCalendarSettingsSave}
+                >
+                  {googleCalendarSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save &amp; import
+                </Button>
+              </div>
+            </div>
+          )}
+          {googleCalendarStatus?.reauthorizationRequired && (
+            <p className="text-sm text-muted-foreground">
+              Reconnect once to grant read-only access to your calendar list.
+            </p>
           )}
           {(googleCalendarError || googleCalendarStatus?.lastError) && (
             <p className="text-sm font-medium text-destructive">
