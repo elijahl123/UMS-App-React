@@ -1,0 +1,50 @@
+services:
+  api:
+    image: ums-app-react-api:local
+    build:
+      context: .
+      target: api
+
+  web:
+    image: ums-app-react-web:local
+    build:
+      context: .
+      target: web
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_IOS_CLIENT_ID: ${VITE_GOOGLE_IOS_CLIENT_ID:-}
+        VITE_GOOGLE_IOS_REVERSED_CLIENT_ID: ${VITE_GOOGLE_IOS_REVERSED_CLIENT_ID:-}
+        VITE_GOOGLE_REDIRECT_URI: ${VITE_GOOGLE_REDIRECT_URI:-}
+        VITE_APP_ENV: ${VITE_APP_ENV:-development}
+        VITE_STAGING_ACCESS_CONTROL_ENABLED: ${VITE_STAGING_ACCESS_CONTROL_ENABLED:-false}
+
+  migrate:
+    image: ums-app-react-api:local
+    build:
+      context: .
+      target: api
+
+  db:
+    image: postgres:16-bookworm
+    profiles:
+      - local-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ums}
+      POSTGRES_USER: ${POSTGRES_USER:-ums}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ums-local-only}
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app
+
+volumes:
+  postgres-data:
