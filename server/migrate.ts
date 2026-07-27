@@ -20,6 +20,45 @@ async function ensureMigrationsTable() {
 }
 
 async function seedBaselineMigrations() {
+  const migrationCount = await pool.query<{ count: string }>(
+    'SELECT COUNT(*)::text AS count FROM schema_migrations;'
+  );
+  if (Number(migrationCount.rows[0]?.count ?? 0) > 0) {
+    return;
+  }
+
+  const legacySchema = await pool.query<{
+    courses: string | null;
+    assignments: string | null;
+    events: string | null;
+    classSessions: string | null;
+    notes: string | null;
+    courseLinks: string | null;
+    users: string | null;
+  }>(`
+    SELECT
+      to_regclass('public.courses')::text AS courses,
+      to_regclass('public.assignments')::text AS assignments,
+      to_regclass('public.events')::text AS events,
+      to_regclass('public.class_sessions')::text AS "classSessions",
+      to_regclass('public.notes')::text AS notes,
+      to_regclass('public.course_links')::text AS "courseLinks",
+      to_regclass('public.users')::text AS users;
+  `);
+  const legacyTables = legacySchema.rows[0];
+  if (
+    !legacyTables?.courses
+    || !legacyTables.assignments
+    || !legacyTables.events
+    || !legacyTables.classSessions
+    || !legacyTables.notes
+    || !legacyTables.courseLinks
+    || !legacyTables.users
+  ) {
+    return;
+  }
+
+  console.log('[migrate] detected a legacy schema; recording baseline migrations');
   const appliedTxtPath = path.resolve(currentDir, '..', 'migrations', 'applied.txt');
   const appliedTxt = await readFile(appliedTxtPath, 'utf8');
   const filenames = appliedTxt

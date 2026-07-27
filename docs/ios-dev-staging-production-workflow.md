@@ -150,17 +150,16 @@ Confirm staging web/API health:
 curl -i https://dev.untitledmanagementsoftware.com/api/health
 ```
 
-On the staging server, native iOS must be allowed by CORS:
+In `/etc/ums-app-react/staging.env`, native iOS must be allowed by CORS:
 
 ```sh
 APP_ORIGINS=https://dev.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 STAGING_ACCESS_CONTROL_ENABLED=true
-VITE_APP_ENV=staging
-VITE_STAGING_ACCESS_CONTROL_ENABLED=true
 ```
 
-If any `VITE_*` value changed on the staging server, rebuild and restart staging
-so the hosted web bundle gets the new value.
+Browser `VITE_*` values live in the GitHub `staging` environment. Changing one
+requires a new staging image release; server runtime values remain in the
+protected droplet environment file.
 
 ## Build Staging for iPhone
 
