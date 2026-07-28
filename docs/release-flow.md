@@ -11,10 +11,10 @@ The goal is to keep the deployed environments predictable:
 ```text
 feature branch
   -> pull request into staging
-  -> staging deploys to dev.untitledmanagementsoftware.com
+  -> verified staging-SHA Docker images deploy to dev.untitledmanagementsoftware.com
   -> test and verify staging
   -> pull request from staging into main
-  -> production deploys to app.untitledmanagementsoftware.com
+  -> verified production-SHA Docker images deploy to app.untitledmanagementsoftware.com
   -> keep staging aligned with main
 ```
 
@@ -54,6 +54,10 @@ staging -> main
 ```
 
 Merge this pull request with a normal merge commit. Do not squash merge `staging` into `main`.
+
+The production workflow builds new environment-specific images from the merge
+commit. It does not retag staging images because the Vite frontend contains
+environment-specific public configuration.
 
 Squashing `staging` into `main` gives production the same files but different commit history. After that, GitHub can show old staging commits again in future pull requests, even when the file contents already match.
 

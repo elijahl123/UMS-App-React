@@ -50,6 +50,7 @@ function MobileBottomNavigation() {
   const courses = (courseRows ?? []).map(mapCourse);
   const hasCourses = courses.length > 0;
   const isMoreActive = /^\/(notes|courses|class-schedule|account|admin)\b/.test(location.pathname);
+  const isFocusedStudyPlanEditor = /^\/courses\/[^/]+\/study-plans\/(?:new|[^/]+\/edit)$/.test(location.pathname);
   const displayEmail = user?.loginEmail ?? user?.email;
   const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || displayEmail || 'Your account';
   const initials =
@@ -164,40 +165,42 @@ function MobileBottomNavigation() {
 
   return (
     <>
-      <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-light)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--secondary-color))] px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_26px_rgb(86_73_76/0.10)] backdrop-blur md:hidden"
-        aria-label="Mobile primary navigation"
-      >
-        <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
-          <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
-            <Gauge className="h-5 w-5" />
-            <span>Home</span>
-          </NavLink>
-          <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
-            <Calendar className="h-5 w-5" />
-            <span>Calendar</span>
-          </NavLink>
-          <div className="flex justify-center">
-            <Button
-              type="button"
-              size="icon"
-              className="mb-1 h-16 w-16 rounded-full border-[var(--main-color)] bg-[var(--main-color)] text-white shadow-[0_12px_26px_rgb(248_173_157/0.30)] hover:bg-[var(--main-color-shade)]"
-              aria-label="Add anything"
-              onClick={() => setAddOpen(true)}
-            >
-              <Plus className="h-8 w-8" />
-            </Button>
+      {!isFocusedStudyPlanEditor && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-light)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--secondary-color))] px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_26px_rgb(86_73_76/0.10)] backdrop-blur md:hidden"
+          aria-label="Mobile primary navigation"
+        >
+          <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
+            <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+              <Gauge className="h-5 w-5" />
+              <span>Home</span>
+            </NavLink>
+            <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+              <Calendar className="h-5 w-5" />
+              <span>Calendar</span>
+            </NavLink>
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                size="icon"
+                className="mb-1 h-16 w-16 rounded-full border-[var(--main-color)] bg-[var(--main-color)] text-white shadow-[0_12px_26px_rgb(248_173_157/0.30)] hover:bg-[var(--main-color-shade)]"
+                aria-label="Add anything"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="h-8 w-8" />
+              </Button>
+            </div>
+            <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+              <BookOpen className="h-5 w-5" />
+              <span>Homework</span>
+            </NavLink>
+            <button type="button" className={cn(baseNavClass, isMoreActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')} onClick={() => setMoreOpen(true)}>
+              <Menu className="h-5 w-5" />
+              <span>More</span>
+            </button>
           </div>
-          <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
-            <BookOpen className="h-5 w-5" />
-            <span>Homework</span>
-          </NavLink>
-          <button type="button" className={cn(baseNavClass, isMoreActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')} onClick={() => setMoreOpen(true)}>
-            <Menu className="h-5 w-5" />
-            <span>More</span>
-          </button>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className={mobileSheetClass}>

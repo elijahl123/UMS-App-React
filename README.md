@@ -74,21 +74,27 @@ PLAYWRIGHT_BASE_URL=https://dev.untitledmanagementsoftware.com npm run test:e2e
 
 ## Staging Deploy
 
-For the DigitalOcean staging host, build the client and run the API on the droplet, with Nginx serving `dist/` and proxying `/api` to `127.0.0.1:3001`.
+Staging and production deploy as immutable Docker images published to GHCR.
+Host Nginx and Certbot continue to terminate HTTPS and proxy the public domain
+to the Compose web service on `127.0.0.1:8080`.
 
 ```sh
-npm ci
-npm run build
-npm start
+docker compose --env-file .env.docker -f compose.yaml -f compose.local.yaml --profile local-db up -d --wait db
+docker compose --env-file .env.docker -f compose.yaml -f compose.local.yaml --profile tools run --rm migrate
+docker compose --env-file .env.docker -f compose.yaml -f compose.local.yaml up -d api web
 ```
 
-Set the staging origin to your public URL:
+For a production-like local run, copy `.env.docker.example` to `.env.docker`
+first. This path is optional; `npm run dev` remains the normal hot-reload
+workflow.
+
+The application is available at `http://127.0.0.1:8080`. Stop it and remove the
+local database volume with:
 
 ```sh
-APP_ORIGIN=https://dev.untitledmanagementsoftware.com
-APP_ORIGINS=https://dev.untitledmanagementsoftware.com
-APP_BASE_URL=https://dev.untitledmanagementsoftware.com
-PORT=3001
+docker compose --env-file .env.docker -f compose.yaml -f compose.local.yaml --profile local-db --profile tools down --volumes
 ```
 
-Stripe webhooks should point to `https://dev.untitledmanagementsoftware.com/api/billing/webhook`.
+See `docs/digitalocean-staging.md` and `docs/digitalocean-production.md` for
+droplet setup, GitHub environment configuration, logs, health checks, and
+automatic/manual rollback.

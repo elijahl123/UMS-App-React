@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { authenticatedFirebaseUser } from './auth';
 import { pool, type QueryConfig } from './db';
 import { ApiError } from './errors';
+import { expandRecurringEventRows, type RecurringEventRow } from './googleCalendarRecurrence';
 
 export type NotificationSourceType = 'assignment' | 'event' | 'class_session';
 
@@ -301,9 +302,13 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
       `,
       [userId]
     ),
-    pool.query(
+    pool.query<RecurringEventRow>(
       `
-        SELECT id::text, title, event_date::text AS event_date, event_time::text AS event_time, event_timezone
+        SELECT
+          id::text, title, event_date::text AS event_date, event_time::text AS event_time,
+          end_time::text AS end_time, event_timezone, description, source_provider, source_key,
+          google_calendar_id, google_event_id, google_etag, google_updated_at, google_recurrence,
+          google_recurring_event_id, google_original_start, google_cancelled, updated_at
         FROM events
         WHERE user_id = $1
           AND event_time IS NOT NULL;
@@ -356,14 +361,19 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
   }
 
   if (preferences.event10mEnabled) {
-    for (const event of eventResult.rows) {
+    const expandedEvents = expandRecurringEventRows(
+      eventResult.rows,
+      formatLocalDate(now, preferences.timeZone),
+      formatLocalDate(new Date(windowEnd.getTime() + DAY_MS), preferences.timeZone)
+    );
+    for (const event of expandedEvents) {
       const time = normalizeTime(event.event_time);
       if (!time) continue;
       const timeZone = assertTimeZone(event.event_timezone || preferences.timeZone);
       const targetAt = zonedDateTimeToUtc(String(event.event_date), time, timeZone);
       add({
         sourceType: 'event',
-        sourceId: event.id,
+        sourceId: event.recurring_series_id ?? event.id,
         occurrenceKey: `${event.event_date}:${time}`,
         fireAt: new Date(targetAt.getTime() - 10 * 60 * 1000),
         targetAt,

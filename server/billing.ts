@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { config } from './config';
 import { pool } from './db';
 import { ApiError } from './errors';
+import { isMissingStripeCustomerError } from './stripeErrors';
 
 export type BillingInterval = 'monthly' | 'yearly';
 
@@ -42,6 +43,18 @@ export function priceIdForInterval(interval: BillingInterval): string {
     throw new ApiError(interval === 'yearly' ? 'STRIPE_YEARLY_PRICE_ID is required' : 'STRIPE_MONTHLY_PRICE_ID is required', 500);
   }
   return priceId;
+}
+
+async function canReuseStripeCustomer(stripe: Stripe, customerId: string): Promise<boolean> {
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    return !('deleted' in customer && customer.deleted);
+  } catch (err) {
+    if (isMissingStripeCustomerError(err)) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 export async function ensureBillingTables() {
@@ -114,11 +127,11 @@ export async function getOrCreateCustomer(params: { userId: string; email: strin
   );
 
   const existingCustomerId = existing.rows[0]?.stripe_customer_id as string | undefined;
-  if (existingCustomerId) {
+  const stripe = stripeClient();
+  if (existingCustomerId && await canReuseStripeCustomer(stripe, existingCustomerId)) {
     return existingCustomerId;
   }
 
-  const stripe = stripeClient();
   const customer = await stripe.customers.create({
     email: params.email,
     name: params.name ?? undefined,

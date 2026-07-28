@@ -1,0 +1,259 @@
+name: Docker release
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment and release prefix
+        required: true
+        type: string
+      release_tag:
+        description: Immutable environment-SHA image tag
+        required: true
+        type: string
+    secrets:
+      SSH_HOST:
+        required: true
+      SSH_USER:
+        required: true
+      SSH_PORT:
+        required: false
+      SSH_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build web and server
+        run: |
+          npm run build
+          npm run build:server
+
+      - name: Build production-like containers
+        run: |
+          cp .env.docker.example .env.docker
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            build api web
+
+      - name: Start local Postgres and run migrations twice
+        run: |
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            --profile local-db \
+            up -d --wait db
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            --profile tools \
+            run --rm migrate
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            --profile tools \
+            run --rm migrate
+
+      - name: Start and inspect the containerized application
+        run: |
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            up -d --wait api web
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/health
+          curl --fail --silent --show-error --head http://127.0.0.1:8080/sw.js \
+            | grep -i 'cache-control:.*no-cache'
+          WORKER_PATH="$(
+            docker compose \
+              --env-file .env.docker \
+              -f compose.yaml \
+              -f compose.local.yaml \
+              exec -T web sh -c \
+              'find /usr/share/nginx/html/assets -name "*.mjs" | head -n 1' \
+              | sed 's#^/usr/share/nginx/html##'
+          )"
+          test -n "$WORKER_PATH"
+          curl --fail --silent --show-error --head "http://127.0.0.1:8080$WORKER_PATH" \
+            | grep -i 'content-type: application/javascript'
+
+      - name: Run Playwright smoke test against Compose
+        run: |
+          npx playwright install --with-deps chromium
+          PLAYWRIGHT_BASE_URL=http://127.0.0.1:8080 \
+            npx playwright test e2e/app-shell.spec.ts --project=chromium
+
+      - name: Show container logs after a smoke-test failure
+        if: failure()
+        run: |
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            ps
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            logs --tail=200
+
+      - name: Stop smoke-test containers
+        if: always()
+        run: |
+          docker compose \
+            --env-file .env.docker \
+            -f compose.yaml \
+            -f compose.local.yaml \
+            --profile local-db \
+            --profile tools \
+            down --volumes --remove-orphans
+
+  publish-and-deploy:
+    name: Publish and deploy ${{ inputs.environment }}
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: ${{ inputs.environment }}-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Validate release inputs
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          case "$DEPLOY_ENVIRONMENT" in
+            staging|production) ;;
+            *) echo "Unsupported environment: $DEPLOY_ENVIRONMENT" >&2; exit 2 ;;
+          esac
+          [[ "$RELEASE_TAG" =~ ^"$DEPLOY_ENVIRONMENT"-[0-9a-f]{40}$ ]]
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: api
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/elijahl123/ums-app-react-api:${{ inputs.release_tag }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+          provenance: true
+          sbom: true
+
+      - name: Build and publish web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/elijahl123/ums-app-react-web:${{ inputs.release_tag }}
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }}
+            VITE_FIREBASE_API_KEY=${{ vars.VITE_FIREBASE_API_KEY }}
+            VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+            VITE_GOOGLE_IOS_CLIENT_ID=${{ vars.VITE_GOOGLE_IOS_CLIENT_ID }}
+            VITE_GOOGLE_IOS_REVERSED_CLIENT_ID=${{ vars.VITE_GOOGLE_IOS_REVERSED_CLIENT_ID }}
+            VITE_GOOGLE_REDIRECT_URI=${{ vars.VITE_GOOGLE_REDIRECT_URI }}
+            VITE_APP_ENV=${{ inputs.environment }}
+            VITE_STAGING_ACCESS_CONTROL_ENABLED=${{ inputs.environment == 'staging' && 'true' || 'false' }}
+          cache-from: type=gha,scope=web-${{ inputs.environment }}
+          cache-to: type=gha,mode=max,scope=web-${{ inputs.environment }}
+          provenance: true
+          sbom: true
+
+      - name: Verify GHCR packages allow anonymous pulls
+        run: |
+          docker logout ghcr.io
+          if ! docker manifest inspect \
+            "ghcr.io/elijahl123/ums-app-react-api:${{ inputs.release_tag }}" >/dev/null \
+            || ! docker manifest inspect \
+            "ghcr.io/elijahl123/ums-app-react-web:${{ inputs.release_tag }}" >/dev/null; then
+            echo "::error::GHCR packages are not public. Open each package's settings, change visibility to Public, then rerun this workflow."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment files
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          PORT="${SSH_PORT:-22}"
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" \
+            compose.yaml \
+            "$SSH_USER@$SSH_HOST:/tmp/ums-compose.yaml"
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" \
+            deploy/docker-deploy.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/ums-docker-deploy.sh"
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" \
+            deploy/docker-rollback.sh \
+            "$SSH_USER@$SSH_HOST:/tmp/ums-docker-rollback.sh"
+
+      - name: Deploy exact release
+        env:
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/id_ed25519 -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "sudo install -m 0755 /tmp/ums-docker-rollback.sh /usr/local/bin/ums-rollback && bash /tmp/ums-docker-deploy.sh '$DEPLOY_ENVIRONMENT' '$RELEASE_TAG'"

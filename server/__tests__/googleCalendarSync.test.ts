@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://user:pass@localhost:5432/test';
 process.env.GOOGLE_TOKEN_ENCRYPTION_KEY = 'test-google-token-encryption-key';
+process.env.GOOGLE_CALENDAR_CLIENT_ID = 'test-google-calendar-client-id.apps.googleusercontent.com';
 process.env.GOOGLE_CALENDAR_CLIENT_SECRET = 'test-google-calendar-client-secret';
 
 afterEach(() => {
@@ -9,6 +10,24 @@ afterEach(() => {
 });
 
 describe('Google Calendar sync utilities', () => {
+  it('requests owned events plus only the non-sensitive read-only CalendarList scope', async () => {
+    const { pool } = await import('../db');
+    vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [] } as never);
+    const { buildGoogleCalendarAuthUrl } = await import('../googleCalendarSync');
+
+    const authorizationUrl = new URL(await buildGoogleCalendarAuthUrl('user-1'));
+    const scopes = authorizationUrl.searchParams.get('scope')?.split(' ') ?? [];
+    const calendarScopes = scopes.filter((scope) => scope.startsWith('https://www.googleapis.com/auth/calendar'));
+
+    expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events.owned');
+    expect(calendarScopes).toEqual([
+      'https://www.googleapis.com/auth/calendar.events.owned',
+      'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    ]);
+    expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events');
+    expect(authorizationUrl.searchParams.has('include_granted_scopes')).toBe(false);
+  });
+
   it('encrypts tokens and validates signed OAuth state', async () => {
     const {
       decryptGoogleToken,

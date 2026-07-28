@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
-import type { AppUser, StagingAccessUser } from '@/app/data/types';
+import type { AppUser, StagingAccessUser, StudyPlan } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
@@ -119,11 +119,26 @@ export const googleCalendarState = {
     lastSyncedAt: null,
     lastError: null,
     syncInProgress: false,
+    historyMonths: 6,
+    selectedCalendarIds: [],
+    setupCompleted: false,
+    reauthorizationRequired: false,
   } as GoogleCalendarStatus,
 };
 
 export const googleCalendarActions = {
   getGoogleCalendarStatus: vi.fn(async () => googleCalendarState.status),
+  getOwnedGoogleCalendars: vi.fn(async () => [
+    {
+      id: 'primary',
+      summary: 'Primary calendar',
+      timeZone: 'America/Los_Angeles',
+      backgroundColor: '#4285f4',
+      primary: true,
+      selected: true,
+    },
+  ]),
+  updateGoogleCalendarSettings: vi.fn(async () => googleCalendarState.status),
   connectGoogleCalendar: vi.fn(async () => ({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?mock=1' })),
   syncGoogleCalendar: vi.fn(async () => ({
     importedCount: 1,
@@ -133,6 +148,29 @@ export const googleCalendarActions = {
     fullSync: false,
   })),
   disconnectGoogleCalendar: vi.fn(async () => ({ ok: true })),
+};
+
+export const studyPlanState = {
+  plans: [] as StudyPlan[],
+};
+
+export const studyPlanActions = {
+  saveStudyPlan: vi.fn(async (_input: unknown, planId?: string) => ({
+    planId: planId ?? 'plan-1',
+  })),
+  refreshStudyPlan: vi.fn(async (planId: string) => ({ planId, refreshed: true })),
+  setStudyTaskCompleted: vi.fn(async (_planId: string, taskId: string, completed: boolean) => ({
+    id: taskId,
+    completedAt: completed ? '2026-07-25T12:00:00.000Z' : null,
+  })),
+  setStudyPlanArchived: vi.fn(async (planId: string, archived: boolean) => ({ id: planId, archived })),
+  deleteStudyPlan: vi.fn(async () => undefined),
+  studyPlanErrorMessage: vi.fn(() => 'Unable to save the study plan.'),
+  parseStudyTopics: (value: string) =>
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+|(?:week|topic|module)\s+\d+\s*[:.-]?\s*)/i, '').trim())
+      .filter(Boolean),
 };
 
 export function resetMockState() {
@@ -179,8 +217,16 @@ export function resetMockState() {
     lastSyncedAt: null,
     lastError: null,
     syncInProgress: false,
+    historyMonths: 6,
+    selectedCalendarIds: [],
+    setupCompleted: false,
+    reauthorizationRequired: false,
   };
+  studyPlanState.plans = [];
   Object.values(authActions).forEach((mock) => mock.mockClear());
   Object.values(accountEmailActions).forEach((mock) => mock.mockClear());
   Object.values(googleCalendarActions).forEach((mock) => mock.mockClear());
+  Object.values(studyPlanActions).forEach((mock) => {
+    if (typeof mock === 'function' && 'mockClear' in mock) mock.mockClear();
+  });
 }

@@ -2,7 +2,12 @@ import { Router, type Request, type Response } from 'express';
 import { getActionQuery } from '../actions';
 import { pool } from '../db';
 import { ApiError } from '../errors';
-import { readEventBeforeDelete, syncEventMutationToGoogle } from '../googleCalendarSync';
+import {
+  loadEventsForUser,
+  mutateRecurringGoogleOccurrence,
+  readEventBeforeDelete,
+  syncEventMutationToGoogle,
+} from '../googleCalendarSync';
 import { syncNotificationInstancesForUser } from '../notifications';
 
 export const actionsRouter = Router();
@@ -22,6 +27,41 @@ const notificationMutationActions = new Set([
 actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Response) => {
   try {
     const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
+    if (req.auth?.uid && req.params.name === 'loadEvents') {
+      return res.json(
+        await loadEventsForUser(
+          req.auth.uid,
+          typeof req.body?.from === 'string' ? req.body.from : undefined,
+          typeof req.body?.to === 'string' ? req.body.to : undefined
+        )
+      );
+    }
+    const recurringSeriesId = typeof req.body?.recurringSeriesId === 'string' ? req.body.recurringSeriesId : null;
+    const recurrenceOriginalStart =
+      typeof req.body?.recurrenceOriginalStart === 'string' ? req.body.recurrenceOriginalStart : null;
+    if (
+      req.auth?.uid
+      && recurringSeriesId
+      && recurrenceOriginalStart
+      && (req.params.name === 'updateEvent' || req.params.name === 'deleteEvent')
+    ) {
+      return res.json(
+        await mutateRecurringGoogleOccurrence(
+          req.auth.uid,
+          req.params.name === 'deleteEvent' ? 'delete' : 'update',
+          {
+            recurringSeriesId,
+            recurrenceOriginalStart,
+            title: typeof req.body?.title === 'string' ? req.body.title : undefined,
+            date: typeof req.body?.date === 'string' ? req.body.date : undefined,
+            time: typeof req.body?.time === 'string' ? req.body.time : null,
+            endTime: typeof req.body?.endTime === 'string' ? req.body.endTime : null,
+            timeZone: typeof req.body?.timeZone === 'string' ? req.body.timeZone : undefined,
+            description: typeof req.body?.description === 'string' ? req.body.description : null,
+          }
+        )
+      );
+    }
     const beforeDelete =
       req.auth?.uid && req.params.name === 'deleteEvent' && req.body?.id
         ? await readEventBeforeDelete(req.auth.uid, String(req.body.id))

@@ -39,7 +39,7 @@ interface DbClassSession {
 }
 
 interface DbEvent {
-  id: number;
+  id: number | string;
   title: string;
   event_date: string;
   event_time: string | null;
@@ -48,6 +48,9 @@ interface DbEvent {
   description: string | null;
   source_provider?: string | null;
   google_event_id?: string | null;
+  google_calendar_id?: string | null;
+  recurring_series_id?: string | null;
+  recurrence_original_start?: string | null;
 }
 
 interface DbNote {
@@ -104,6 +107,9 @@ export function mapEvent(row: DbEvent): CalendarEvent {
   const endTime = normalizeTimeString(row.end_time);
   const sourceProvider = row.source_provider ?? undefined;
   const googleEventId = row.google_event_id ?? undefined;
+  const googleCalendarId = row.google_calendar_id ?? undefined;
+  const recurringSeriesId = row.recurring_series_id ?? undefined;
+  const recurrenceOriginalStart = row.recurrence_original_start ?? undefined;
   return {
     id: String(row.id),
     title: row.title,
@@ -114,6 +120,9 @@ export function mapEvent(row: DbEvent): CalendarEvent {
     ...(endTime ? { endTime } : {}),
     ...(sourceProvider ? { sourceProvider } : {}),
     ...(googleEventId ? { googleEventId } : {}),
+    ...(googleCalendarId ? { googleCalendarId } : {}),
+    ...(recurringSeriesId ? { recurringSeriesId } : {}),
+    ...(recurrenceOriginalStart ? { recurrenceOriginalStart } : {}),
   };
 }
 

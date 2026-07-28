@@ -55,6 +55,11 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         endTime: values.endTime || undefined,
         timeZone: event.timeZone || getBrowserTimeZone(),
         description: values.description || undefined,
+        sourceProvider: event.sourceProvider,
+        googleEventId: event.googleEventId,
+        googleCalendarId: event.googleCalendarId,
+        recurringSeriesId: event.recurringSeriesId,
+        recurrenceOriginalStart: event.recurrenceOriginalStart,
       });
       form.reset();
       onOpenChange(false);

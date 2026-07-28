@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, CalendarDays, ChevronLeft, ChevronRight, FileText, Loader2, Plus, RefreshCw } from 'lucide-react';
+import { BookOpen, Brain, CalendarDays, ChevronLeft, ChevronRight, FileText, GraduationCap, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { mapCourse, mapAssignment, mapClassSession, mapEvent } from '@/app/data/mappers';
-import { buildCalendarItems, toIsoDate, type CalendarItem } from '@/app/data/calendarUtils';
+import { buildCalendarItems, getMonthGridDates, toIsoDate, type CalendarItem } from '@/app/data/calendarUtils';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import DayDetailsDialog from '@/app/components/calendar/DayDetailsDialog';
 import AddEventDialog from '@/app/components/widgets/AddEventDialog';
 import EditEventDialog from '@/app/components/widgets/EditEventDialog';
-import type { Assignment, CalendarEvent, ClassSession } from '@/app/data/types';
+import type { Assignment, CalendarEvent, ClassSession, StudyDay, StudyPlanSummary } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { getGoogleCalendarStatus, syncGoogleCalendar, type GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
+import { formatStudyMinutes } from '@/app/data/studyPlans';
+import { setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
+import { useStudyPlanCalendar } from '@/app/lib/studyPlans/useStudyPlans';
 
 function parseDateParam(value: string | null): Date | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -44,6 +47,8 @@ function formatTime(value?: string): string | null {
 }
 
 function formatItemTime(item: CalendarItem): string {
+  if (item.type === 'study') return formatStudyMinutes((item.raw as StudyDay).estimatedMinutes);
+  if (item.type === 'exam') return 'All day';
   if (item.type === 'class') {
     const session = item.raw as ClassSession;
     const start = formatTime(session.startTime);
@@ -63,12 +68,16 @@ function formatItemTime(item: CalendarItem): string {
 function itemTypeLabel(type: CalendarItem['type']): string {
   if (type === 'assignment') return 'Assignment';
   if (type === 'class') return 'Class';
+  if (type === 'study') return 'Study';
+  if (type === 'exam') return 'Exam';
   return 'Event';
 }
 
 function itemIcon(type: CalendarItem['type']) {
   if (type === 'assignment') return FileText;
   if (type === 'class') return BookOpen;
+  if (type === 'study') return Brain;
+  if (type === 'exam') return GraduationCap;
   return CalendarDays;
 }
 
@@ -97,6 +106,7 @@ function useIsDesktopCalendar() {
 
 function CalendarPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isDesktopCalendar = useIsDesktopCalendar();
   const today = new Date();
   const todayIso = toIsoDate(today);
@@ -115,11 +125,25 @@ function CalendarPage() {
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
   const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false);
   const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
+  const studyGridDates = useMemo(() => getMonthGridDates(cursor.year, cursor.month), [cursor.month, cursor.year]);
+  const studyRangeFrom = toIsoDate(studyGridDates[0]);
+  const rangeLastDate = studyGridDates[studyGridDates.length - 1];
+  const studyRangeTo = toIsoDate(new Date(
+    rangeLastDate.getFullYear(),
+    rangeLastDate.getMonth(),
+    rangeLastDate.getDate() + 1
+  ));
 
   const [courseRows, coursesLoading] = useLoadAction('loadCourses', [], { userId: user?.id });
   const [assignmentRows, assignmentsLoading] = useLoadAction('loadAssignments', [], { userId: user?.id });
   const [sessionRows, sessionsLoading] = useLoadAction('loadClassSessions', [], { userId: user?.id });
-  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], { userId: user?.id });
+  const [eventRows, eventsLoading, , refreshEvents] = useLoadAction('loadEvents', [], {
+    userId: user?.id,
+    from: studyRangeFrom,
+    to: studyRangeTo,
+  });
+  const [studyCalendar, studyPlansLoading, , refreshStudyCalendar, setStudyCalendar] =
+    useStudyPlanCalendar(studyRangeFrom, studyRangeTo, user?.id);
   const [addEvent] = useMutateAction('createEvent');
   const [updateEventMutation] = useMutateAction('updateEvent');
   const [deleteEventMutation] = useMutateAction('deleteEvent');
@@ -157,7 +181,12 @@ function CalendarPage() {
     setGoogleCalendarLoading(true);
     refreshGoogleCalendarStatus()
       .then(async (status) => {
-        if (!isMounted || !status?.connected) return;
+        if (
+          !isMounted
+          || !status?.connected
+          || !status.setupCompleted
+          || status.reauthorizationRequired
+        ) return;
         const lastSyncedAt = status.lastSyncedAt ? new Date(status.lastSyncedAt).getTime() : 0;
         const isStale = !lastSyncedAt || Date.now() - lastSyncedAt > 10 * 60 * 1000;
         if (isStale) {
@@ -192,11 +221,11 @@ function CalendarPage() {
   }, [searchParams, todayIso]);
 
   const itemsByDate = useMemo(
-    () => buildCalendarItems(cursor.year, cursor.month, assignments, sessions, events, courses),
-    [cursor, assignments, sessions, events, courses]
+    () => buildCalendarItems(cursor.year, cursor.month, assignments, sessions, events, courses, studyCalendar),
+    [cursor, assignments, sessions, events, courses, studyCalendar]
   );
 
-  const isLoading = coursesLoading || assignmentsLoading || sessionsLoading || eventsLoading;
+  const isLoading = coursesLoading || assignmentsLoading || sessionsLoading || eventsLoading || studyPlansLoading;
 
   const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleDateString('en-US', {
     month: 'long',
@@ -240,9 +269,42 @@ function CalendarPage() {
         endTime: event.endTime,
         timeZone: event.timeZone,
         description: event.description,
+        sourceProvider: event.sourceProvider,
+        googleEventId: event.googleEventId,
+        googleCalendarId: event.googleCalendarId,
+        recurringSeriesId: event.recurringSeriesId,
+        recurrenceOriginalStart: event.recurrenceOriginalStart,
       });
       setEditEventOpen(true);
     }
+  };
+
+  const handleItemClick = (item: CalendarItem) => {
+    if (item.type === 'event') {
+      handleEventClick(item);
+      return;
+    }
+    if (item.type === 'study') {
+      const day = item.raw as StudyDay;
+      navigate(`/courses/${day.courseId}/study-plans/${day.planId}`);
+    }
+    if (item.type === 'exam') {
+      const plan = item.raw as StudyPlanSummary;
+      navigate(`/courses/${plan.courseId}/study-plans/${plan.id}`);
+    }
+  };
+
+  const handleStudyTaskToggle = async (planId: string, taskId: string, completed: boolean) => {
+    await setStudyTaskCompleted(planId, taskId, completed, user?.id);
+    setStudyCalendar((current) => ({
+      ...current,
+      tasks: current.tasks.map((task) =>
+        task.id === taskId
+          ? { ...task, completedAt: completed ? new Date().toISOString() : null }
+          : task
+      ),
+    }));
+    await refreshStudyCalendar();
   };
 
   const handleEditEvent = async (values: CalendarEvent & { id: string }) => {
@@ -254,6 +316,8 @@ function CalendarPage() {
       endTime: values.endTime ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
+      recurringSeriesId: values.recurringSeriesId,
+      recurrenceOriginalStart: values.recurrenceOriginalStart,
       userId: user?.id,
     });
     refreshEvents();
@@ -261,7 +325,12 @@ function CalendarPage() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    await deleteEventMutation({ id: eventId, userId: user?.id });
+    await deleteEventMutation({
+      id: eventId,
+      recurringSeriesId: editingEvent?.recurringSeriesId,
+      recurrenceOriginalStart: editingEvent?.recurrenceOriginalStart,
+      userId: user?.id,
+    });
     refreshEvents();
     setEditEventOpen(false);
   };
@@ -273,7 +342,11 @@ function CalendarPage() {
   const selectedItems = itemsByDate.get(selectedDate) ?? [];
   const selectedDateLabel = formatSelectedDate(selectedDate);
   const itemCountLabel = `${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}`;
-  const googleCalendarConnected = Boolean(googleCalendarStatus?.connected);
+  const googleCalendarConnected = Boolean(
+    googleCalendarStatus?.connected
+    && googleCalendarStatus.setupCompleted
+    && !googleCalendarStatus.reauthorizationRequired
+  );
   const googleCalendarLabel = googleCalendarConnected
     ? googleCalendarStatus?.lastSyncedAt
       ? `Synced ${new Date(googleCalendarStatus.lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
@@ -382,7 +455,7 @@ function CalendarPage() {
                       type="button"
                       className="mobile-list-item grid min-h-20 grid-cols-[0.35rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3"
                       style={itemStyle}
-                      onClick={() => handleEventClick(item)}
+                      onClick={() => handleItemClick(item)}
                     >
                       <span className="mobile-list-rail h-full min-h-12" />
                       <span
@@ -464,6 +537,8 @@ function CalendarPage() {
         date={dialogDate}
         items={dialogDate ? itemsByDate.get(dialogDate) ?? [] : []}
         onEventClick={handleEventClick}
+        onItemClick={handleItemClick}
+        onStudyTaskToggle={handleStudyTaskToggle}
       />
       <AddEventDialog open={addEventOpen} onOpenChange={setAddEventOpen} onSubmit={handleAddEvent} />
       <EditEventDialog open={editEventOpen} onOpenChange={setEditEventOpen} event={editingEvent} onSubmit={handleEditEvent} onDelete={handleDeleteEvent} />

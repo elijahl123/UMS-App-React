@@ -8,6 +8,19 @@ export type GoogleCalendarStatus = {
   lastSyncedAt: string | null;
   lastError: string | null;
   syncInProgress: boolean;
+  historyMonths: number;
+  selectedCalendarIds: string[];
+  setupCompleted: boolean;
+  reauthorizationRequired: boolean;
+};
+
+export type GoogleOwnedCalendar = {
+  id: string;
+  summary: string;
+  timeZone: string;
+  backgroundColor: string | null;
+  primary: boolean;
+  selected: boolean;
 };
 
 export type GoogleCalendarSyncResult = {
@@ -41,6 +54,20 @@ export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
 
 export async function connectGoogleCalendar(): Promise<{ authorizationUrl: string }> {
   return googleCalendarRequest<{ authorizationUrl: string }>('/connect', { method: 'POST', body: '{}' });
+}
+
+export async function getOwnedGoogleCalendars(): Promise<GoogleOwnedCalendar[]> {
+  return googleCalendarRequest<GoogleOwnedCalendar[]>('/calendars');
+}
+
+export async function updateGoogleCalendarSettings(
+  calendarIds: string[],
+  historyMonths: number
+): Promise<GoogleCalendarStatus> {
+  return googleCalendarRequest<GoogleCalendarStatus>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ calendarIds, historyMonths }),
+  });
 }
 
 export async function syncGoogleCalendar(forceFull = false): Promise<GoogleCalendarSyncResult> {

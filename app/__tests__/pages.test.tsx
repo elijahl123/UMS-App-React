@@ -208,6 +208,10 @@ describe('page rendering', () => {
       lastSyncedAt: '2026-07-22T10:00:00.000Z',
       lastError: null,
       syncInProgress: false,
+      historyMonths: 6,
+      selectedCalendarIds: ['primary'],
+      setupCompleted: true,
+      reauthorizationRequired: false,
     };
 
     renderWithRouter(<AccountPage />);
@@ -216,6 +220,31 @@ describe('page rendering', () => {
     await user.click(screen.getByRole('button', { name: /sync now/i }));
 
     expect(googleCalendarActions.syncGoogleCalendar).toHaveBeenCalled();
+  });
+
+  it('saves Google Calendar import settings before a full import', async () => {
+    const user = userEvent.setup();
+    googleCalendarState.status = {
+      configured: true,
+      connected: true,
+      googleEmail: 'jane@gmail.com',
+      calendarId: 'primary',
+      lastSyncedAt: null,
+      lastError: null,
+      syncInProgress: false,
+      historyMonths: 6,
+      selectedCalendarIds: ['primary'],
+      setupCompleted: false,
+      reauthorizationRequired: false,
+    };
+
+    renderWithRouter(<AccountPage />);
+
+    await user.selectOptions(await screen.findByLabelText(/import history/i), '12');
+    await user.click(screen.getByRole('button', { name: /save & import/i }));
+
+    expect(googleCalendarActions.updateGoogleCalendarSettings).toHaveBeenCalledWith(['primary'], 12);
+    expect(googleCalendarActions.syncGoogleCalendar).toHaveBeenCalledWith(true);
   });
 
   it('deletes an account after email confirmation', async () => {
@@ -252,6 +281,10 @@ describe('page rendering', () => {
       lastSyncedAt: new Date().toISOString(),
       lastError: null,
       syncInProgress: false,
+      historyMonths: 6,
+      selectedCalendarIds: ['primary'],
+      setupCompleted: true,
+      reauthorizationRequired: false,
     };
 
     renderWithRouter(<CalendarPage />);
