@@ -124,4 +124,23 @@ describe('compact Google Calendar recurrence expansion', () => {
     ]);
     expect(expanded.every((event) => event.event_time === null)).toBe(true);
   });
+
+  it('includes a multi-day occurrence that begins before the requested range', () => {
+    const expanded = expandRecurringEventRows(
+      [recurringRow({
+        event_date: '2026-03-02',
+        end_date: '2026-03-04',
+        event_time: null,
+        end_time: null,
+        google_recurrence: ['RRULE:FREQ=WEEKLY;COUNT=2'],
+      })],
+      '2026-03-03',
+      '2026-03-10'
+    );
+
+    expect(expanded.map((event) => [event.event_date, event.end_date])).toEqual([
+      ['2026-03-02', '2026-03-04'],
+      ['2026-03-09', '2026-03-11'],
+    ]);
+  });
 });

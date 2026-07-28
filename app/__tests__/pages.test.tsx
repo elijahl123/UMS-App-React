@@ -95,6 +95,22 @@ describe('page rendering', () => {
     expect(await screen.findByText(/study group/i)).toBeInTheDocument();
   });
 
+  it('temporarily filters calendar item types', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<CalendarPage />);
+
+    expect(screen.getByTitle('Event: Study Group')).toBeInTheDocument();
+    const eventFilter = screen.getByRole('button', { name: 'Hide Event' });
+    expect(eventFilter).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(eventFilter);
+    await waitFor(() => expect(screen.queryByTitle('Event: Study Group')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Show Event' })).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(screen.getByRole('button', { name: 'Show Event' }));
+    expect(await screen.findByTitle('Event: Study Group')).toBeInTheDocument();
+  });
+
   it('renders courses and course details', () => {
     renderWithRouter(<CoursesPage />);
 

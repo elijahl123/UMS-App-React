@@ -64,6 +64,7 @@ describe('Google Calendar sync utilities', () => {
     ).toMatchObject({
       title: 'Reading day',
       date: '2026-07-22',
+      endDate: null,
       time: null,
       endTime: null,
       timeZone: 'America/Los_Angeles',
@@ -84,6 +85,7 @@ describe('Google Calendar sync utilities', () => {
     ).toMatchObject({
       title: 'Study group',
       date: '2026-07-22',
+      endDate: null,
       time: '16:00',
       endTime: '17:30',
       timeZone: 'America/Los_Angeles',
@@ -97,6 +99,7 @@ describe('Google Calendar sync utilities', () => {
       localEventToGooglePayload({
         title: 'All-day fair',
         event_date: '2026-07-22',
+        end_date: null,
         event_time: null,
         end_time: null,
         event_timezone: 'America/Los_Angeles',
@@ -113,6 +116,7 @@ describe('Google Calendar sync utilities', () => {
       localEventToGooglePayload({
         title: 'Project demo',
         event_date: '2026-07-22',
+        end_date: null,
         event_time: '16:00:00',
         end_time: null,
         event_timezone: 'America/Los_Angeles',
@@ -123,6 +127,67 @@ describe('Google Calendar sync utilities', () => {
       description: 'Final walkthrough',
       start: { dateTime: '2026-07-22T16:00:00', timeZone: 'America/Los_Angeles' },
       end: { dateTime: '2026-07-22T17:00:00', timeZone: 'America/Los_Angeles' },
+    });
+  });
+
+  it('preserves inclusive multi-day ranges at the Google boundary', async () => {
+    const { googleEventToLocalFields, localEventToGooglePayload } = await import('../googleCalendarSync');
+
+    expect(
+      googleEventToLocalFields({
+        id: 'trip',
+        summary: 'Conference',
+        start: { date: '2026-07-22' },
+        end: { date: '2026-07-26' },
+      })
+    ).toMatchObject({
+      date: '2026-07-22',
+      endDate: '2026-07-25',
+      time: null,
+    });
+
+    expect(
+      localEventToGooglePayload({
+        title: 'Conference',
+        event_date: '2026-07-22',
+        end_date: '2026-07-25',
+        event_time: null,
+        end_time: null,
+        event_timezone: 'America/Los_Angeles',
+        description: null,
+      })
+    ).toMatchObject({
+      start: { date: '2026-07-22' },
+      end: { date: '2026-07-26' },
+    });
+
+    expect(
+      googleEventToLocalFields({
+        id: 'overnight',
+        summary: 'Hackathon',
+        start: { dateTime: '2026-07-22T20:00:00-07:00', timeZone: 'America/Los_Angeles' },
+        end: { dateTime: '2026-07-23T08:00:00-07:00', timeZone: 'America/Los_Angeles' },
+      })
+    ).toMatchObject({
+      date: '2026-07-22',
+      endDate: '2026-07-23',
+      time: '20:00',
+      endTime: '08:00',
+    });
+
+    expect(
+      localEventToGooglePayload({
+        title: 'Hackathon',
+        event_date: '2026-07-22',
+        end_date: '2026-07-23',
+        event_time: '20:00',
+        end_time: '08:00',
+        event_timezone: 'America/Los_Angeles',
+        description: null,
+      })
+    ).toMatchObject({
+      start: { dateTime: '2026-07-22T20:00:00' },
+      end: { dateTime: '2026-07-23T08:00:00' },
     });
   });
 });

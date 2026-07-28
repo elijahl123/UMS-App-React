@@ -54,6 +54,7 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
             recurrenceOriginalStart,
             title: typeof req.body?.title === 'string' ? req.body.title : undefined,
             date: typeof req.body?.date === 'string' ? req.body.date : undefined,
+            endDate: typeof req.body?.endDate === 'string' ? req.body.endDate : null,
             time: typeof req.body?.time === 'string' ? req.body.time : null,
             endTime: typeof req.body?.endTime === 'string' ? req.body.endTime : null,
             timeZone: typeof req.body?.timeZone === 'string' ? req.body.timeZone : undefined,

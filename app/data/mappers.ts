@@ -42,6 +42,7 @@ interface DbEvent {
   id: number | string;
   title: string;
   event_date: string;
+  end_date?: string | null;
   event_time: string | null;
   end_time?: string | null;
   event_timezone?: string | null;
@@ -104,6 +105,8 @@ export function mapClassSession(row: DbClassSession): ClassSession {
 }
 
 export function mapEvent(row: DbEvent): CalendarEvent {
+  const date = row.event_date.split('T')[0];
+  const endDate = row.end_date?.split('T')[0];
   const endTime = normalizeTimeString(row.end_time);
   const sourceProvider = row.source_provider ?? undefined;
   const googleEventId = row.google_event_id ?? undefined;
@@ -113,7 +116,8 @@ export function mapEvent(row: DbEvent): CalendarEvent {
   return {
     id: String(row.id),
     title: row.title,
-    date: row.event_date.split('T')[0], // Extract date part from ISO timestamp
+    date,
+    ...(endDate && endDate !== date ? { endDate } : {}),
     time: normalizeTimeString(row.event_time),
     timeZone: row.event_timezone || DEFAULT_DUE_TIME_ZONE,
     description: row.description ?? undefined,

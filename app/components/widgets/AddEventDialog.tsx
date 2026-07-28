@@ -12,9 +12,24 @@ import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 const schema = z.object({
   title: z.string().min(1, 'Title is required'),
   date: z.string().min(1, 'Date is required'),
+  endDate: z.string().optional(),
   time: z.string().optional(),
   endTime: z.string().optional(),
   description: z.string().optional(),
+}).superRefine((values, context) => {
+  if (values.endDate && values.endDate < values.date) {
+    context.addIssue({ code: 'custom', path: ['endDate'], message: 'End date cannot be before the start date' });
+  }
+  if (!values.time && values.endTime) {
+    context.addIssue({ code: 'custom', path: ['endTime'], message: 'Choose a start time first' });
+  }
+  const isMultiDay = Boolean(values.endDate && values.endDate !== values.date);
+  if (values.time && isMultiDay && !values.endTime) {
+    context.addIssue({ code: 'custom', path: ['endTime'], message: 'End time is required for a timed multi-day event' });
+  }
+  if (values.time && values.endTime && !isMultiDay && values.endTime <= values.time) {
+    context.addIssue({ code: 'custom', path: ['endTime'], message: 'End time must be after the start time' });
+  }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -28,12 +43,13 @@ interface Props {
 function AddEventDialog({ open, onOpenChange, onSubmit }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', date: '', time: '', endTime: '', description: '' },
+    defaultValues: { title: '', date: '', endDate: '', time: '', endTime: '', description: '' },
   });
 
   const handleSubmit = (values: FormValues) => {
     onSubmit({
       ...values,
+      endDate: values.endDate && values.endDate !== values.date ? values.endDate : undefined,
       time: values.time || undefined,
       endTime: values.endTime || undefined,
       timeZone: getBrowserTimeZone(),
@@ -70,6 +86,19 @@ function AddEventDialog({ open, onOpenChange, onSubmit }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>End Date (optional)</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>

@@ -9,6 +9,7 @@ export type RecurringEventRow = {
   id: string | number;
   title: string;
   event_date: string;
+  end_date?: string | null;
   event_time: string | null;
   end_time: string | null;
   event_timezone: string | null;
@@ -38,6 +39,19 @@ function dateOnly(value: string): string {
 
 function normalizedTime(value: string | null): string | null {
   return value ? value.slice(0, 5) : null;
+}
+
+function addDays(dateIso: string, days: number): string {
+  const date = new Date(`${dateOnly(dateIso)}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function eventDurationDays(row: RecurringEventRow): number {
+  if (!row.end_date) return 0;
+  const start = new Date(`${dateOnly(row.event_date)}T00:00:00.000Z`).getTime();
+  const end = new Date(`${dateOnly(row.end_date)}T00:00:00.000Z`).getTime();
+  return Math.max(0, Math.round((end - start) / 86_400_000));
 }
 
 function compactDate(value: string): string {
@@ -125,6 +139,7 @@ function generatedOccurrence(row: RecurringEventRow, occurrence: Date): Expanded
     ...row,
     id: occurrenceId(seriesId, originalStart),
     event_date: parts.date,
+    end_date: eventDurationDays(row) > 0 ? addDays(parts.date, eventDurationDays(row)) : null,
     event_time: parts.time,
     end_time: endTimeForOccurrence(row),
     recurring_series_id: seriesId,
@@ -174,7 +189,9 @@ export function expandRecurringEventRows(
     );
     const usedExceptions = new Set<string>();
 
-    for (const occurrence of recurrenceSet(master).between(from, to, true)) {
+    const recurrenceFrom = new Date(from);
+    recurrenceFrom.setUTCDate(recurrenceFrom.getUTCDate() - eventDurationDays(master));
+    for (const occurrence of recurrenceSet(master).between(recurrenceFrom, to, true)) {
       const generated = generatedOccurrence(master, occurrence);
       const originalStart = generated.recurrence_original_start as string;
       const exception = exceptionsByStart.get(originalStart);
@@ -182,11 +199,14 @@ export function expandRecurringEventRows(
         usedExceptions.add(String(exception.id));
         if (!exception.google_cancelled) {
           const replacement = exceptionOccurrence(master, exception);
-          if (replacement.event_date >= fromDate && replacement.event_date < toDateExclusive) {
+          if (
+            replacement.event_date < toDateExclusive
+            && (replacement.end_date ?? replacement.event_date) >= fromDate
+          ) {
             expanded.push(replacement);
           }
         }
-      } else {
+      } else if ((generated.end_date ?? generated.event_date) >= fromDate) {
         expanded.push(generated);
       }
     }
@@ -194,7 +214,10 @@ export function expandRecurringEventRows(
     for (const exception of exceptions) {
       if (usedExceptions.has(String(exception.id)) || exception.google_cancelled) continue;
       const replacement = exceptionOccurrence(master, exception);
-      if (replacement.event_date >= fromDate && replacement.event_date < toDateExclusive) {
+      if (
+        replacement.event_date < toDateExclusive
+        && (replacement.end_date ?? replacement.event_date) >= fromDate
+      ) {
         expanded.push(replacement);
       }
     }
@@ -206,7 +229,10 @@ export function expandRecurringEventRows(
   ]);
   const singles = rows
     .filter((row) => !recurringIds.has(String(row.id)) && !row.google_cancelled)
-    .filter((row) => dateOnly(row.event_date) >= fromDate && dateOnly(row.event_date) < toDateExclusive)
+    .filter((row) =>
+      dateOnly(row.event_date) < toDateExclusive
+      && dateOnly(row.end_date ?? row.event_date) >= fromDate
+    )
     .map((row) => ({ ...row, id: String(row.id) }));
 
   return [...singles, ...expanded].sort((a, b) =>

@@ -48,6 +48,17 @@ describe('data mappers and calendar utilities', () => {
         description: 'Library room 2',
       })
     ).toEqual(events[0]);
+    expect(
+      mapEvent({
+        id: 2,
+        title: 'Conference',
+        event_date: '2026-07-22',
+        end_date: '2026-07-25',
+        event_time: null,
+        event_timezone: 'America/Los_Angeles',
+        description: null,
+      })
+    ).toMatchObject({ date: '2026-07-22', endDate: '2026-07-25' });
     expect(mapNote({ id: 1, course_id: 1, title: notes[0].title, content: notes[0].content, created_at: notes[0].createdAt, updated_at: notes[0].updatedAt })).toEqual(notes[0]);
     expect(mapCourseLink({ id: 1, course_id: 1, label: links[0].label, url: links[0].url, created_at: links[0].createdAt })).toEqual(links[0]);
     expect(
@@ -91,6 +102,65 @@ describe('data mappers and calendar utilities', () => {
     expect(toIsoDate(new Date(2026, 6, 10))).toBe('2026-07-10');
     expect(itemsByDate.get('2026-07-10')?.map((item) => item.title)).toEqual(expect.arrayContaining(['MATH 101: Limits Worksheet']));
     expect(itemsByDate.get('2026-07-22')?.map((item) => item.title)).toEqual(expect.arrayContaining(['Study Group']));
+    expect(itemsByDate.get('2026-07-22')?.find((item) => item.type === 'event')).toMatchObject({
+      color: 'var(--calendar-event-bg)',
+      textColor: 'var(--calendar-event-text)',
+      borderColor: 'var(--calendar-event-border)',
+    });
     expect(getCourseColor('course-blue').border).toBeTruthy();
+  });
+
+  it('expands event ranges and groups only consecutive study-plan days', () => {
+    const rangedEvent = {
+      ...events[0],
+      id: 'range-1',
+      date: '2026-07-30',
+      endDate: '2026-08-02',
+    };
+    const plan = {
+      id: 'plan-1',
+      courseId: courses[0].id,
+      courseCode: courses[0].code,
+      courseName: courses[0].name,
+      courseColor: courses[0].color,
+      examType: 'final' as const,
+      examDate: '2026-08-15',
+      startDate: '2026-07-01',
+      timeZone: 'America/Los_Angeles',
+      archived: false,
+      createdAt: '2026-07-01T00:00:00Z',
+      updatedAt: '2026-07-01T00:00:00Z',
+      totalTasks: 3,
+      completedTasks: 0,
+      overdueTasks: 0,
+      studyDaysLeft: 3,
+      activeTopics: 1,
+      nextStudyDate: '2026-07-20',
+      nextTaskTitle: 'Read',
+    };
+    const studyCalendar = {
+      from: '2026-06-28',
+      to: '2026-08-09',
+      plans: [plan],
+      tasks: ['2026-07-20', '2026-07-21', '2026-07-23'].map((scheduledDate, index) => ({
+        id: `task-${index}`,
+        planId: plan.id,
+        topicId: 'topic-1',
+        phase: 'learn' as const,
+        title: `Task ${index}`,
+        scheduledDate,
+        estimatedMinutes: 30,
+        completedAt: null,
+        sequence: index,
+      })),
+    };
+
+    const itemsByDate = buildCalendarItems(2026, 6, [], [], [rangedEvent], courses, studyCalendar);
+    const eventSegments = ['2026-07-30', '2026-07-31', '2026-08-01', '2026-08-02'].map(
+      (date) => itemsByDate.get(date)?.find((item) => item.type === 'event')
+    );
+    expect(eventSegments.map((item) => item?.segmentPosition)).toEqual(['start', 'middle', 'middle', 'end']);
+    expect(itemsByDate.get('2026-07-20')?.find((item) => item.type === 'study')?.rangeEnd).toBe('2026-07-21');
+    expect(itemsByDate.get('2026-07-23')?.find((item) => item.type === 'study')?.segmentPosition).toBe('single');
   });
 });

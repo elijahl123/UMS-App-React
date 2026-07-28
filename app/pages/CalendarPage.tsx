@@ -5,7 +5,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Brain, CalendarDays, ChevronLeft, ChevronRight, FileText, GraduationCap, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { mapCourse, mapAssignment, mapClassSession, mapEvent } from '@/app/data/mappers';
-import { buildCalendarItems, getMonthGridDates, toIsoDate, type CalendarItem } from '@/app/data/calendarUtils';
+import {
+  buildCalendarItems,
+  CALENDAR_ITEM_TYPES,
+  getMonthGridDates,
+  toIsoDate,
+  type CalendarItem,
+  type CalendarItemType,
+} from '@/app/data/calendarUtils';
 import CalendarMonthGrid from '@/app/components/calendar/CalendarMonthGrid';
 import DayDetailsDialog from '@/app/components/calendar/DayDetailsDialog';
 import AddEventDialog from '@/app/components/widgets/AddEventDialog';
@@ -65,10 +72,24 @@ function formatItemTime(item: CalendarItem): string {
   return time ?? (item.type === 'assignment' ? 'Due all day' : 'All day');
 }
 
+function formatRangeDate(value: string, includeYear: boolean): string {
+  return dateFromIso(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(includeYear ? { year: 'numeric' } : {}),
+  });
+}
+
+function formatItemSchedule(item: CalendarItem): string {
+  if (!item.isMultiDay) return formatItemTime(item);
+  const sameYear = item.rangeStart.slice(0, 4) === item.rangeEnd.slice(0, 4);
+  return `${formatRangeDate(item.rangeStart, !sameYear)} – ${formatRangeDate(item.rangeEnd, true)} · ${formatItemTime(item)}`;
+}
+
 function itemTypeLabel(type: CalendarItem['type']): string {
   if (type === 'assignment') return 'Assignment';
-  if (type === 'class') return 'Class';
-  if (type === 'study') return 'Study';
+  if (type === 'class') return 'Course time';
+  if (type === 'study') return 'Study plan';
   if (type === 'exam') return 'Exam';
   return 'Event';
 }
@@ -79,6 +100,14 @@ function itemIcon(type: CalendarItem['type']) {
   if (type === 'study') return Brain;
   if (type === 'exam') return GraduationCap;
   return CalendarDays;
+}
+
+function itemTreatment(type: CalendarItem['type']): string {
+  if (type === 'class') return 'border-dotted';
+  if (type === 'study') return 'border-dashed';
+  if (type === 'exam') return 'ring-1 ring-inset ring-[var(--mobile-item-border)]';
+  if (type === 'assignment') return 'border-l-4';
+  return '';
 }
 
 function requestError(err: unknown, fallback: string): string {
@@ -125,6 +154,9 @@ function CalendarPage() {
   const [googleCalendarStatus, setGoogleCalendarStatus] = useState<GoogleCalendarStatus | null>(null);
   const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false);
   const [googleCalendarError, setGoogleCalendarError] = useState<string | null>(null);
+  const [visibleItemTypes, setVisibleItemTypes] = useState<Set<CalendarItemType>>(
+    () => new Set(CALENDAR_ITEM_TYPES)
+  );
   const studyGridDates = useMemo(() => getMonthGridDates(cursor.year, cursor.month), [cursor.month, cursor.year]);
   const studyRangeFrom = toIsoDate(studyGridDates[0]);
   const rangeLastDate = studyGridDates[studyGridDates.length - 1];
@@ -224,6 +256,23 @@ function CalendarPage() {
     () => buildCalendarItems(cursor.year, cursor.month, assignments, sessions, events, courses, studyCalendar),
     [cursor, assignments, sessions, events, courses, studyCalendar]
   );
+  const filteredItemsByDate = useMemo(() => {
+    const filtered = new Map<string, CalendarItem[]>();
+    itemsByDate.forEach((items, date) => {
+      const visibleItems = items.filter((item) => visibleItemTypes.has(item.type));
+      if (visibleItems.length > 0) filtered.set(date, visibleItems);
+    });
+    return filtered;
+  }, [itemsByDate, visibleItemTypes]);
+
+  const handleTypeToggle = (type: CalendarItemType) => {
+    setVisibleItemTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   const isLoading = coursesLoading || assignmentsLoading || sessionsLoading || eventsLoading || studyPlansLoading;
 
@@ -249,6 +298,7 @@ function CalendarPage() {
     await addEvent({
       title: values.title,
       date: values.date,
+      endDate: values.endDate ?? null,
       time: values.time ?? null,
       timeZone: values.timeZone,
       description: values.description ?? null,
@@ -262,9 +312,10 @@ function CalendarPage() {
     if (item.type === 'event' && 'id' in item.raw) {
       const event = item.raw as CalendarEvent & { id: string };
       setEditingEvent({
-        id: item.id.replace('event-', ''),
+        id: event.id,
         title: event.title,
         date: event.date,
+        endDate: event.endDate,
         time: event.time,
         endTime: event.endTime,
         timeZone: event.timeZone,
@@ -312,6 +363,7 @@ function CalendarPage() {
       id: values.id,
       title: values.title,
       date: values.date,
+      endDate: values.endDate ?? null,
       time: values.time ?? null,
       endTime: values.endTime ?? null,
       timeZone: values.timeZone,
@@ -339,7 +391,7 @@ function CalendarPage() {
     return <div className="p-6 text-center text-muted-foreground">Loading calendar...</div>;
   }
 
-  const selectedItems = itemsByDate.get(selectedDate) ?? [];
+  const selectedItems = filteredItemsByDate.get(selectedDate) ?? [];
   const selectedDateLabel = formatSelectedDate(selectedDate);
   const itemCountLabel = `${selectedItems.length} ${selectedItems.length === 1 ? 'item' : 'items'}`;
   const googleCalendarConnected = Boolean(
@@ -425,10 +477,12 @@ function CalendarPage() {
             <CalendarMonthGrid
               year={cursor.year}
               month={cursor.month}
-              itemsByDate={itemsByDate}
+              itemsByDate={filteredItemsByDate}
               selectedDate={selectedDate}
               variant="mobile"
               onDayClick={setSelectedDate}
+              visibleTypes={visibleItemTypes}
+              onTypeToggle={handleTypeToggle}
             />
 
             <div className="mt-4 flex items-center justify-between gap-4">
@@ -453,7 +507,7 @@ function CalendarPage() {
                     <button
                       key={item.id}
                       type="button"
-                      className="mobile-list-item grid min-h-20 grid-cols-[0.35rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3"
+                      className={`mobile-list-item grid min-h-20 grid-cols-[0.35rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3 ${itemTreatment(item.type)}`}
                       style={itemStyle}
                       onClick={() => handleItemClick(item)}
                     >
@@ -465,7 +519,7 @@ function CalendarPage() {
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-base font-bold text-[var(--secondary-accent)]">{item.title}</span>
-                        <span className="block truncate text-sm text-[var(--text-secondary)]">{formatItemTime(item)}</span>
+                        <span className="block truncate text-sm text-[var(--text-secondary)]">{formatItemSchedule(item)}</span>
                       </span>
                       <span
                         className="rounded-lg border bg-white/35 px-3 py-1 text-xs font-semibold"
@@ -525,8 +579,10 @@ function CalendarPage() {
             <CalendarMonthGrid
               year={cursor.year}
               month={cursor.month}
-              itemsByDate={itemsByDate}
+              itemsByDate={filteredItemsByDate}
               onDayClick={setDialogDate}
+              visibleTypes={visibleItemTypes}
+              onTypeToggle={handleTypeToggle}
             />
           </CardContent>
         </Card>
@@ -535,7 +591,7 @@ function CalendarPage() {
         open={dialogDate !== null}
         onOpenChange={(open) => !open && setDialogDate(null)}
         date={dialogDate}
-        items={dialogDate ? itemsByDate.get(dialogDate) ?? [] : []}
+        items={dialogDate ? filteredItemsByDate.get(dialogDate) ?? [] : []}
         onEventClick={handleEventClick}
         onItemClick={handleItemClick}
         onStudyTaskToggle={handleStudyTaskToggle}

@@ -10,20 +10,52 @@ import type {
 import { getCourseColor, type CourseColor } from '@/app/data/courseColors';
 import { groupStudyDays } from '@/app/data/studyPlans';
 
+export type CalendarItemType = 'assignment' | 'class' | 'event' | 'study' | 'exam';
+export type CalendarSegmentPosition = 'single' | 'start' | 'middle' | 'end';
+
+export const CALENDAR_ITEM_TYPES: CalendarItemType[] = ['assignment', 'class', 'study', 'exam', 'event'];
+
+export const CALENDAR_TYPE_LABELS: Record<CalendarItemType, string> = {
+  assignment: 'Assignment',
+  class: 'Course time',
+  event: 'Event',
+  study: 'Study plan',
+  exam: 'Exam',
+};
+
 export interface CalendarItem {
   id: string;
-  type: 'assignment' | 'class' | 'event' | 'study' | 'exam';
+  sourceId: string;
+  type: CalendarItemType;
+  typeLabel: string;
   title: string;
-  date: string; // ISO date (yyyy-mm-dd)
+  date: string;
   time?: string;
   color: string;
   textColor: string;
   borderColor: string;
   course?: Course;
+  rangeId: string;
+  rangeStart: string;
+  rangeEnd: string;
+  segmentPosition: CalendarSegmentPosition;
+  isMultiDay: boolean;
   raw: Assignment | ClassSession | CalendarEvent | StudyDay | StudyPlanSummary;
 }
 
 const dayNames: ClassSession['day'][] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const eventColors: CourseColor = {
+  bg: 'var(--calendar-event-bg)',
+  text: 'var(--calendar-event-text)',
+  border: 'var(--calendar-event-border)',
+};
+const typeOrder: Record<CalendarItemType, number> = {
+  exam: 0,
+  event: 1,
+  assignment: 2,
+  study: 3,
+  class: 4,
+};
 
 export function toIsoDate(date: Date): string {
   const year = date.getFullYear();
@@ -32,16 +64,43 @@ export function toIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function addIsoDays(dateIso: string, days: number): string {
+  const date = new Date(`${dateIso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 export function getMonthGridDates(year: number, month: number): Date[] {
   const firstOfMonth = new Date(year, month, 1);
   const startOffset = firstOfMonth.getDay();
   const gridStart = new Date(year, month, 1 - startOffset);
+  return Array.from({ length: 42 }, (_, index) =>
+    new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + index)
+  );
+}
 
-  const dates: Date[] = [];
-  for (let i = 0; i < 42; i++) {
-    dates.push(new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i));
-  }
+function segmentPosition(date: string, start: string, end: string): CalendarSegmentPosition {
+  if (start === end) return 'single';
+  if (date === start) return 'start';
+  if (date === end) return 'end';
+  return 'middle';
+}
+
+function datesInRange(start: string, end: string, visibleStart: string, visibleEnd: string): string[] {
+  const clippedStart = start < visibleStart ? visibleStart : start;
+  const clippedEnd = end > visibleEnd ? visibleEnd : end;
+  if (clippedStart > clippedEnd) return [];
+  const dates: string[] = [];
+  for (let date = clippedStart; date <= clippedEnd; date = addIsoDays(date, 1)) dates.push(date);
   return dates;
+}
+
+function sortItems(items: CalendarItem[]): CalendarItem[] {
+  return items.sort((a, b) => {
+    if (a.isMultiDay !== b.isMultiDay) return a.isMultiDay ? -1 : 1;
+    if (typeOrder[a.type] !== typeOrder[b.type]) return typeOrder[a.type] - typeOrder[b.type];
+    return `${a.time ?? '99:99'} ${a.title} ${a.id}`.localeCompare(`${b.time ?? '99:99'} ${b.title} ${b.id}`);
+  });
 }
 
 export function buildCalendarItems(
@@ -53,109 +112,142 @@ export function buildCalendarItems(
   courses: Course[],
   studyCalendar?: StudyCalendarData
 ): Map<string, CalendarItem[]> {
-  const getCourse = (courseId: string) => courses.find((c) => c.id === courseId);
+  const getCourse = (courseId: string) => courses.find((course) => course.id === courseId);
   const map = new Map<string, CalendarItem[]>();
+  const gridDates = getMonthGridDates(year, month);
+  const visibleStart = toIsoDate(gridDates[0]);
+  const visibleEnd = toIsoDate(gridDates[gridDates.length - 1]);
 
-  const addItem = (dateIso: string, item: CalendarItem) => {
-    const existing = map.get(dateIso) ?? [];
-    existing.push(item);
-    map.set(dateIso, existing);
+  const addItem = (
+    date: string,
+    base: Omit<CalendarItem, 'id' | 'date' | 'segmentPosition' | 'isMultiDay' | 'typeLabel'>
+  ) => {
+    const item: CalendarItem = {
+      ...base,
+      id: `${base.rangeId}:${date}`,
+      date,
+      typeLabel: CALENDAR_TYPE_LABELS[base.type],
+      segmentPosition: segmentPosition(date, base.rangeStart, base.rangeEnd),
+      isMultiDay: base.rangeStart !== base.rangeEnd,
+    };
+    map.set(date, [...(map.get(date) ?? []), item]);
   };
 
-  assignments.forEach((a) => {
-    const course = getCourse(a.courseId);
+  assignments.forEach((assignment) => {
+    const course = getCourse(assignment.courseId);
     const colors = getCourseColor(course?.color);
-    addItem(a.dueDate, {
-      id: `assignment-${a.id}`,
+    addItem(assignment.dueDate, {
+      sourceId: assignment.id,
+      rangeId: `assignment-${assignment.id}`,
+      rangeStart: assignment.dueDate,
+      rangeEnd: assignment.dueDate,
       type: 'assignment',
-      title: `${course ? `${course.code}: ` : ''}${a.name}`,
-      date: a.dueDate,
-      time: a.dueTime,
+      title: `${course ? `${course.code}: ` : ''}${assignment.name}`,
+      time: assignment.dueTime,
       color: colors.bg,
       textColor: colors.text,
       borderColor: colors.border,
       course,
-      raw: a,
+      raw: assignment,
     });
   });
 
-  events.forEach((e) => {
-    const colors: CourseColor = { bg: 'var(--course-blue)', text: '#1F3A66', border: '#9fb6e6' };
-    addItem(e.date, {
-      id: `event-${e.id}`,
-      type: 'event',
-      title: e.title,
-      date: e.date,
-      time: e.time,
-      color: colors.bg,
-      textColor: colors.text,
-      borderColor: colors.border,
-      raw: e,
+  events.forEach((event) => {
+    const rangeEnd = event.endDate && event.endDate >= event.date ? event.endDate : event.date;
+    datesInRange(event.date, rangeEnd, visibleStart, visibleEnd).forEach((date) => {
+      addItem(date, {
+        sourceId: event.id,
+        rangeId: `event-${event.id}`,
+        rangeStart: event.date,
+        rangeEnd,
+        type: 'event',
+        title: event.title,
+        time: date === event.date ? event.time : undefined,
+        color: eventColors.bg,
+        textColor: eventColors.text,
+        borderColor: eventColors.border,
+        raw: event,
+      });
     });
   });
 
   const studyPlans = studyCalendar?.plans ?? [];
   const studyTasks = studyCalendar?.tasks ?? [];
-  studyPlans
-    .filter((plan) => !plan.archived)
-    .forEach((plan) => {
-      const course = getCourse(plan.courseId);
-      const colors = getCourseColor(course?.color ?? plan.courseColor);
-      groupStudyDays({
-        id: plan.id,
-        courseId: plan.courseId,
-        tasks: studyTasks.filter((task) => task.planId === plan.id),
-      }).forEach((day) => {
-        addItem(day.date, {
-          id: `study-${plan.id}-${day.date}`,
+  studyPlans.filter((plan) => !plan.archived).forEach((plan) => {
+    const course = getCourse(plan.courseId);
+    const colors = getCourseColor(course?.color ?? plan.courseColor);
+    const days = groupStudyDays({
+      id: plan.id,
+      courseId: plan.courseId,
+      tasks: studyTasks.filter((task) => task.planId === plan.id),
+    }).sort((a, b) => a.date.localeCompare(b.date));
+
+    let sequenceStart = 0;
+    days.forEach((day, index) => {
+      const nextDay = days[index + 1];
+      const isSequenceEnd = !nextDay || nextDay.date !== addIsoDays(day.date, 1);
+      if (!isSequenceEnd) return;
+      const rangeStart = days[sequenceStart].date;
+      const rangeEnd = day.date;
+      for (let dayIndex = sequenceStart; dayIndex <= index; dayIndex += 1) {
+        const studyDay = days[dayIndex];
+        addItem(studyDay.date, {
+          sourceId: plan.id,
+          rangeId: `study-${plan.id}-${rangeStart}`,
+          rangeStart,
+          rangeEnd,
           type: 'study',
           title: `${course?.code ?? plan.courseCode}: Study plan`,
-          date: day.date,
           color: colors.bg,
           textColor: colors.text,
           borderColor: colors.border,
           course,
-          raw: day,
-        });
-      });
-      if (plan.examDate >= (studyCalendar?.from ?? '') && plan.examDate < (studyCalendar?.to ?? '9999-12-31')) {
-        addItem(plan.examDate, {
-          id: `exam-${plan.id}`,
-          type: 'exam',
-          title: `${course?.code ?? plan.courseCode}: ${plan.examType === 'final' ? 'Final exam' : 'Midterm exam'}`,
-          date: plan.examDate,
-          color: colors.bg,
-          textColor: colors.text,
-          borderColor: colors.border,
-          course,
-          raw: plan,
+          raw: studyDay,
         });
       }
+      sequenceStart = index + 1;
     });
 
-  const gridDates = getMonthGridDates(year, month);
+    if (plan.examDate >= visibleStart && plan.examDate <= visibleEnd) {
+      addItem(plan.examDate, {
+        sourceId: plan.id,
+        rangeId: `exam-${plan.id}`,
+        rangeStart: plan.examDate,
+        rangeEnd: plan.examDate,
+        type: 'exam',
+        title: `${course?.code ?? plan.courseCode}: ${plan.examType === 'final' ? 'Final exam' : 'Midterm exam'}`,
+        color: colors.bg,
+        textColor: colors.text,
+        borderColor: colors.border,
+        course,
+        raw: plan,
+      });
+    }
+  });
+
   gridDates.forEach((date) => {
     const dayName = dayNames[date.getDay()];
     const iso = toIsoDate(date);
-    classSessions
-      .filter((s) => s.day === dayName)
-      .forEach((s) => {
-        const course = getCourse(s.courseId);
-        const colors = getCourseColor(course?.color);
-        addItem(iso, {
-          id: `class-${s.id}-${iso}`,
-          type: 'class',
-          title: `${course ? course.code : 'Class'}`,
-          date: iso,
-          time: s.startTime,
-          color: colors.bg,
-          textColor: colors.text,
-          borderColor: colors.border,
-          course,
-          raw: s,
-        });
+    classSessions.filter((session) => session.day === dayName).forEach((session) => {
+      const course = getCourse(session.courseId);
+      const colors = getCourseColor(course?.color);
+      addItem(iso, {
+        sourceId: session.id,
+        rangeId: `class-${session.id}-${iso}`,
+        rangeStart: iso,
+        rangeEnd: iso,
+        type: 'class',
+        title: course?.code ?? 'Class',
+        time: session.startTime,
+        color: colors.bg,
+        textColor: colors.text,
+        borderColor: colors.border,
+        course,
+        raw: session,
       });
+    });
   });
 
+  map.forEach((items, date) => map.set(date, sortItems(items)));
   return map;
 }
