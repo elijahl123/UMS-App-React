@@ -27,3 +27,4 @@ ios/**/GoogleService-Info*.plist
 
 ios/App/App/Info.plist
 scripts/configure-ios-google-oauth.sh
+/ios/App/App.xcodeproj/xcshareddata/xcodecloud/manifest.json
