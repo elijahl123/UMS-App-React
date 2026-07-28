@@ -736,7 +736,7 @@ export async function loadStudyPlanCalendar(
 ) {
   const plans = await client.query(
     `
-      SELECT DISTINCT
+      SELECT
         plan.id,
         plan.course_id,
         plan.exam_type,
