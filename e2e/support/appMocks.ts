@@ -100,8 +100,12 @@ const events = [
     id: 1,
     title: 'Project demo',
     event_date: '2026-07-20',
+    end_date: '2026-07-23',
     event_time: '15:00',
+    end_time: '16:00',
+    event_timezone: 'America/Los_Angeles',
     description: 'Final walkthrough.',
+    source_provider: 'google_calendar',
   },
 ];
 

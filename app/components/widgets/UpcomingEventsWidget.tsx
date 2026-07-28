@@ -48,9 +48,9 @@ function UpcomingEventsWidget({ events, onAdd, compact = false }: Props) {
           <ul className="flex flex-col gap-2">
             {visibleEvents.map((e) => {
               const itemStyle = {
-                '--mobile-item-bg': 'var(--course-blue)',
-                '--mobile-item-border': 'color-mix(in srgb, var(--course-blue) 72%, var(--secondary-accent))',
-                '--mobile-item-text': 'color-mix(in srgb, var(--course-blue) 48%, var(--secondary-accent))',
+                '--mobile-item-bg': 'var(--calendar-event-bg)',
+                '--mobile-item-border': 'var(--calendar-event-border)',
+                '--mobile-item-text': 'var(--calendar-event-text)',
               } as React.CSSProperties;
               return (
                 <li key={e.id}>

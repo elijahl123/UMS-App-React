@@ -27,6 +27,11 @@
   --course-pink: #f5cddd;
   --course-red: #f7c7c7;
 
+  --calendar-event-bg: var(--main-color);
+  --calendar-event-text: #633a3a;
+  --calendar-event-border: var(--main-color-shade);
+  --calendar-event-solid: var(--main-accent);
+
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
@@ -90,6 +95,14 @@
   --shadow-2xl: 0px 3px 5px 0.5px rgb(9 9 11 / 0.20);
 
   --tracking-normal: 0;
+}
+
+.calendar-filter-strip {
+  scrollbar-width: none;
+}
+
+.calendar-filter-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .dark {

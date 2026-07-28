@@ -170,14 +170,21 @@ describe('widgets and calendar components', () => {
     const onDayClick = vi.fn();
     const onEventClick = vi.fn();
     const item: CalendarItem = {
-      id: 'event-1',
+      id: 'event-1:2026-07-10',
+      sourceId: '1',
       type: 'event',
+      typeLabel: 'Event',
       title: 'Study Group',
       date: '2026-07-10',
       time: '16:00',
       color: '#fff',
       textColor: '#1F3A66',
       borderColor: '#9fb6e6',
+      rangeId: 'event-1',
+      rangeStart: '2026-07-10',
+      rangeEnd: '2026-07-10',
+      segmentPosition: 'single',
+      isMultiDay: false,
       raw: events[0],
     };
 
@@ -295,8 +302,13 @@ describe('form dialogs', () => {
     rerender(<AddEventDialog open onOpenChange={vi.fn()} onSubmit={onEventSubmit} />);
     await user.type(screen.getByLabelText(/event title/i), 'Office Hours');
     fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-07-11' } });
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: '2026-07-13' } });
     await user.click(screen.getByRole('button', { name: /add event/i }));
-    expect(onEventSubmit).toHaveBeenCalledWith(expect.objectContaining({ title: 'Office Hours', date: '2026-07-11' }));
+    expect(onEventSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Office Hours',
+      date: '2026-07-11',
+      endDate: '2026-07-13',
+    }));
 
     rerender(<CourseLinkFormDialog open onOpenChange={vi.fn()} onSubmit={onLinkSubmit} />);
     await user.type(screen.getByLabelText(/label/i), 'Portal');
@@ -314,6 +326,20 @@ describe('form dialogs', () => {
     await user.click(screen.getByRole('button', { name: /add link/i }));
 
     expect(await screen.findByText(/must be a valid url/i)).toBeInTheDocument();
+  });
+
+  it('rejects event ranges that end before they start', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<AddEventDialog open onOpenChange={vi.fn()} onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText(/event title/i), 'Conference');
+    fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-07-20' } });
+    fireEvent.change(screen.getByLabelText(/end date/i), { target: { value: '2026-07-19' } });
+    await user.click(screen.getByRole('button', { name: /add event/i }));
+
+    expect(await screen.findByText(/cannot be before/i)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 

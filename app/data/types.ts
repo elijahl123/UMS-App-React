@@ -48,6 +48,7 @@ export interface CalendarEvent {
   id: string;
   title: string;
   date: string; // ISO date
+  endDate?: string; // Inclusive ISO date; omitted for single-day events
   time?: string;
   endTime?: string;
   timeZone: string;

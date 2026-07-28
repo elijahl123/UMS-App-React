@@ -1,7 +1,24 @@
 import type { QueryConfig } from './db';
-import { required, type Params } from './errors';
+import { ApiError, required, type Params } from './errors';
 
 type ActionBuilder = (params: Params) => QueryConfig;
+
+function eventRange(params: Params) {
+  const date = String(required(params, 'date'));
+  const requestedEndDate = typeof params.endDate === 'string' && params.endDate ? params.endDate : null;
+  const endDate = requestedEndDate && requestedEndDate !== date ? requestedEndDate : null;
+  const time = typeof params.time === 'string' && params.time ? params.time : null;
+  const endTime = typeof params.endTime === 'string' && params.endTime ? params.endTime : null;
+
+  if (endDate && endDate < date) throw new ApiError('End date cannot be before start date.', 400);
+  if (!time && endTime) throw new ApiError('Start time is required when an end time is set.', 400);
+  if (time && endDate && !endTime) throw new ApiError('End time is required for a timed multi-day event.', 400);
+  if (time && endTime && !endDate && endTime <= time) {
+    throw new ApiError('End time must be after start time, or choose a later end date.', 400);
+  }
+
+  return { date, endDate, time, endTime };
+}
 
 const assignmentSelectColumns = `
   a.id,
@@ -206,6 +223,7 @@ const actionBuilders: Record<string, ActionBuilder> = {
         id,
         title,
         event_date::text AS event_date,
+        end_date::text AS end_date,
         event_time::text AS event_time,
         end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
@@ -224,14 +242,17 @@ const actionBuilders: Record<string, ActionBuilder> = {
     values: [required(params, 'userId')],
   }),
 
-  createEvent: (params) => ({
-    text: `
-      INSERT INTO events (title, event_date, event_time, end_time, event_timezone, description, user_id)
-      VALUES ($1, $2::date, NULLIF($3, '')::time, NULLIF($4, '')::time, $5, $6, $7)
+  createEvent: (params) => {
+    const range = eventRange(params);
+    return {
+      text: `
+      INSERT INTO events (title, event_date, end_date, event_time, end_time, event_timezone, description, user_id)
+      VALUES ($1, $2::date, $3::date, $4::time, $5::time, $6, $7, $8)
       RETURNING
         id,
         title,
         event_date::text AS event_date,
+        end_date::text AS end_date,
         event_time::text AS event_time,
         end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
@@ -244,32 +265,38 @@ const actionBuilders: Record<string, ActionBuilder> = {
         google_updated_at,
         updated_at;
     `,
-    values: [
-      required(params, 'title'),
-      required(params, 'date'),
-      params.time ?? null,
-      params.endTime ?? null,
-      params.timeZone ?? 'UTC',
-      params.description ?? null,
-      required(params, 'userId'),
-    ],
-  }),
+      values: [
+        required(params, 'title'),
+        range.date,
+        range.endDate,
+        range.time,
+        range.endTime,
+        params.timeZone ?? 'UTC',
+        params.description ?? null,
+        required(params, 'userId'),
+      ],
+    };
+  },
 
-  updateEvent: (params) => ({
-    text: `
+  updateEvent: (params) => {
+    const range = eventRange(params);
+    return {
+      text: `
       UPDATE events
       SET title = $1,
           event_date = $2::date,
-          event_time = NULLIF($3, '')::time,
-          end_time = NULLIF($4, '')::time,
-          event_timezone = $5,
-          description = $6,
+          end_date = $3::date,
+          event_time = $4::time,
+          end_time = $5::time,
+          event_timezone = $6,
+          description = $7,
           updated_at = NOW()
-      WHERE id = $7::bigint AND user_id = $8
+      WHERE id = $8::bigint AND user_id = $9
       RETURNING
         id,
         title,
         event_date::text AS event_date,
+        end_date::text AS end_date,
         event_time::text AS event_time,
         end_time::text AS end_time,
         COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
@@ -282,17 +309,19 @@ const actionBuilders: Record<string, ActionBuilder> = {
         google_updated_at,
         updated_at;
     `,
-    values: [
-      required(params, 'title'),
-      required(params, 'date'),
-      params.time ?? null,
-      params.endTime ?? null,
-      params.timeZone ?? 'UTC',
-      params.description ?? null,
-      required(params, 'id'),
-      required(params, 'userId'),
-    ],
-  }),
+      values: [
+        required(params, 'title'),
+        range.date,
+        range.endDate,
+        range.time,
+        range.endTime,
+        params.timeZone ?? 'UTC',
+        params.description ?? null,
+        required(params, 'id'),
+        required(params, 'userId'),
+      ],
+    };
+  },
 
   deleteEvent: (params) => ({
     text: `

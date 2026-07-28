@@ -146,6 +146,7 @@ type DbEvent = RecurringEventRow;
 export type LocalGoogleEventFields = {
   title: string;
   date: string;
+  endDate: string | null;
   time: string | null;
   endTime: string | null;
   timeZone: string;
@@ -159,6 +160,7 @@ export type RecurringOccurrenceMutation = {
   recurrenceOriginalStart: string;
   title?: string;
   date?: string;
+  endDate?: string | null;
   time?: string | null;
   endTime?: string | null;
   timeZone?: string;
@@ -626,9 +628,13 @@ export function googleEventToLocalFields(event: GoogleCalendarEvent, fallbackTim
   const timeZone = event.start.timeZone ?? event.end?.timeZone ?? fallbackTimeZone;
   const googleUpdatedAt = event.updated ? new Date(event.updated).toISOString() : null;
   if (event.start.date) {
+    const inclusiveEndDate = event.end?.date
+      ? addDays(event.end.date, -1)
+      : event.start.date;
     return {
       title: event.summary?.trim() || 'Untitled event',
       date: event.start.date,
+      endDate: inclusiveEndDate > event.start.date ? inclusiveEndDate : null,
       time: null,
       endTime: null,
       timeZone,
@@ -642,6 +648,7 @@ export function googleEventToLocalFields(event: GoogleCalendarEvent, fallbackTim
   return {
     title: event.summary?.trim() || 'Untitled event',
     date: start.date,
+    endDate: end?.date && end.date > start.date ? end.date : null,
     time: start.time,
     endTime: end?.time ?? null,
     timeZone,
@@ -661,15 +668,15 @@ function originalStartKey(event: GoogleCalendarEvent, fallbackTimeZone: string):
   return recurrenceKey(parts.date, parts.time);
 }
 
-function eventEndForGoogle(row: Pick<DbEvent, 'event_date' | 'event_time' | 'end_time'>) {
+function eventEndForGoogle(row: Pick<DbEvent, 'event_date' | 'end_date' | 'event_time' | 'end_time'>) {
   const startDate = normalizeDateOnly(row.event_date);
+  const explicitEndDate = row.end_date ? normalizeDateOnly(row.end_date) : null;
   const startTime = normalizeTime(row.event_time);
   const explicitEnd = normalizeTime(row.end_time);
-  if (!startTime) return { date: addDays(startDate, 1) };
+  if (!startTime) return { date: addDays(explicitEndDate ?? startDate, 1) };
   if (explicitEnd) {
-    return explicitEnd <= startTime
-      ? { dateTime: `${addDays(startDate, 1)}T${explicitEnd}:00` }
-      : { dateTime: `${startDate}T${explicitEnd}:00` };
+    const endDate = explicitEndDate ?? (explicitEnd <= startTime ? addDays(startDate, 1) : startDate);
+    return { dateTime: `${endDate}T${explicitEnd}:00` };
   }
   const [hour, minute] = startTime.split(':').map(Number);
   const endMinutes = hour * 60 + minute + DEFAULT_EVENT_DURATION_MINUTES;
@@ -681,7 +688,7 @@ function eventEndForGoogle(row: Pick<DbEvent, 'event_date' | 'event_time' | 'end
 }
 
 export function localEventToGooglePayload(
-  row: Pick<DbEvent, 'title' | 'event_date' | 'event_time' | 'end_time' | 'event_timezone' | 'description'>
+  row: Pick<DbEvent, 'title' | 'event_date' | 'end_date' | 'event_time' | 'end_time' | 'event_timezone' | 'description'>
 ) {
   const date = normalizeDateOnly(row.event_date);
   const startTime = normalizeTime(row.event_time);
@@ -700,7 +707,8 @@ export function localEventToGooglePayload(
 
 const eventSelectColumns = `
   id::text, title, event_date::text AS event_date, event_time::text AS event_time,
-  end_time::text AS end_time, COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
+  end_date::text AS end_date, end_time::text AS end_time,
+  COALESCE(NULLIF(event_timezone, ''), 'UTC') AS event_timezone,
   description, source_provider, source_key, google_calendar_id, google_event_id,
   google_etag, google_updated_at, google_recurrence, google_recurring_event_id,
   google_original_start, google_cancelled, updated_at
@@ -778,6 +786,7 @@ async function applyGoogleEvent(
     fields = {
       title: 'Cancelled recurring occurrence',
       date,
+      endDate: null,
       time: time ?? null,
       endTime: null,
       timeZone: event.originalStartTime?.timeZone ?? calendar.time_zone,
@@ -793,19 +802,20 @@ async function applyGoogleEvent(
     await client.query(
       `
         INSERT INTO events (
-          title, event_date, event_time, end_time, event_timezone, description, user_id,
+          title, event_date, end_date, event_time, end_time, event_timezone, description, user_id,
           source_provider, source_key, google_calendar_id, google_event_id, google_etag,
           google_updated_at, google_recurrence, google_recurring_event_id,
           google_original_start, google_cancelled, updated_at
         )
         VALUES (
-          $1, $2::date, $3::time, $4::time, $5, $6, $7, $8, $9, $10, $11, $12,
-          $13::timestamptz, $14::text[], $15, $16, $17, COALESCE($13::timestamptz, NOW())
+          $1, $2::date, $3::date, $4::time, $5::time, $6, $7, $8, $9, $10, $11, $12, $13,
+          $14::timestamptz, $15::text[], $16, $17, $18, COALESCE($14::timestamptz, NOW())
         )
         ON CONFLICT (user_id, source_provider, source_key)
           WHERE user_id IS NOT NULL AND source_provider IS NOT NULL AND source_key IS NOT NULL
         DO UPDATE SET
-          title = EXCLUDED.title, event_date = EXCLUDED.event_date, event_time = EXCLUDED.event_time,
+          title = EXCLUDED.title, event_date = EXCLUDED.event_date, end_date = EXCLUDED.end_date,
+          event_time = EXCLUDED.event_time,
           end_time = EXCLUDED.end_time, event_timezone = EXCLUDED.event_timezone,
           description = EXCLUDED.description, google_calendar_id = EXCLUDED.google_calendar_id,
           google_event_id = EXCLUDED.google_event_id, google_etag = EXCLUDED.google_etag,
@@ -815,7 +825,7 @@ async function applyGoogleEvent(
           google_cancelled = EXCLUDED.google_cancelled, updated_at = EXCLUDED.updated_at
       `,
       [
-        fields.title, fields.date, fields.time, fields.endTime, fields.timeZone, fields.description,
+        fields.title, fields.date, fields.endDate, fields.time, fields.endTime, fields.timeZone, fields.description,
         userId, GOOGLE_CALENDAR_SOURCE_PROVIDER, sourceKey, calendar.calendar_id, event.id,
         fields.googleEtag, fields.googleUpdatedAt, event.recurrence ?? null,
         event.recurringEventId ?? null, originalKey, event.status === 'cancelled',
@@ -834,15 +844,16 @@ async function applyGoogleEvent(
   await client.query(
     `
       UPDATE events
-      SET title = $1, event_date = $2::date, event_time = $3::time, end_time = $4::time,
-          event_timezone = $5, description = $6, google_etag = $7,
-          google_updated_at = $8::timestamptz, google_recurrence = $9::text[],
-          google_recurring_event_id = $10, google_original_start = $11,
-          google_cancelled = $12, updated_at = COALESCE($8::timestamptz, updated_at)
-      WHERE id = $13::bigint AND user_id = $14
+      SET title = $1, event_date = $2::date, end_date = $3::date,
+          event_time = $4::time, end_time = $5::time,
+          event_timezone = $6, description = $7, google_etag = $8,
+          google_updated_at = $9::timestamptz, google_recurrence = $10::text[],
+          google_recurring_event_id = $11, google_original_start = $12,
+          google_cancelled = $13, updated_at = COALESCE($9::timestamptz, updated_at)
+      WHERE id = $14::bigint AND user_id = $15
     `,
     [
-      fields.title, fields.date, fields.time, fields.endTime, fields.timeZone, fields.description,
+      fields.title, fields.date, fields.endDate, fields.time, fields.endTime, fields.timeZone, fields.description,
       fields.googleEtag, fields.googleUpdatedAt, event.recurrence ?? null,
       event.recurringEventId ?? null, originalKey, event.status === 'cancelled', existing.id, userId,
     ]
@@ -1198,9 +1209,22 @@ export async function mutateRecurringGoogleOccurrence(
   }
 
   if (!input.title || !input.date) throw new ApiError('Recurring occurrence title and date are required.', 400);
+  if (input.endDate && input.endDate < input.date) {
+    throw new ApiError('End date cannot be before start date.', 400);
+  }
+  if (!input.time && input.endTime) {
+    throw new ApiError('Start time is required when an end time is set.', 400);
+  }
+  if (input.time && input.endDate && !input.endTime) {
+    throw new ApiError('End time is required for a timed multi-day event.', 400);
+  }
+  if (input.time && input.endTime && !input.endDate && input.endTime <= input.time) {
+    throw new ApiError('End time must be after start time, or choose a later end date.', 400);
+  }
   const payload = localEventToGooglePayload({
     title: input.title,
     event_date: input.date,
+    end_date: input.endDate ?? null,
     event_time: input.time ?? null,
     end_time: input.endTime ?? null,
     event_timezone: input.timeZone ?? master.event_timezone ?? 'UTC',
