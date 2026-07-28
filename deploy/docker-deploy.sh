@@ -39,6 +39,11 @@ if ! sudo test -r "$ENV_FILE"; then
   exit 1
 fi
 
+DB_CA_FILE="/dev/null"
+if sudo test -f /etc/ums-app-react/do-postgres-ca.crt; then
+  DB_CA_FILE="/etc/ums-app-react/do-postgres-ca.crt"
+fi
+
 if [[ ! -r "$COMPOSE_SOURCE" ]]; then
   echo "Compose source is missing or unreadable: $COMPOSE_SOURCE" >&2
   exit 1
@@ -57,6 +62,7 @@ write_release_file() {
     echo "WEB_IMAGE=$WEB_IMAGE"
     echo "RELEASE_TAG=$tag"
     echo "UMS_ENV_FILE=$ENV_FILE"
+    echo "UMS_DB_CA_FILE=$DB_CA_FILE"
     echo "WEB_PORT=8080"
   } > "$temporary"
   sudo install -m 0600 "$temporary" "$destination"

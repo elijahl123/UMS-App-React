@@ -51,6 +51,10 @@ GOOGLE_CALENDAR_REDIRECT_URI=https://app.untitledmanagementsoftware.com/api/goog
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
 ```
 
+If `DATABASE_URL` uses `sslrootcert=/etc/ums-app-react/do-postgres-ca.crt`,
+install the managed Postgres CA at that exact host path with mode `0644`. The
+deployment mounts it read-only into the API and migration containers.
+
 Configure the host Nginx site from `deploy/nginx.conf.example`, with
 `server_name app.untitledmanagementsoftware.com`, and retain the existing
 Certbot-managed certificate.
