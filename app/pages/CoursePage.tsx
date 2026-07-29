@@ -188,7 +188,7 @@ function CoursePage() {
 
       {/* Header card */}
       <Card className="h-auto shrink-0 overflow-hidden border-l-4" style={{ borderLeftColor: colors.border }}>
-        <CardContent className="flex flex-none flex-col gap-4 overflow-visible pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <CardContent className="flex flex-none flex-col gap-4 overflow-visible pt-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-base font-bold sm:h-14 sm:w-14 sm:text-lg"

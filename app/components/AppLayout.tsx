@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import MobileBottomNavigation from '@/app/components/MobileBottomNavigation';
 import MobileSwipeNavigation from '@/app/components/MobileSwipeNavigation';
@@ -10,6 +10,17 @@ function AppLayout() {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
     return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
   });
+
+  useEffect(() => {
+    const compactDesktop = window.matchMedia('(min-width: 768px) and (max-width: 1279px)');
+    const handleBreakpointChange = (event: MediaQueryListEvent) => {
+      setSidebarCollapsed(event.matches);
+    };
+
+    setSidebarCollapsed(compactDesktop.matches);
+    compactDesktop.addEventListener('change', handleBreakpointChange);
+    return () => compactDesktop.removeEventListener('change', handleBreakpointChange);
+  }, []);
 
   return (
     <div className="min-h-[100dvh] w-full overflow-x-clip bg-background md:h-[100dvh] md:overflow-hidden">
