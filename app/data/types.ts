@@ -5,6 +5,7 @@ export interface Course {
   code: string;
   name: string;
   color: string;
+  homepageUrl: string | null;
 }
 
 export interface CourseLink {
@@ -98,6 +99,7 @@ export interface StudyPlanSummary {
   courseCode: string;
   courseName: string;
   courseColor: string;
+  courseHomepageUrl: string | null;
   examType: ExamType;
   examDate: string;
   startDate: string;

@@ -55,3 +55,43 @@ describe('event action ranges', () => {
     ).toThrow(/must be after/i);
   });
 });
+
+describe('course homepage actions', () => {
+  it('normalizes and persists homepage URLs for course creates and updates', () => {
+    const create = getActionQuery('createCourse', {
+      code: 'MATH 101',
+      name: 'Calculus',
+      color: 'course-blue',
+      homepageUrl: ' courses.example.edu/math ',
+      userId: 'user-1',
+    });
+    const update = getActionQuery('updateCourse', {
+      id: '1',
+      code: 'MATH 101',
+      name: 'Calculus',
+      color: 'course-blue',
+      homepageUrl: '',
+      userId: 'user-1',
+    });
+
+    expect(create?.values).toEqual([
+      'MATH 101',
+      'Calculus',
+      'course-blue',
+      'https://courses.example.edu/math',
+      'user-1',
+    ]);
+    expect(update?.values?.[3]).toBeNull();
+    expect(create?.text).toContain('homepage_url');
+    expect(update?.text).toContain('homepage_url = $4');
+  });
+
+  it('rejects unsupported course homepage protocols', () => {
+    expect(() => getActionQuery('createCourse', {
+      code: 'MATH 101',
+      name: 'Calculus',
+      homepageUrl: 'ftp://courses.example.edu',
+      userId: 'user-1',
+    })).toThrow(/valid homepage url/i);
+  });
+});

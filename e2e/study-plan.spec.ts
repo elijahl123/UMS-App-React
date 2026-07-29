@@ -5,9 +5,11 @@ async function fulfillJson(route: Route, payload: unknown) {
   await route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) });
 }
 
-test('creates a course study plan and completes a generated daily task', async ({ page }) => {
+test('creates a study plan, completes a task, reopens its note, and launches the course homepage', async ({ page }) => {
   await mockAuthenticatedApp(page);
   let taskCompleted = false;
+  let taskNoteRequests = 0;
+  const taskNotes: Array<Record<string, unknown>> = [];
   let bundle = { plans: [], availability: [], topics: [], tasks: [] } as {
     plans: Array<Record<string, unknown>>;
     availability: Array<Record<string, unknown>>;
@@ -36,6 +38,7 @@ test('creates a course study plan and completes a generated daily task', async (
           course_code: 'COMP30870',
           course_name: 'Software Engineering Project',
           course_color: 'course-green',
+          course_homepage_url: 'https://courses.example.edu/comp30870',
           exam_type: body.examType,
           exam_date: body.examDate,
           start_date: body.startDate,
@@ -80,6 +83,22 @@ test('creates a course study plan and completes a generated daily task', async (
       return;
     }
 
+    if (request.method() === 'POST' && url.pathname.endsWith('/tasks/1/note')) {
+      taskNoteRequests += 1;
+      if (taskNotes.length === 0) {
+        taskNotes.push({
+          id: 99,
+          course_id: 1,
+          title: bundle.tasks[0].title,
+          content: '<ul><li><p></p></li></ul>',
+          created_at: '2026-07-25T12:30:00.000Z',
+          updated_at: '2026-07-25T12:30:00.000Z',
+        });
+      }
+      await fulfillJson(route, { noteId: '99', created: taskNoteRequests === 1 });
+      return;
+    }
+
     if (request.method() === 'PATCH' && url.pathname.endsWith('/tasks/1')) {
       taskCompleted = Boolean((request.postDataJSON() as { completed: boolean }).completed);
       bundle.tasks[0].completed_at = taskCompleted ? '2026-07-25T12:00:00.000Z' : null;
@@ -112,6 +131,12 @@ test('creates a course study plan and completes a generated daily task', async (
 
     await fulfillJson(route, { plans: bundle.plans });
   });
+  await page.route('**/api/actions/loadNotes', async (route) => {
+    await fulfillJson(route, taskNotes);
+  });
+  await page.context().route('https://courses.example.edu/**', async (route) => {
+    await route.fulfill({ contentType: 'text/html', body: '<title>Course homepage</title>' });
+  });
 
   await page.goto('/#/courses/1');
   await page.getByRole('button', { name: 'Create Plan' }).click();
@@ -124,8 +149,24 @@ test('creates a course study plan and completes a generated daily task', async (
 
   await expect(page).toHaveURL(/#\/courses\/1\/study-plans\/1$/);
   await expect(page.getByRole('heading', { name: /Final study plan/i })).toBeVisible();
-  const task = page.getByRole('button', { name: /Learn & review: Architecture patterns/i });
+  const task = page.getByRole('button', { name: 'Complete Learn & review: Architecture patterns' });
   await expect(task).toBeVisible();
   await task.click();
   await expect.poll(() => taskCompleted).toBe(true);
+
+  await page.getByRole('button', { name: /open notes for learn & review: architecture patterns/i }).click();
+  await expect(page).toHaveURL(/#\/notes\/99$/);
+  await expect(page.getByPlaceholder('Note title')).toHaveValue('Learn & review: Architecture patterns');
+  await expect(page.locator('.ProseMirror ul li')).toHaveCount(1);
+
+  await page.goBack();
+  await page.getByRole('button', { name: /open notes for learn & review: architecture patterns/i }).click();
+  await expect(page).toHaveURL(/#\/notes\/99$/);
+  expect(taskNoteRequests).toBe(2);
+
+  await page.goBack();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: /open comp30870 homepage/i }).click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL('https://courses.example.edu/comp30870');
 });

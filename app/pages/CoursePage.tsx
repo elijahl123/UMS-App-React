@@ -30,6 +30,7 @@ import type { Course, CourseLink } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { useStudyPlanSummaries } from '@/app/lib/studyPlans/useStudyPlans';
 import { formatStudyDate, isStudyPlanBehind, studyPlanProgress } from '@/app/data/studyPlans';
+import { openExternalUrl } from '@/app/lib/externalLinks';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -102,7 +103,14 @@ function CoursePage() {
 
   const handleSubmit = async (values: Omit<Course, 'id'> & { id?: string }) => {
     if (values.id) {
-      await editCourse({ id: values.id, code: values.code, name: values.name, color: values.color, userId: user?.id });
+      await editCourse({
+        id: values.id,
+        code: values.code,
+        name: values.name,
+        color: values.color,
+        homepageUrl: values.homepageUrl,
+        userId: user?.id,
+      });
     }
   };
 
@@ -167,7 +175,7 @@ function CoursePage() {
   } as React.CSSProperties;
 
   return (
-    <div className="mobile-page-stack pb-4">
+    <div className="mobile-page-stack mx-auto w-full max-w-6xl pb-28 md:h-full md:overflow-y-auto md:pb-6 md:pr-1">
       {/* Back link */}
       <button
         type="button"
@@ -192,10 +200,21 @@ function CoursePage() {
               <Badge style={{ backgroundColor: colors.bg, color: colors.text }} className="text-xs font-bold">
                 {course.code}
               </Badge>
-              <h2 className="mt-1 truncate text-lg font-bold text-foreground sm:text-xl">{course.name}</h2>
+              <h2 className="mt-1 break-words text-lg font-bold leading-snug text-foreground sm:text-xl">{course.name}</h2>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:flex sm:items-center">
+            {course.homepageUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="col-span-2 gap-2 sm:col-span-1"
+                onClick={() => void openExternalUrl(course.homepageUrl!)}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Homepage
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="flex-1 gap-2 sm:flex-none" onClick={() => setDialogOpen(true)}>
               <Pencil className="h-3.5 w-3.5" />
               Edit
@@ -265,7 +284,7 @@ function CoursePage() {
                     className="mobile-list-item flex items-center justify-between gap-3 sm:p-3"
                     style={courseItemStyle}
                   >
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <div className="mobile-list-icon h-8 w-8 rounded-md">
                         {a.status === 'late' ? (
                           <AlertTriangle className="h-4 w-4 text-[var(--main-accent)]" />
@@ -276,7 +295,7 @@ function CoursePage() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-bold">{a.name}</p>
+                        <p className="break-words text-sm font-bold">{a.name}</p>
                         <p className="text-xs opacity-80">{formatAssignmentDue(a, { month: 'short', day: 'numeric' })}</p>
                       </div>
                     </div>
@@ -306,13 +325,13 @@ function CoursePage() {
                     className="mobile-list-item flex items-center justify-between gap-3 sm:p-3"
                     style={courseItemStyle}
                   >
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 shrink-0 items-center gap-2">
                       <div className="mobile-list-icon h-8 w-8 rounded-md">
                         <Clock className="h-4 w-4" />
                       </div>
                       <span className="text-sm font-bold">{s.day}</span>
                     </div>
-                    <span className="text-xs font-semibold opacity-80">
+                    <span className="min-w-0 break-words text-right text-xs font-semibold opacity-80">
                       {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
                       {s.location ? ` · ${s.location}` : ''}
                     </span>
@@ -325,7 +344,7 @@ function CoursePage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4" style={{ color: colors.text }} />
             <CardTitle className="text-base">Study Plans</CardTitle>
@@ -377,8 +396,9 @@ function CoursePage() {
         </CardContent>
       </Card>
 
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4" style={{ color: colors.text }} />
             <CardTitle className="text-base">Notes</CardTitle>
@@ -391,13 +411,13 @@ function CoursePage() {
           {courseNotes.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No notes for this course yet.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {courseNotes.map((n) => (
-                <div
+                <button
                   key={n.id}
-                  role="button"
+                  type="button"
                   onClick={() => navigate(`/notes/${n.id}`)}
-                  className="mobile-list-item cursor-pointer transition-shadow sm:p-3"
+                  className="mobile-list-item w-full cursor-pointer text-left transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] sm:p-3"
                   style={courseItemStyle}
                 >
                   <div className="flex items-center gap-2">
@@ -409,7 +429,7 @@ function CoursePage() {
                       <p className="text-xs opacity-80">{formatDueDate(n.updatedAt)}</p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -417,7 +437,7 @@ function CoursePage() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
             <Link2 className="h-4 w-4 text-primary" />
             <CardTitle className="text-base">Quick Links</CardTitle>
@@ -431,7 +451,7 @@ function CoursePage() {
           {courseLinks.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">No quick links added yet.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {courseLinks.map((l) => {
                 const linkColor = colors;
                 return (
@@ -466,12 +486,13 @@ function CoursePage() {
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" style={{ color: linkColor.border }} />
                       <span className="truncate">{l.label}</span>
                     </a>
-                    <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100 xl:group-focus-within:opacity-100">
                       <button
                         type="button"
                         title="Edit link"
+                        aria-label={`Edit ${l.label} link`}
                         onClick={() => handleEditLink(l)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-background transition-colors"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9 xl:h-7 xl:w-7"
                         style={{ '--hover-color': linkColor.border } as React.CSSProperties}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = linkColor.border;
@@ -485,8 +506,9 @@ function CoursePage() {
                       <button
                         type="button"
                         title="Delete link"
+                        aria-label={`Delete ${l.label} link`}
                         onClick={() => handleDeleteLink(l.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-background transition-colors"
+                        className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9 xl:h-7 xl:w-7"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = '#dc2626';
                         }}
@@ -504,6 +526,7 @@ function CoursePage() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <CourseFormDialog open={dialogOpen} onOpenChange={setDialogOpen} course={course} onSubmit={handleSubmit} />
       <CourseLinkFormDialog

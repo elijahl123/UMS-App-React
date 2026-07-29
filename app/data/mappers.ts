@@ -16,6 +16,7 @@ interface DbCourse {
   code: string;
   name: string;
   color: string;
+  homepage_url?: string | null;
 }
 
 interface DbAssignment {
@@ -77,6 +78,7 @@ export function mapCourse(row: DbCourse): Course {
     code: row.code,
     name: row.name,
     color: row.color,
+    homepageUrl: row.homepage_url ?? null,
   };
 }
 

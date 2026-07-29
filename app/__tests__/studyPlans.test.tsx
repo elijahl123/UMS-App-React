@@ -1,5 +1,5 @@
 import { Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CalendarPage from '@/app/pages/CalendarPage';
@@ -18,6 +18,7 @@ const plan: StudyPlan = {
   courseCode: 'MATH 101',
   courseName: 'Calculus I',
   courseColor: 'course-blue',
+  courseHomepageUrl: 'https://courses.example.edu/math-101',
   examType: 'final',
   examDate: '2026-07-31',
   startDate: '2026-07-01',
@@ -133,6 +134,44 @@ describe('study plans', () => {
     );
   });
 
+  it('opens a task note without toggling completion and exposes the course homepage', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    studyPlanState.plans = [{
+      ...plan,
+      examDate: '2099-07-31',
+      overdueTasks: 0,
+      tasks: [{ ...plan.tasks[0], scheduledDate: '2026-07-29' }],
+    }];
+    const view = renderWithRouter(
+      <Routes>
+        <Route path="/courses/:courseId/study-plans/:planId" element={<StudyPlanPage />} />
+        <Route path="/notes/:noteId" element={<div>Task note destination</div>} />
+      </Routes>,
+      { route: '/courses/1/study-plans/plan-1' }
+    );
+
+    await user.click(screen.getByRole('button', { name: /open notes for learn & review: graph algorithms/i }));
+    await waitFor(() =>
+      expect(studyPlanActions.openStudyTaskNote).toHaveBeenCalledWith('plan-1', 'task-1', mockUser.id)
+    );
+    expect(await screen.findByText(/task note destination/i)).toBeInTheDocument();
+    expect(studyPlanActions.setStudyTaskCompleted).not.toHaveBeenCalled();
+
+    view.unmount();
+    renderRoute(
+      '/courses/:courseId/study-plans/:planId',
+      <StudyPlanPage />,
+      '/courses/1/study-plans/plan-1'
+    );
+    await user.click(screen.getByRole('button', { name: /open math 101 homepage/i }));
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://courses.example.edu/math-101',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+
   it('shows study sessions and the linked exam marker in UMS Calendar', async () => {
     const user = userEvent.setup();
     studyPlanState.plans = [plan];
@@ -157,13 +196,13 @@ describe('study plans', () => {
           ...plan.tasks[0],
           id: 'task-today',
           title: 'Current window topic',
-          scheduledDate: '2026-07-25',
+          scheduledDate: '2026-07-29',
         },
         {
           ...plan.tasks[0],
           id: 'task-later',
           title: 'Next window topic',
-          scheduledDate: '2026-08-20',
+          scheduledDate: '2026-08-27',
           sequence: 1,
         },
       ],

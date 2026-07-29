@@ -28,6 +28,7 @@ interface Props {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  autoFocus?: boolean;
 }
 
 function ToolbarButton({
@@ -57,8 +58,9 @@ function ToolbarButton({
   );
 }
 
-function RichTextEditor({ content, onChange, placeholder }: Props) {
+function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: Props) {
   const lastEmittedRef = useRef(content);
+  const didAutoFocusRef = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -76,6 +78,7 @@ function RichTextEditor({ content, onChange, placeholder }: Props) {
     },
     editorProps: {
       attributes: {
+        'aria-label': 'Rich text editor',
         class:
           'max-w-none min-h-[240px] sm:min-h-[360px] focus:outline-none px-4 py-3 sm:px-6 sm:py-4 text-sm sm:text-base text-foreground',
       },
@@ -92,6 +95,17 @@ function RichTextEditor({ content, onChange, placeholder }: Props) {
       lastEmittedRef.current = content;
     }
   }, [editor, content]);
+
+  useEffect(() => {
+    if (!editor || !autoFocus || didAutoFocusRef.current) return;
+    didAutoFocusRef.current = true;
+    const frame = window.requestAnimationFrame(() => {
+      const chain = editor.chain().focus('end');
+      if (!editor.isActive('bulletList')) chain.toggleBulletList();
+      chain.run();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [autoFocus, editor]);
 
   if (!editor) return null;
 

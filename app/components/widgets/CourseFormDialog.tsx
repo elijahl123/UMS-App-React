@@ -10,10 +10,19 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { courseColorOptions, getCourseColor } from '@/app/data/courseColors';
 import type { Course } from '@/app/data/types';
+import { COURSE_HOMEPAGE_ERROR, normalizeCourseHomepageUrl } from '@/lib/courseHomepage';
 
 const schema = z.object({
   code: z.string().min(1, 'Course code is required'),
   name: z.string().min(1, 'Course name is required'),
+  homepageUrl: z.string().refine((value) => {
+    try {
+      normalizeCourseHomepageUrl(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }, COURSE_HOMEPAGE_ERROR),
   color: z.string().min(1, 'Please pick a color'),
 });
 
@@ -27,7 +36,7 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-const emptyValues: FormValues = { code: '', name: '', color: 'course-gray' };
+const emptyValues: FormValues = { code: '', name: '', homepageUrl: '', color: 'course-gray' };
 
 function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Props) {
   const isEdit = Boolean(course);
@@ -41,14 +50,18 @@ function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Pr
     if (open) {
       form.reset(
         course
-          ? { code: course.code, name: course.name, color: course.color }
+          ? { code: course.code, name: course.name, homepageUrl: course.homepageUrl ?? '', color: course.color }
           : emptyValues
       );
     }
   }, [open, course, form]);
 
   const handleSubmit = (values: FormValues) => {
-    onSubmit({ ...values, id: course?.id });
+    onSubmit({
+      ...values,
+      homepageUrl: normalizeCourseHomepageUrl(values.homepageUrl),
+      id: course?.id,
+    });
     onOpenChange(false);
   };
 
@@ -88,6 +101,26 @@ function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Pr
                   <FormLabel>Course Name</FormLabel>
                   <FormControl>
                     <Input placeholder="e.g. Intro to Computer Science" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="homepageUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Class Homepage (optional)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="text"
+                      inputMode="url"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      placeholder="courses.example.edu/my-class"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

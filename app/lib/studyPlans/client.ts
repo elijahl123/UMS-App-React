@@ -70,6 +70,7 @@ export function mapStudyPlanSummary(row: Record<string, unknown>): StudyPlanSumm
     courseCode: String(row.course_code),
     courseName: String(row.course_name),
     courseColor: String(row.course_color),
+    courseHomepageUrl: row.course_homepage_url ? String(row.course_homepage_url) : null,
     examType: row.exam_type as StudyPlanSummary['examType'],
     examDate: String(row.exam_date).slice(0, 10),
     startDate: String(row.start_date).slice(0, 10),
@@ -199,6 +200,17 @@ export async function setStudyTaskCompleted(
   return studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
     method: 'PATCH',
     body: JSON.stringify({ completed, userId }),
+  });
+}
+
+export async function openStudyTaskNote(
+  planId: string,
+  taskId: string,
+  userId?: string
+): Promise<{ noteId: string; created: boolean }> {
+  return studyPlanRequest<{ noteId: string; created: boolean }>(`/${planId}/tasks/${taskId}/note`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
   });
 }
 

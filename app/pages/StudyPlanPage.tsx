@@ -10,7 +10,10 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
   ListChecks,
+  LoaderCircle,
+  NotebookPen,
   Pencil,
   RefreshCw,
   Trash2,
@@ -29,6 +32,7 @@ import {
 } from '@/app/data/studyPlans';
 import {
   deleteStudyPlan,
+  openStudyTaskNote,
   refreshStudyPlan,
   setStudyPlanArchived,
   setStudyTaskCompleted,
@@ -37,6 +41,7 @@ import {
 import { useStudyPlanDefinition, useStudyPlanTasks } from '@/app/lib/studyPlans/useStudyPlans';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { getCourseColor } from '@/app/data/courseColors';
+import { openExternalUrl } from '@/app/lib/externalLinks';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WINDOW_DAYS = 28;
@@ -62,6 +67,7 @@ function StudyPlanPage() {
   const [plan, loading, , reloadPlan] = useStudyPlanDefinition(planId, user?.id);
   const [windowStart, setWindowStart] = useState('');
   const [busyTask, setBusyTask] = useState<string | null>(null);
+  const [busyNoteTask, setBusyNoteTask] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +121,22 @@ function StudyPlanPage() {
       setError(studyPlanErrorMessage(err));
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleOpenTaskNote = async (taskId: string) => {
+    if (!plan) return;
+    setBusyNoteTask(taskId);
+    setError(null);
+    try {
+      const result = await openStudyTaskNote(plan.id, taskId, user?.id);
+      navigate(`/notes/${result.noteId}`, {
+        state: result.created ? { focusEditor: true } : undefined,
+      });
+    } catch (err) {
+      setError(studyPlanErrorMessage(err));
+    } finally {
+      setBusyNoteTask(null);
     }
   };
 
@@ -377,26 +399,54 @@ function StudyPlanPage() {
                   </header>
                   <div className="divide-y divide-[var(--border-light)]">
                 {day.tasks.map((task) => (
-                  <button
+                  <div
                     key={task.id}
-                    type="button"
-                    aria-pressed={Boolean(task.completedAt)}
-                    disabled={busyTask === task.id || plan.archived}
-                    onClick={() => toggleTask(task.id, !task.completedAt)}
-                    className="flex min-h-16 w-full items-center gap-3 bg-white px-4 py-3 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--study-course-bg)_22%,white)] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--main-color)] disabled:opacity-60"
+                    className="flex min-h-16 w-full items-center gap-2 bg-white px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--study-course-bg)_22%,white)] sm:gap-3 sm:px-4 sm:py-3"
                   >
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${
-                      task.completedAt
-                        ? 'border-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-green)_48%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]'
-                        : 'border-[var(--study-course-border)] bg-white text-[var(--study-course-text)]'
-                    }`}>
+                    <button
+                      type="button"
+                      aria-label={`${task.completedAt ? 'Mark' : 'Complete'} ${task.title}${task.completedAt ? ' incomplete' : ''}`}
+                      aria-pressed={Boolean(task.completedAt)}
+                      disabled={busyTask === task.id || plan.archived}
+                      onClick={() => toggleTask(task.id, !task.completedAt)}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] focus-visible:ring-offset-2 disabled:opacity-60 sm:h-9 sm:w-9 ${
+                        task.completedAt
+                          ? 'border-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-green)_48%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]'
+                          : 'border-[var(--study-course-border)] bg-white text-[var(--study-course-text)]'
+                      }`}
+                    >
                       {task.completedAt && <Check className="h-4 w-4" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={`block text-sm font-semibold leading-snug text-[var(--secondary-accent)] ${task.completedAt ? 'line-through opacity-60' : ''}`}>{task.title}</span>
-                      <span className="mt-1 block text-xs capitalize text-muted-foreground">{task.phase} · {formatStudyMinutes(task.estimatedMinutes)}</span>
-                    </span>
-                  </button>
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className={`break-words text-sm font-semibold leading-snug text-[var(--secondary-accent)] ${task.completedAt ? 'line-through opacity-60' : ''}`}>{task.title}</p>
+                      <p className="mt-1 text-xs capitalize text-muted-foreground">{task.phase} · {formatStudyMinutes(task.estimatedMinutes)}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        title={`Open notes for ${task.title}`}
+                        aria-label={`Open notes for ${task.title}`}
+                        disabled={busyNoteTask === task.id}
+                        onClick={() => handleOpenTaskNote(task.id)}
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 sm:h-9 sm:w-9"
+                      >
+                        {busyNoteTask === task.id
+                          ? <LoaderCircle className="h-4 w-4 animate-spin" />
+                          : <NotebookPen className="h-4 w-4" />}
+                      </button>
+                      {plan.courseHomepageUrl && (
+                        <button
+                          type="button"
+                          title={`Open ${plan.courseCode} homepage`}
+                          aria-label={`Open ${plan.courseCode} homepage`}
+                          onClick={() => void openExternalUrl(plan.courseHomepageUrl!)}
+                          className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] sm:h-9 sm:w-9"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
                   </div>
                 </section>

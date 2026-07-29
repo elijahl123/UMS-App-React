@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ interface NoteDraftSnapshot {
 function NotesEditorPage() {
   const { noteId } = useParams<{ noteId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [courseRows] = useLoadAction('loadCourses', [], { userId: user?.id });
@@ -236,7 +237,12 @@ function NotesEditorPage() {
 
       {/* Editor */}
       <div className="min-h-0 flex-1">
-        <RichTextEditor content={content} onChange={setContent} placeholder="Write your note here..." />
+        <RichTextEditor
+          content={content}
+          onChange={setContent}
+          placeholder="Write your note here..."
+          autoFocus={Boolean((location.state as { focusEditor?: boolean } | null)?.focusEditor)}
+        />
       </div>
 
       {/* Footer */}

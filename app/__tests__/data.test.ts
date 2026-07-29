@@ -15,7 +15,13 @@ import { assignments, courses, events, links, notes, sessions } from '@/app/test
 
 describe('data mappers and calendar utilities', () => {
   it('maps database rows into app models', () => {
-    expect(mapCourse({ id: 1, code: 'MATH 101', name: 'Calculus I', color: 'course-blue' })).toEqual(courses[0]);
+    expect(mapCourse({
+      id: 1,
+      code: 'MATH 101',
+      name: 'Calculus I',
+      color: 'course-blue',
+      homepage_url: 'https://courses.example.edu/math-101',
+    })).toEqual(courses[0]);
     expect(
       mapAssignment({
         id: 1,
@@ -123,6 +129,7 @@ describe('data mappers and calendar utilities', () => {
       courseCode: courses[0].code,
       courseName: courses[0].name,
       courseColor: courses[0].color,
+      courseHomepageUrl: courses[0].homepageUrl,
       examType: 'final' as const,
       examDate: '2026-08-15',
       startDate: '2026-07-01',
