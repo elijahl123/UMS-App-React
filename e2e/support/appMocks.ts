@@ -75,8 +75,20 @@ type MockSecondaryGoogleLoginOptions = {
 };
 
 const courses = [
-  { id: 1, code: 'COMP30870', name: 'Software Engineering Project', color: 'bg-emerald-100 text-emerald-900' },
-  { id: 2, code: 'COMP30770', name: 'Enterprise Software Systems', color: 'bg-slate-100 text-slate-900' },
+  {
+    id: 1,
+    code: 'COMP30870',
+    name: 'Software Engineering Project',
+    color: 'bg-emerald-100 text-emerald-900',
+    homepage_url: 'https://courses.example.edu/comp30870',
+  },
+  {
+    id: 2,
+    code: 'COMP30770',
+    name: 'Enterprise Software Systems',
+    color: 'bg-slate-100 text-slate-900',
+    homepage_url: null,
+  },
 ];
 
 const classSessions = [

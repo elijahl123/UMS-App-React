@@ -15,7 +15,9 @@ import {
   loadStudyPlanTasks,
   normalizeStudyPlanInput,
   normalizeStudyTaskRange,
+  openStudyTaskNote,
   rebuildStudyPlan,
+  TASK_NOTE_INITIAL_CONTENT,
   type StudyPlanInput,
 } from '../studyPlans';
 
@@ -174,6 +176,84 @@ describe('study plan scheduling', () => {
     expect(calls[1].sql).toContain('task.title_override');
     expect(calls[1].params).toEqual(['10', '2026-07-01', '2026-07-29']);
     expect(calls[0].params).toEqual(['10', 'owner-1']);
+  });
+
+  it('creates a course-linked bullet note for an owned logical study task', async () => {
+    const calls: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      query: async (sql: string, params: unknown[] = []) => {
+        calls.push({ sql, params });
+        if (sql.includes('FROM study_tasks task')) {
+          return {
+            rows: [{
+              plan_id: '10',
+              topic_id: '20',
+              phase: 1,
+              course_id: '2',
+              title: 'Practice: Graph algorithms',
+            }],
+          };
+        }
+        if (sql.includes('INSERT INTO notes')) return { rows: [{ id: '30' }] };
+        return { rows: [] };
+      },
+    };
+
+    await expect(openStudyTaskNote(client as never, 'owner-1', '10', '15')).resolves.toEqual({
+      noteId: '30',
+      created: true,
+    });
+    expect(calls[0].params).toEqual(['15', '10', 'owner-1']);
+    expect(calls[1].sql).toContain('ON CONFLICT (study_plan_id, study_topic_id, study_phase) DO NOTHING');
+    expect(calls[1].params).toEqual([
+      '2',
+      'Practice: Graph algorithms',
+      TASK_NOTE_INITIAL_CONTENT,
+      'owner-1',
+      '10',
+      '20',
+      1,
+    ]);
+  });
+
+  it('reopens an existing task note and rejects tasks owned by another user', async () => {
+    const client = {
+      query: async (sql: string) => {
+        if (sql.includes('FROM study_tasks task')) {
+          return {
+            rows: [{
+              plan_id: '10',
+              topic_id: '20',
+              phase: 0,
+              course_id: '2',
+              title: 'Learn & review: Graph algorithms',
+            }],
+          };
+        }
+        if (sql.includes('INSERT INTO notes')) return { rows: [] };
+        if (sql.includes('FROM notes')) return { rows: [{ id: '31' }] };
+        return { rows: [] };
+      },
+    };
+    const unownedClient = { query: async () => ({ rows: [] }) };
+
+    await expect(openStudyTaskNote(client as never, 'owner-1', '10', '15')).resolves.toEqual({
+      noteId: '31',
+      created: false,
+    });
+    await expect(openStudyTaskNote(unownedClient as never, 'other-user', '10', '15')).rejects.toMatchObject({
+      message: 'Study task not found',
+      status: 404,
+    });
+  });
+
+  it('preserves task notes when their plan or topic is deleted', () => {
+    const migration = readFileSync(
+      'migrations/1783880000_add_course_homepages_and_study_task_notes.sql',
+      'utf8'
+    );
+    expect(migration.match(/ON DELETE SET NULL/g)).toHaveLength(2);
+    expect(migration).toContain('CREATE UNIQUE INDEX idx_notes_study_task');
   });
 
   it('scopes Dashboard and Calendar reads to active owned plans and bounded dates', async () => {

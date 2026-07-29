@@ -11,8 +11,8 @@ export const mockUser: AppUser = {
 };
 
 export const courses: Course[] = [
-  { id: '1', code: 'MATH 101', name: 'Calculus I', color: 'course-blue' },
-  { id: '2', code: 'ENG 205', name: 'Modern Literature', color: 'course-green' },
+  { id: '1', code: 'MATH 101', name: 'Calculus I', color: 'course-blue', homepageUrl: 'https://courses.example.edu/math-101' },
+  { id: '2', code: 'ENG 205', name: 'Modern Literature', color: 'course-green', homepageUrl: null },
 ];
 
 export const assignments: Assignment[] = [
@@ -57,6 +57,7 @@ export const dbRows = {
     code: course.code,
     name: course.name,
     color: course.color,
+    homepage_url: course.homepageUrl,
   })),
   loadAssignments: assignments.map((assignment) => ({
     id: Number(assignment.id),

@@ -291,8 +291,14 @@ describe('form dialogs', () => {
     );
     await user.clear(screen.getByLabelText(/course name/i));
     await user.type(screen.getByLabelText(/course name/i), 'Advanced Calculus');
+    await user.clear(screen.getByLabelText(/class homepage/i));
+    await user.type(screen.getByLabelText(/class homepage/i), 'portal.example.edu/math');
     await user.click(screen.getByRole('button', { name: /save changes/i }));
-    expect(onCourseSubmit).toHaveBeenCalledWith(expect.objectContaining({ id: '1', name: 'Advanced Calculus' }));
+    expect(onCourseSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      id: '1',
+      name: 'Advanced Calculus',
+      homepageUrl: 'https://portal.example.edu/math',
+    }));
 
     rerender(<ClassSessionFormDialog open onOpenChange={vi.fn()} courses={courses} session={sessions[0]} onSubmit={onSessionSubmit} />);
     fireEvent.change(screen.getByLabelText(/start time/i), { target: { value: '10:00' } });
@@ -326,6 +332,25 @@ describe('form dialogs', () => {
     await user.click(screen.getByRole('button', { name: /add link/i }));
 
     expect(await screen.findByText(/must be a valid url/i)).toBeInTheDocument();
+  });
+
+  it('validates course homepages and allows clearing them', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <CourseFormDialog open onOpenChange={vi.fn()} course={courses[0]} onSubmit={onSubmit} />
+    );
+
+    await user.clear(screen.getByLabelText(/class homepage/i));
+    await user.type(screen.getByLabelText(/class homepage/i), 'ftp://portal.example.edu');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    expect(await screen.findByText(/valid homepage url/i)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    rerender(<CourseFormDialog open onOpenChange={vi.fn()} course={courses[0]} onSubmit={onSubmit} />);
+    await user.clear(screen.getByLabelText(/class homepage/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ homepageUrl: null }));
   });
 
   it('rejects event ranges that end before they start', async () => {

@@ -77,9 +77,22 @@ function CoursesPage() {
 
   const handleSubmit = async (values: Omit<Course, 'id'> & { id?: string }) => {
     if (values.id) {
-      await editCourse({ id: values.id, code: values.code, name: values.name, color: values.color, userId: user?.id });
+      await editCourse({
+        id: values.id,
+        code: values.code,
+        name: values.name,
+        color: values.color,
+        homepageUrl: values.homepageUrl,
+        userId: user?.id,
+      });
     } else {
-      await addCourse({ code: values.code, name: values.name, color: values.color, userId: user?.id });
+      await addCourse({
+        code: values.code,
+        name: values.name,
+        color: values.color,
+        homepageUrl: values.homepageUrl,
+        userId: user?.id,
+      });
     }
     refresh();
   };

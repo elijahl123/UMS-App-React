@@ -20,6 +20,7 @@ import VerifyEmailPage from '@/app/pages/VerifyEmailPage';
 import {
   accountEmailActions,
   accountEmailState,
+  apiState,
   authActions,
   authState,
   billingState,
@@ -122,6 +123,7 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /calculus i/i })).toBeInTheDocument();
     expect(screen.getByText(/open assignments/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /syllabus/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /homepage/i })).toBeInTheDocument();
   });
 
   it('renders notes list and editor states', () => {
@@ -134,6 +136,34 @@ describe('page rendering', () => {
 
     expect(screen.getByDisplayValue(/chain rule notes/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/rich text editor/i)).toBeInTheDocument();
+  });
+
+  it('renders a newly created task note with a focused empty bullet', async () => {
+    apiState.loads.loadNotes = [
+      {
+        id: 99,
+        course_id: 1,
+        title: 'Practice: Graph algorithms',
+        content: '<ul><li><p></p></li></ul>',
+        created_at: '2026-07-29T10:00:00.000Z',
+        updated_at: '2026-07-29T10:00:00.000Z',
+      },
+    ];
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/notes/:noteId" element={<NotesEditorPage />} />
+      </Routes>,
+      {
+        routerProps: {
+          initialEntries: [{ pathname: '/notes/99', state: { focusEditor: true } }],
+        },
+      }
+    );
+
+    const editor = screen.getByLabelText(/rich text editor/i);
+    expect(editor).toHaveValue('<ul><li><p></p></li></ul>');
+    expect(editor).toHaveFocus();
   });
 
   it('persists favorite notes locally and filters the favorites tab', async () => {

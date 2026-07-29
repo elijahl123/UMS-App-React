@@ -11,6 +11,7 @@ import {
   loadStudyPlanTasks,
   normalizeStudyPlanInput,
   normalizeStudyTaskRange,
+  openStudyTaskNote,
   rebuildStudyPlan,
   refreshStudyPlan,
 } from '../studyPlans';
@@ -79,6 +80,25 @@ studyPlansRouter.get('/:planId', async (req: Request<{ planId: string }>, res: R
     return errorResponse(err, res);
   }
 });
+
+studyPlansRouter.post(
+  '/:planId/tasks/:taskId/note',
+  async (req: Request<{ planId: string; taskId: string }>, res: Response) => {
+    const client = await pool.connect();
+    try {
+      const userId = requestUserId(req, req.body ?? {});
+      await client.query('BEGIN');
+      const result = await openStudyTaskNote(client, userId, req.params.planId, req.params.taskId);
+      await client.query('COMMIT');
+      return res.status(result.created ? 201 : 200).json(result);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      return errorResponse(err, res);
+    } finally {
+      client.release();
+    }
+  }
+);
 
 studyPlansRouter.post('/', async (req: Request, res: Response) => {
   const client = await pool.connect();

@@ -163,6 +163,7 @@ export const studyPlanActions = {
     id: taskId,
     completedAt: completed ? '2026-07-25T12:00:00.000Z' : null,
   })),
+  openStudyTaskNote: vi.fn(async () => ({ noteId: '99', created: true })),
   setStudyPlanArchived: vi.fn(async (planId: string, archived: boolean) => ({ id: planId, archived })),
   deleteStudyPlan: vi.fn(async () => undefined),
   studyPlanErrorMessage: vi.fn(() => 'Unable to save the study plan.'),

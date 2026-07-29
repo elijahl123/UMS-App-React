@@ -257,11 +257,17 @@ vi.doMock('@stripe/react-stripe-js', () => ({
 }));
 
 vi.doMock('@/app/components/widgets/RichTextEditor', () => ({
-  default: ({ content, onChange, placeholder }: { content: string; onChange: (html: string) => void; placeholder?: string }) =>
+  default: ({ content, onChange, placeholder, autoFocus }: {
+    content: string;
+    onChange: (html: string) => void;
+    placeholder?: string;
+    autoFocus?: boolean;
+  }) =>
     React.createElement('textarea', {
       'aria-label': 'Rich text editor',
       placeholder,
       value: content,
+      autoFocus,
       onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value),
     }),
 }));

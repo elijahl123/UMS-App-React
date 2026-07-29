@@ -13,6 +13,7 @@ import {
 } from './studyPlanScheduler';
 
 type Queryable = Pick<PoolClient, 'query'>;
+export const TASK_NOTE_INITIAL_CONTENT = '<ul><li><p></p></li></ul>';
 
 export type StudyPlanInput = {
   courseId: string;
@@ -542,6 +543,7 @@ async function queryStudyPlanSummaries(
           c.code AS course_code,
           c.name AS course_name,
           c.color AS course_color,
+          c.homepage_url AS course_homepage_url,
           (CURRENT_TIMESTAMP AT TIME ZONE p.timezone)::date AS local_today
         FROM study_plans p
         JOIN courses c ON c.id = p.course_id
@@ -587,6 +589,7 @@ async function queryStudyPlanSummaries(
         p.course_code,
         p.course_name,
         p.course_color,
+        p.course_homepage_url,
         COALESCE(task_stats.total_tasks, 0) AS total_tasks,
         COALESCE(task_stats.completed_tasks, 0) AS completed_tasks,
         COALESCE(task_stats.overdue_tasks, 0) AS overdue_tasks,
@@ -676,6 +679,85 @@ export async function loadStudyPlanTasks(
     [planId, range.from, range.to]
   );
   return { ...range, tasks: tasks.rows };
+}
+
+export async function openStudyTaskNote(
+  client: Queryable,
+  userId: string,
+  planId: string,
+  taskId: string
+): Promise<{ noteId: string; created: boolean }> {
+  const task = await client.query<{
+    plan_id: string;
+    topic_id: string;
+    phase: number;
+    course_id: string;
+    title: string;
+  }>(
+    `
+      SELECT
+        task.plan_id,
+        task.topic_id,
+        task.phase,
+        plan.course_id,
+        ${taskTitleSql('task', 'topic')} AS title
+      FROM study_tasks task
+      JOIN study_topics topic ON topic.id = task.topic_id
+      JOIN study_plans plan ON plan.id = task.plan_id
+      JOIN courses course ON course.id = plan.course_id
+      WHERE task.id = $1::bigint
+        AND task.plan_id = $2::bigint
+        AND course.user_id = $3
+      FOR SHARE OF task;
+    `,
+    [taskId, planId, userId]
+  );
+  const ownedTask = task.rows[0];
+  if (!ownedTask) throw new ApiError('Study task not found', 404);
+
+  const inserted = await client.query<{ id: string }>(
+    `
+      INSERT INTO notes (
+        course_id,
+        title,
+        content,
+        user_id,
+        study_plan_id,
+        study_topic_id,
+        study_phase
+      )
+      VALUES ($1::bigint, $2, $3, $4, $5::bigint, $6::bigint, $7::smallint)
+      ON CONFLICT (study_plan_id, study_topic_id, study_phase) DO NOTHING
+      RETURNING id;
+    `,
+    [
+      ownedTask.course_id,
+      ownedTask.title,
+      TASK_NOTE_INITIAL_CONTENT,
+      userId,
+      ownedTask.plan_id,
+      ownedTask.topic_id,
+      ownedTask.phase,
+    ]
+  );
+  if (inserted.rows[0]) {
+    return { noteId: String(inserted.rows[0].id), created: true };
+  }
+
+  const existing = await client.query<{ id: string }>(
+    `
+      SELECT id
+      FROM notes
+      WHERE study_plan_id = $1::bigint
+        AND study_topic_id = $2::bigint
+        AND study_phase = $3::smallint
+        AND user_id = $4
+      LIMIT 1;
+    `,
+    [ownedTask.plan_id, ownedTask.topic_id, ownedTask.phase, userId]
+  );
+  if (!existing.rows[0]) throw new ApiError('Unable to open the study task note', 409);
+  return { noteId: String(existing.rows[0].id), created: false };
 }
 
 export async function loadStudyPlanDashboard(client: Queryable, userId: string) {

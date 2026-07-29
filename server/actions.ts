@@ -1,7 +1,16 @@
 import type { QueryConfig } from './db';
 import { ApiError, required, type Params } from './errors';
+import { normalizeCourseHomepageUrl } from '../lib/courseHomepage';
 
 type ActionBuilder = (params: Params) => QueryConfig;
+
+function courseHomepageUrl(params: Params): string | null {
+  try {
+    return normalizeCourseHomepageUrl(params.homepageUrl);
+  } catch (err) {
+    throw new ApiError(err instanceof Error ? err.message : 'Invalid course homepage URL', 400);
+  }
+}
 
 function eventRange(params: Params) {
   const date = String(required(params, 'date'));
@@ -39,7 +48,7 @@ const assignmentSelectColumns = `
 const actionBuilders: Record<string, ActionBuilder> = {
   loadCourses: (params) => ({
     text: `
-      SELECT id, code, name, color
+      SELECT id, code, name, color, homepage_url
       FROM courses
       WHERE user_id = $1
       ORDER BY code;
@@ -49,11 +58,17 @@ const actionBuilders: Record<string, ActionBuilder> = {
 
   createCourse: (params) => ({
     text: `
-      INSERT INTO courses (code, name, color, user_id)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, code, name, color;
+      INSERT INTO courses (code, name, color, homepage_url, user_id)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, code, name, color, homepage_url;
     `,
-    values: [required(params, 'code'), required(params, 'name'), params.color ?? 'course-gray', required(params, 'userId')],
+    values: [
+      required(params, 'code'),
+      required(params, 'name'),
+      params.color ?? 'course-gray',
+      courseHomepageUrl(params),
+      required(params, 'userId'),
+    ],
   }),
 
   updateCourse: (params) => ({
@@ -61,11 +76,19 @@ const actionBuilders: Record<string, ActionBuilder> = {
       UPDATE courses
       SET code = $1,
           name = $2,
-          color = $3
-      WHERE id = $4::bigint AND user_id = $5
-      RETURNING id, code, name, color;
+          color = $3,
+          homepage_url = $4
+      WHERE id = $5::bigint AND user_id = $6
+      RETURNING id, code, name, color, homepage_url;
     `,
-    values: [required(params, 'code'), required(params, 'name'), required(params, 'color'), required(params, 'id'), required(params, 'userId')],
+    values: [
+      required(params, 'code'),
+      required(params, 'name'),
+      required(params, 'color'),
+      courseHomepageUrl(params),
+      required(params, 'id'),
+      required(params, 'userId'),
+    ],
   }),
 
   deleteCourse: (params) => ({

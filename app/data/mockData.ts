@@ -1,10 +1,10 @@
 import type { Course, Assignment, ClassSession, Note, CalendarEvent } from '@/app/data/types';
 
 export const courses: Course[] = [
-  { id: 'comp30870', code: 'COMP30870', name: 'Software Engineering Project', color: 'bg-emerald-100 text-emerald-900' },
-  { id: 'comp30770', code: 'COMP30770', name: 'Enterprise Software Systems', color: 'bg-slate-100 text-slate-900' },
-  { id: 'comp31020', code: 'COMP31020', name: 'Cloud Computing', color: 'bg-amber-100 text-amber-900' },
-  { id: 'comp30940', code: 'COMP30940', name: 'Machine Learning', color: 'bg-blue-100 text-blue-900' },
+  { id: 'comp30870', code: 'COMP30870', name: 'Software Engineering Project', color: 'bg-emerald-100 text-emerald-900', homepageUrl: null },
+  { id: 'comp30770', code: 'COMP30770', name: 'Enterprise Software Systems', color: 'bg-slate-100 text-slate-900', homepageUrl: null },
+  { id: 'comp31020', code: 'COMP31020', name: 'Cloud Computing', color: 'bg-amber-100 text-amber-900', homepageUrl: null },
+  { id: 'comp30940', code: 'COMP30940', name: 'Machine Learning', color: 'bg-blue-100 text-blue-900', homepageUrl: null },
 ];
 
 export const assignments: Assignment[] = [
