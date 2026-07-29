@@ -180,15 +180,15 @@ function CoursePage() {
       <button
         type="button"
         onClick={() => navigate('/courses')}
-        className="flex w-fit items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
+        className="flex w-fit shrink-0 items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Courses
       </button>
 
       {/* Header card */}
-      <Card className="overflow-hidden border-l-4" style={{ borderLeftColor: colors.border }}>
-        <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="h-auto shrink-0 overflow-hidden border-l-4" style={{ borderLeftColor: colors.border }}>
+        <CardContent className="flex flex-none flex-col gap-4 overflow-visible pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-base font-bold sm:h-14 sm:w-14 sm:text-lg"
@@ -237,7 +237,7 @@ function CoursePage() {
       </Card>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="mobile-list-item flex items-center gap-3" style={courseItemStyle}>
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
             <ClipboardList className="h-5 w-5" />
@@ -267,7 +267,7 @@ function CoursePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid shrink-0 grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2 pb-3">
             <BookOpen className="h-4 w-4" style={{ color: colors.text }} />
@@ -343,7 +343,7 @@ function CoursePage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="h-auto shrink-0">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4" style={{ color: colors.text }} />
@@ -396,7 +396,7 @@ function CoursePage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <div className="grid shrink-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
