@@ -4,7 +4,11 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
 import TextAlign from '@tiptap/extension-text-align';
+import { BlockMath, InlineMath } from '@tiptap/extension-mathematics';
+import type { Editor } from '@tiptap/core';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { Placeholder } from '@tiptap/extensions';
+import 'katex/dist/katex.min.css';
 import {
   Bold,
   Italic,
@@ -23,6 +27,7 @@ import {
   Heading2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LatexPaste, recoverChatGptPasteArtifacts } from '@/app/lib/latexPaste';
 
 interface Props {
   content: string;
@@ -61,6 +66,20 @@ function ToolbarButton({
 function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: Props) {
   const lastEmittedRef = useRef(content);
   const didAutoFocusRef = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
+
+  const editMath = (kind: 'inline' | 'block', node: ProseMirrorNode, pos: number) => {
+    const currentLatex = String(node.attrs.latex ?? '');
+    const nextLatex = window.prompt('Edit LaTeX formula', currentLatex);
+    if (!nextLatex?.trim()) return;
+
+    const chain = editorRef.current?.chain().focus();
+    if (kind === 'inline') {
+      chain?.updateInlineMath({ latex: nextLatex.trim(), pos }).run();
+    } else {
+      chain?.updateBlockMath({ latex: nextLatex.trim(), pos }).run();
+    }
+  };
 
   const editor = useEditor({
     extensions: [
@@ -68,6 +87,33 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
       Underline,
       Link.configure({ openOnClick: false, autolink: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      InlineMath.extend({
+        addInputRules() {
+          return [];
+        },
+      }).configure({
+        katexOptions: {
+          displayMode: false,
+          throwOnError: false,
+          trust: false,
+          strict: 'warn',
+        },
+        onClick: (node, pos) => editMath('inline', node, pos),
+      }),
+      BlockMath.extend({
+        addInputRules() {
+          return [];
+        },
+      }).configure({
+        katexOptions: {
+          displayMode: true,
+          throwOnError: false,
+          trust: false,
+          strict: 'warn',
+        },
+        onClick: (node, pos) => editMath('block', node, pos),
+      }),
+      LatexPaste,
       Placeholder.configure({ placeholder: placeholder ?? 'Start typing your note...' }),
     ],
     content,
@@ -86,6 +132,13 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
   });
 
   useEffect(() => {
+    editorRef.current = editor;
+    return () => {
+      if (editorRef.current === editor) editorRef.current = null;
+    };
+  }, [editor]);
+
+  useEffect(() => {
     if (!editor) return;
     // Only push external content into the editor when it did not originate
     // from this editor's own onUpdate (avoids clobbering cursor while typing),
@@ -94,6 +147,11 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
       editor.commands.setContent(content || '', { emitUpdate: false });
       lastEmittedRef.current = content;
     }
+  }, [editor, content]);
+
+  useEffect(() => {
+    if (!editor) return;
+    recoverChatGptPasteArtifacts(editor);
   }, [editor, content]);
 
   useEffect(() => {
