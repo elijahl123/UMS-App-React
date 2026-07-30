@@ -19,6 +19,7 @@ import { getCourseColor } from '@/app/data/courseColors';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { cn } from '@/lib/utils';
 import type { Note } from '@/app/data/types';
+import { noteHtmlToText } from '@/app/lib/noteText';
 
 type NoteTab = 'all' | 'recent' | 'favorites' | 'shared';
 type SortMode = 'newest' | 'oldest' | 'title';
@@ -31,10 +32,6 @@ const tabLabels: Record<NoteTab, string> = {
 };
 
 const favoriteNotesStoragePrefix = 'ums.favoriteNoteIds';
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -126,7 +123,7 @@ function NotesPage() {
 
       if (!normalizedQuery) return true;
 
-      const preview = stripHtml(note.content).toLowerCase();
+      const preview = noteHtmlToText(note.content).toLowerCase();
       const courseText = [course?.code, course?.name].filter(Boolean).join(' ').toLowerCase();
       return `${note.title} ${preview} ${courseText}`.toLowerCase().includes(normalizedQuery);
     });
@@ -317,7 +314,7 @@ function NotesPage() {
               {filtered.map((note, index) => {
                 const course = getCourse(note.courseId);
                 const colors = course ? getCourseColor(course.color) : getCourseColor('course-pink');
-                const preview = stripHtml(note.content);
+                const preview = noteHtmlToText(note.content);
                 const isFavorite = favoriteNoteIds.has(note.id);
                 const railColor = isFavorite ? 'var(--main-color)' : index % 4 === 3 ? 'var(--course-yellow)' : colors.border;
                 const itemStyle = {

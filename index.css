@@ -382,6 +382,42 @@ body {
   text-decoration: underline;
 }
 
+.ProseMirror .tiptap-mathematics-render {
+  color: inherit;
+}
+
+.ProseMirror .tiptap-mathematics-render--editable {
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: background-color 150ms ease;
+}
+
+.ProseMirror .tiptap-mathematics-render--editable:hover {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.ProseMirror .tiptap-mathematics-render[data-type="inline-math"] {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: -0.15em;
+}
+
+.ProseMirror .tiptap-mathematics-render[data-type="block-math"] {
+  display: block;
+  max-width: 100%;
+  margin: 0.75rem 0;
+  padding: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: center;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ProseMirror .katex-error {
+  color: var(--destructive);
+  white-space: pre-wrap;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
