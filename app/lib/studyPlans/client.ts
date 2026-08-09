@@ -150,6 +150,7 @@ export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashb
       courseCode: String(row.course_code),
       courseName: String(row.course_name),
       courseColor: String(row.course_color),
+      courseHomepageUrl: row.course_homepage_url ? String(row.course_homepage_url) : null,
     })),
     activePlanCount: Number(payload.activePlanCount),
     overduePlanCount: Number(payload.overduePlanCount),

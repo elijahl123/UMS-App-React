@@ -5,10 +5,11 @@ async function fulfillJson(route: Route, payload: unknown) {
   await route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) });
 }
 
-test('creates a study plan, completes a task, reopens its note, and launches the course homepage', async ({ page }) => {
+test('shares one topic note across study phases and launches the course homepage', async ({ page }) => {
   await mockAuthenticatedApp(page);
   let taskCompleted = false;
   let taskNoteRequests = 0;
+  const taskNoteIds: string[] = [];
   const taskNotes: Array<Record<string, unknown>> = [];
   let bundle = { plans: [], availability: [], topics: [], tasks: [] } as {
     plans: Array<Record<string, unknown>>;
@@ -46,7 +47,7 @@ test('creates a study plan, completes a task, reopens its note, and launches the
           archived: false,
           created_at: '2026-07-25T00:00:00.000Z',
           updated_at: '2026-07-25T00:00:00.000Z',
-          total_tasks: 1,
+          total_tasks: 3,
           completed_tasks: 0,
           overdue_tasks: 0,
           study_days_left: 1,
@@ -67,29 +68,31 @@ test('creates a study plan, completes a task, reopens its note, and launches the
           position,
           active: true,
         })),
-        tasks: [{
-          id: 1,
+        tasks: ['Learn & review', 'Practice', 'Recall'].map((phase, index) => ({
+          id: index + 1,
           plan_id: 1,
           topic_id: 1,
-          phase: 'learn',
-          title: `Learn & review: ${body.topics[0].title}`,
+          phase: ['learn', 'practice', 'recall'][index],
+          title: `${phase}: ${body.topics[0].title}`,
           scheduled_date: body.startDate,
-          estimated_minutes: 60,
+          estimated_minutes: index === 0 ? 60 : 15,
           completed_at: null,
-          sequence: 0,
-        }],
+          sequence: index,
+        })),
       };
       await fulfillJson(route, { planId: '1' });
       return;
     }
 
-    if (request.method() === 'POST' && url.pathname.endsWith('/tasks/1/note')) {
+    const taskNoteMatch = url.pathname.match(/\/tasks\/([123])\/note$/);
+    if (request.method() === 'POST' && taskNoteMatch) {
       taskNoteRequests += 1;
+      taskNoteIds.push(taskNoteMatch[1]);
       if (taskNotes.length === 0) {
         taskNotes.push({
           id: 99,
           course_id: 1,
-          title: bundle.tasks[0].title,
+          title: bundle.topics[0].title,
           content: '<ul><li><p></p></li></ul>',
           created_at: '2026-07-25T12:30:00.000Z',
           updated_at: '2026-07-25T12:30:00.000Z',
@@ -122,7 +125,7 @@ test('creates a study plan, completes a task, reopens its note, and launches the
         availability: bundle.availability,
         topics: bundle.topics.map((topic) => ({
           ...topic,
-          total_tasks: 1,
+          total_tasks: 3,
           completed_tasks: taskCompleted ? 1 : 0,
         })),
       });
@@ -156,17 +159,22 @@ test('creates a study plan, completes a task, reopens its note, and launches the
 
   await page.getByRole('button', { name: /open notes for learn & review: architecture patterns/i }).click();
   await expect(page).toHaveURL(/#\/notes\/99$/);
-  await expect(page.getByPlaceholder('Note title')).toHaveValue('Learn & review: Architecture patterns');
+  await expect(page.getByPlaceholder('Note title')).toHaveValue('Architecture patterns');
   await expect(page.locator('.ProseMirror ul li')).toHaveCount(1);
 
   await page.goBack();
-  await page.getByRole('button', { name: /open notes for learn & review: architecture patterns/i }).click();
+  await page.getByRole('button', { name: /open notes for practice: architecture patterns/i }).click();
   await expect(page).toHaveURL(/#\/notes\/99$/);
-  expect(taskNoteRequests).toBe(2);
+
+  await page.goBack();
+  await page.getByRole('button', { name: /open notes for recall: architecture patterns/i }).click();
+  await expect(page).toHaveURL(/#\/notes\/99$/);
+  expect(taskNoteRequests).toBe(3);
+  expect(taskNoteIds).toEqual(['1', '2', '3']);
 
   await page.goBack();
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: /open comp30870 homepage/i }).click();
+  await page.getByRole('button', { name: /open comp30870 homepage/i }).first().click();
   const popup = await popupPromise;
   await expect(popup).toHaveURL('https://courses.example.edu/comp30870');
 });

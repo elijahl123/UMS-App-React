@@ -178,7 +178,7 @@ describe('study plan scheduling', () => {
     expect(calls[0].params).toEqual(['10', 'owner-1']);
   });
 
-  it('creates a course-linked bullet note for an owned logical study task', async () => {
+  it('creates one course-linked bullet note for an owned study topic across all phases', async () => {
     const calls: Array<{ sql: string; params: unknown[] }> = [];
     const client = {
       query: async (sql: string, params: unknown[] = []) => {
@@ -188,9 +188,8 @@ describe('study plan scheduling', () => {
             rows: [{
               plan_id: '10',
               topic_id: '20',
-              phase: 1,
               course_id: '2',
-              title: 'Practice: Graph algorithms',
+              title: 'Graph algorithms',
             }],
           };
         }
@@ -204,15 +203,15 @@ describe('study plan scheduling', () => {
       created: true,
     });
     expect(calls[0].params).toEqual(['15', '10', 'owner-1']);
-    expect(calls[1].sql).toContain('ON CONFLICT (study_plan_id, study_topic_id, study_phase) DO NOTHING');
+    expect(calls[1].sql).toContain('ON CONFLICT (study_plan_id, study_topic_id) DO NOTHING');
+    expect(calls[1].sql).not.toContain('study_phase');
     expect(calls[1].params).toEqual([
       '2',
-      'Practice: Graph algorithms',
+      'Graph algorithms',
       TASK_NOTE_INITIAL_CONTENT,
       'owner-1',
       '10',
       '20',
-      1,
     ]);
   });
 
@@ -224,9 +223,8 @@ describe('study plan scheduling', () => {
             rows: [{
               plan_id: '10',
               topic_id: '20',
-              phase: 0,
               course_id: '2',
-              title: 'Learn & review: Graph algorithms',
+              title: 'Graph algorithms',
             }],
           };
         }
@@ -254,6 +252,18 @@ describe('study plan scheduling', () => {
     );
     expect(migration.match(/ON DELETE SET NULL/g)).toHaveLength(2);
     expect(migration).toContain('CREATE UNIQUE INDEX idx_notes_study_task');
+  });
+
+  it('migrates phase notes to one shared topic note without deleting duplicates', () => {
+    const migration = readFileSync(
+      'migrations/1783890000_share_study_notes_across_topic_phases.sql',
+      'utf8'
+    );
+    expect(migration).toContain('PARTITION BY study_plan_id, study_topic_id');
+    expect(migration).toContain('ORDER BY updated_at DESC, id DESC');
+    expect(migration).toContain('study_plan_id = NULL');
+    expect(migration).toContain('CREATE UNIQUE INDEX idx_notes_study_topic');
+    expect(migration).not.toMatch(/DELETE\s+FROM notes/i);
   });
 
   it('scopes Dashboard and Calendar reads to active owned plans and bounded dates', async () => {
@@ -290,6 +300,7 @@ describe('study plan scheduling', () => {
     expect(calls[0].params).toEqual(['owner-1']);
     expect(calls[1].sql).toContain('course.user_id = $1');
     expect(calls[1].sql).toContain('plan.archived = FALSE');
+    expect(calls[1].sql).toContain('course.homepage_url AS course_homepage_url');
     expect(calls[2].sql).toContain('plan.exam_date >= $2::date');
     expect(calls[2].params).toEqual(['owner-1', '2026-07-19', '2026-08-30']);
     expect(calls[3].sql).toContain('task.scheduled_date >= $2::date');

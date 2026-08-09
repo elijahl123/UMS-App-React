@@ -690,7 +690,6 @@ export async function openStudyTaskNote(
   const task = await client.query<{
     plan_id: string;
     topic_id: string;
-    phase: number;
     course_id: string;
     title: string;
   }>(
@@ -698,9 +697,8 @@ export async function openStudyTaskNote(
       SELECT
         task.plan_id,
         task.topic_id,
-        task.phase,
         plan.course_id,
-        ${taskTitleSql('task', 'topic')} AS title
+        topic.title
       FROM study_tasks task
       JOIN study_topics topic ON topic.id = task.topic_id
       JOIN study_plans plan ON plan.id = task.plan_id
@@ -723,11 +721,10 @@ export async function openStudyTaskNote(
         content,
         user_id,
         study_plan_id,
-        study_topic_id,
-        study_phase
+        study_topic_id
       )
-      VALUES ($1::bigint, $2, $3, $4, $5::bigint, $6::bigint, $7::smallint)
-      ON CONFLICT (study_plan_id, study_topic_id, study_phase) DO NOTHING
+      VALUES ($1::bigint, $2, $3, $4, $5::bigint, $6::bigint)
+      ON CONFLICT (study_plan_id, study_topic_id) DO NOTHING
       RETURNING id;
     `,
     [
@@ -737,7 +734,6 @@ export async function openStudyTaskNote(
       userId,
       ownedTask.plan_id,
       ownedTask.topic_id,
-      ownedTask.phase,
     ]
   );
   if (inserted.rows[0]) {
@@ -750,11 +746,10 @@ export async function openStudyTaskNote(
       FROM notes
       WHERE study_plan_id = $1::bigint
         AND study_topic_id = $2::bigint
-        AND study_phase = $3::smallint
-        AND user_id = $4
+        AND user_id = $3
       LIMIT 1;
     `,
-    [ownedTask.plan_id, ownedTask.topic_id, ownedTask.phase, userId]
+    [ownedTask.plan_id, ownedTask.topic_id, userId]
   );
   if (!existing.rows[0]) throw new ApiError('Unable to open the study task note', 409);
   return { noteId: String(existing.rows[0].id), created: false };
@@ -778,7 +773,8 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
         plan.course_id,
         course.code AS course_code,
         course.name AS course_name,
-        course.color AS course_color
+        course.color AS course_color,
+        course.homepage_url AS course_homepage_url
       FROM study_tasks task
       JOIN study_topics topic ON topic.id = task.topic_id
       JOIN study_plans plan ON plan.id = task.plan_id

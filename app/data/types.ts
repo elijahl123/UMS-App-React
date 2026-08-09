@@ -130,6 +130,7 @@ export interface StudyDashboardTask extends StudyTask {
   courseCode: string;
   courseName: string;
   courseColor: string;
+  courseHomepageUrl: string | null;
 }
 
 export interface StudyDashboardData {
