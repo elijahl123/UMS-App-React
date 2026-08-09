@@ -61,6 +61,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   ];
   let dashboardRequests = 0;
   let completed = false;
+  let noteRequests = 0;
 
   await page.route('**/api/study-plans/dashboard**', async (route) => {
     dashboardRequests += 1;
@@ -78,6 +79,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
       course_code: index < 3 ? 'COMP31020' : 'MATH10210',
       course_name: index < 3 ? 'Formal Foundations' : 'Calculus',
       course_color: index < 3 ? 'course-teal' : 'course-red',
+      course_homepage_url: index < 3 ? 'https://courses.example.edu/comp31020' : null,
     })).filter((task) => !completed || task.id !== 'task-1');
     await fulfillJson(route, {
       plans,
@@ -93,6 +95,13 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
     completed = true;
     await fulfillJson(route, { id: 'task-1', completedAt: '2026-07-25T12:00:00.000Z' });
   });
+  await page.route('**/api/study-plans/1/tasks/task-1/note', async (route) => {
+    noteRequests += 1;
+    await fulfillJson(route, { noteId: '99', created: noteRequests === 1 });
+  });
+  await page.context().route('https://courses.example.edu/**', async (route) => {
+    await route.fulfill({ contentType: 'text/html', body: '<title>Course homepage</title>' });
+  });
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/#/');
@@ -102,6 +111,19 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await expect(page.getByText('MST20050 Final')).toBeVisible();
   await expect(page.getByText('1 plan needs attention')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Open notes for Study task 1' }).click();
+  await expect(page).toHaveURL(/#\/notes\/99$/);
+  expect(noteRequests).toBe(1);
+  expect(completed).toBe(false);
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
+
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Open COMP31020 homepage' }).first().click();
+  const popup = await popupPromise;
+  await expect(popup).toHaveURL('https://courses.example.edu/comp31020');
+  expect(completed).toBe(false);
+
   const requestsBeforeCompletion = dashboardRequests;
   await page.getByRole('button', { name: 'Complete Study task 1 for COMP31020' }).click();
   await expect.poll(() => dashboardRequests).toBe(requestsBeforeCompletion + 1);
@@ -110,6 +132,12 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText('COMP31020 Final')).toBeVisible();
   await expect(page.getByText('MATH10210 Midterm')).toBeHidden();
+  const mobileNoteButton = page.getByRole('button', { name: 'Open notes for Study task 2' });
+  const mobileHomepageButton = page.getByRole('button', { name: 'Open COMP31020 homepage' }).first();
+  await expect(mobileNoteButton).toBeVisible();
+  await expect(mobileHomepageButton).toBeVisible();
+  expect((await mobileNoteButton.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await mobileHomepageButton.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await expect(page.getByRole('link', { name: /View all today/i })).toBeVisible();
   await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

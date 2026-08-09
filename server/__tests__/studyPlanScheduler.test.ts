@@ -300,6 +300,7 @@ describe('study plan scheduling', () => {
     expect(calls[0].params).toEqual(['owner-1']);
     expect(calls[1].sql).toContain('course.user_id = $1');
     expect(calls[1].sql).toContain('plan.archived = FALSE');
+    expect(calls[1].sql).toContain('course.homepage_url AS course_homepage_url');
     expect(calls[2].sql).toContain('plan.exam_date >= $2::date');
     expect(calls[2].params).toEqual(['owner-1', '2026-07-19', '2026-08-30']);
     expect(calls[3].sql).toContain('task.scheduled_date >= $2::date');

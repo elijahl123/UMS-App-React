@@ -243,4 +243,43 @@ describe('study plans', () => {
       expect(studyPlanActions.setStudyTaskCompleted).toHaveBeenCalledWith('plan-1', 'task-1', true, mockUser.id)
     );
   });
+
+  it('opens a shared topic note and course homepage from the Dashboard without completing the task', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    const today = new Date().toISOString().slice(0, 10);
+    studyPlanState.plans = [{
+      ...plan,
+      examDate: '2099-07-31',
+      overdueTasks: 0,
+      tasks: [{
+        ...plan.tasks[0],
+        title: 'Review graph algorithms',
+        scheduledDate: today,
+      }],
+    }];
+    const view = renderWithRouter(
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/notes/:noteId" element={<div>Topic note destination</div>} />
+      </Routes>
+    );
+
+    await user.click(screen.getByRole('button', { name: /open notes for review graph algorithms/i }));
+    await waitFor(() =>
+      expect(studyPlanActions.openStudyTaskNote).toHaveBeenCalledWith('plan-1', 'task-1', mockUser.id)
+    );
+    expect(await screen.findByText(/topic note destination/i)).toBeInTheDocument();
+    expect(studyPlanActions.setStudyTaskCompleted).not.toHaveBeenCalled();
+
+    view.unmount();
+    renderWithRouter(<DashboardPage />);
+    await user.click(screen.getByRole('button', { name: /open math 101 homepage/i }));
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://courses.example.edu/math-101',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    expect(studyPlanActions.setStudyTaskCompleted).not.toHaveBeenCalled();
+  });
 });

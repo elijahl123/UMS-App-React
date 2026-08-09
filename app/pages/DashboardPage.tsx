@@ -16,19 +16,23 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  ExternalLink,
   GraduationCap,
   NotebookPen,
+  StickyNote,
 } from 'lucide-react';
 import { useState, type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatStudyDate, formatStudyMinutes, studyPlanProgress } from '@/app/data/studyPlans';
-import { setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
+import { openStudyTaskNote, setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
+import { openExternalUrl } from '@/app/lib/externalLinks';
 
 function DashboardPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const dashboardToday = toIsoDate(new Date());
   const dashboardEndDate = new Date();
   dashboardEndDate.setFullYear(dashboardEndDate.getFullYear() + 2);
@@ -45,6 +49,7 @@ function DashboardPage() {
   const [studyDashboard, studyPlansLoading, , refreshStudyDashboard, setStudyDashboard] =
     useStudyPlanDashboard(user?.id);
   const [busyStudyTask, setBusyStudyTask] = useState<string | null>(null);
+  const [busyStudyNote, setBusyStudyNote] = useState<string | null>(null);
   const [studyError, setStudyError] = useState<string | null>(null);
 
   const [addAssignment] = useMutateAction('createAssignment');
@@ -104,6 +109,19 @@ function DashboardPage() {
       setStudyError(error instanceof Error ? error.message : 'Could not update the study task.');
     } finally {
       setBusyStudyTask(null);
+    }
+  };
+
+  const openTopicNote = async (planId: string, taskId: string) => {
+    setBusyStudyNote(taskId);
+    setStudyError(null);
+    try {
+      const result = await openStudyTaskNote(planId, taskId, user?.id);
+      navigate(`/notes/${result.noteId}`, { state: result.created ? { focusEditor: true } : undefined });
+    } catch (error) {
+      setStudyError(error instanceof Error ? error.message : 'Could not open the topic note.');
+    } finally {
+      setBusyStudyNote(null);
     }
   };
 
@@ -250,26 +268,52 @@ function DashboardPage() {
                     '--mobile-item-text': colors.text,
                   } as CSSProperties;
                   return (
-                    <button
+                    <div
                       key={task.id}
-                      type="button"
-                      aria-label={`Complete ${task.title} for ${task.courseCode}`}
-                      disabled={busyStudyTask === task.id}
-                      onClick={() => completeStudyTask(task.planId, task.id)}
                       style={theme}
-                      className={`${index >= 3 ? 'hidden md:flex' : 'flex'} mobile-list-item min-h-12 w-full items-center gap-3 text-left disabled:opacity-60`}
+                      className={`${index >= 3 ? 'hidden md:flex' : 'flex'} mobile-list-item min-h-12 w-full items-center gap-3 text-left`}
                     >
                       <span className="mobile-list-rail h-12 w-1" />
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_38%,white)] text-[var(--focus-course-text)]">
+                      <button
+                        type="button"
+                        title={`Complete ${task.title}`}
+                        aria-label={`Complete ${task.title} for ${task.courseCode}`}
+                        disabled={busyStudyTask === task.id}
+                        onClick={() => completeStudyTask(task.planId, task.id)}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_38%,white)] text-[var(--focus-course-text)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
+                      >
                         <Check className="h-4 w-4 opacity-35" />
-                      </span>
+                      </button>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-bold text-[var(--secondary-accent)]">{task.title}</span>
                         <span className="mt-0.5 block truncate text-xs font-semibold text-[var(--focus-course-text)]">
                           {task.courseCode} · {formatStudyMinutes(task.estimatedMinutes)}
                         </span>
                       </span>
-                    </button>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          title={`Open notes for ${task.title}`}
+                          aria-label={`Open notes for ${task.title}`}
+                          disabled={busyStudyNote === task.id}
+                          onClick={() => void openTopicNote(task.planId, task.id)}
+                          className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
+                        >
+                          <StickyNote className="h-4 w-4" />
+                        </button>
+                        {task.courseHomepageUrl && (
+                          <button
+                            type="button"
+                            title={`Open ${task.courseCode} homepage`}
+                            aria-label={`Open ${task.courseCode} homepage`}
+                            onClick={() => void openExternalUrl(task.courseHomepageUrl!)}
+                            className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </button>
+                        )}
+                      </span>
+                    </div>
                   );
                 })}
                 {studyDashboard.tasks.length > 3 && (

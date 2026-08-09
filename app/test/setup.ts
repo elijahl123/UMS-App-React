@@ -95,6 +95,7 @@ vi.doMock('@/app/lib/studyPlans/useStudyPlans', () => ({
                 courseCode: plan.courseCode,
                 courseName: plan.courseName,
                 courseColor: plan.courseColor,
+                courseHomepageUrl: plan.courseHomepageUrl,
               }))
       ),
       activePlanCount: studyPlanState.plans.filter((plan) => !plan.archived).length,

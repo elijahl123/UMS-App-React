@@ -773,7 +773,8 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
         plan.course_id,
         course.code AS course_code,
         course.name AS course_name,
-        course.color AS course_color
+        course.color AS course_color,
+        course.homepage_url AS course_homepage_url
       FROM study_tasks task
       JOIN study_topics topic ON topic.id = task.topic_id
       JOIN study_plans plan ON plan.id = task.plan_id
