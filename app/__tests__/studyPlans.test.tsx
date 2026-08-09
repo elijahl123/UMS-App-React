@@ -175,7 +175,7 @@ describe('study plans', () => {
   it('shows study sessions and the linked exam marker in UMS Calendar', async () => {
     const user = userEvent.setup();
     studyPlanState.plans = [plan];
-    renderWithRouter(<CalendarPage />);
+    renderWithRouter(<CalendarPage />, { route: '/calendar?date=2026-07-22' });
 
     await user.click(screen.getAllByRole('button', { name: /july 22/i })[0]);
     expect(await screen.findByText(/math 101: study plan/i)).toBeInTheDocument();

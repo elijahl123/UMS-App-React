@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('renders differentiated connected ranges and the end-date event control', async ({ page }) => {
-  await page.goto('/#/calendar');
+  await page.goto('/#/calendar?date=2026-07-22');
 
   await expect(page.getByLabel('Calendar item filters')).toContainText('Assignment');
   await expect(page.getByLabel('Calendar item filters')).toContainText('Course time');
@@ -36,7 +36,7 @@ test.describe('mobile calendar', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('shows compact type markers and the full range on the selected day', async ({ page }) => {
-    await page.goto('/#/calendar');
+    await page.goto('/#/calendar?date=2026-07-22');
 
     await expect(page.getByLabel('Calendar item filters')).toContainText('Course');
     await expect(

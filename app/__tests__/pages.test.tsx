@@ -89,7 +89,7 @@ describe('page rendering', () => {
 
   it('renders the calendar and opens day details', async () => {
     const user = userEvent.setup();
-    renderWithRouter(<CalendarPage />);
+    renderWithRouter(<CalendarPage />, { route: '/calendar?date=2026-07-22' });
 
     expect(screen.getByRole('heading', { name: /july 2026/i })).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: /22/i })[0]);
@@ -98,7 +98,7 @@ describe('page rendering', () => {
 
   it('temporarily filters calendar item types', async () => {
     const user = userEvent.setup();
-    renderWithRouter(<CalendarPage />);
+    renderWithRouter(<CalendarPage />, { route: '/calendar?date=2026-07-22' });
 
     expect(screen.getByTitle('Event: Study Group')).toBeInTheDocument();
     const eventFilter = screen.getByRole('button', { name: 'Hide Event' });
