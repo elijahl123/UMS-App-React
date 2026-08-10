@@ -158,19 +158,6 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await expect(popup).toHaveURL('https://courses.example.edu/comp31020');
   expect(completedTasks.size).toBe(0);
 
-  await page.getByRole('button', { name: 'Open notes for Study task 1' }).click();
-  await expect(page).toHaveURL(/#\/notes\/99$/);
-  expect(noteRequests).toBe(1);
-  expect(completed).toBe(false);
-  await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
-
-  const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Open COMP31020 homepage' }).first().click();
-  const popup = await popupPromise;
-  await expect(popup).toHaveURL('https://courses.example.edu/comp31020');
-  expect(completed).toBe(false);
-
   const requestsBeforeCompletion = dashboardRequests;
   await page.getByRole('button', { name: 'Complete Study task 1 for COMP31020', exact: true }).click();
   await expect.poll(() => dashboardRequests).toBe(requestsBeforeCompletion + 1);
