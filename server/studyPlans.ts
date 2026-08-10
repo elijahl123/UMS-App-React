@@ -788,8 +788,7 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
     [userId]
   );
   const upcomingPlans = activePlans
-    .filter((plan) => String(plan.exam_date) >= String(plan.local_today))
-    .slice(0, 3);
+    .filter((plan) => String(plan.exam_date) >= String(plan.local_today));
   const overduePlans = activePlans.filter((plan) => Number(plan.overdue_tasks) > 0);
   const nextStudyDate = activePlans
     .map((plan) => plan.next_study_date ? String(plan.next_study_date) : '')
