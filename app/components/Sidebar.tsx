@@ -10,7 +10,6 @@ import {
   LogOut,
   MessageSquare,
   User,
-  NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
   Shield,
@@ -325,11 +324,17 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
               </p>
               <Button
                 size="sm"
-                className="mt-3 h-8 w-full gap-2 text-xs"
+                variant="success"
+                className="mt-3 h-11 w-full gap-2 rounded-lg border text-sm font-bold shadow-sm hover:opacity-90"
+                style={{
+                  backgroundColor: classFocusColors.border,
+                  borderColor: classFocusColors.border,
+                  color: classFocusColors.text,
+                }}
                 disabled={!classFocus.course || isCreatingNote}
                 onClick={() => handleOpenNotes(classFocus.course)}
               >
-                <NotebookPen className="h-3.5 w-3.5" />
+                <BookOpen className="h-4 w-4" />
                 <span>{isCreatingNote ? 'Opening...' : 'Open Notes'}</span>
               </Button>
             </>
