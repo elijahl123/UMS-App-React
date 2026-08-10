@@ -54,20 +54,26 @@ test('dashboard widgets fill the available desktop height without affecting mobi
 
 test('study focus is responsive, themed, urgent, and revalidates once after completion', async ({ page }) => {
   await mockAuthenticatedApp(page);
-  const plans = [
-    summary(1, 'COMP31020', 'course-teal', '2026-08-05', 2),
-    summary(2, 'MATH10210', 'course-red', '2026-08-12'),
-    summary(3, 'MST20050', 'course-blue', '2026-08-20'),
-  ];
+  const courseCodes = ['COMP31020', 'MATH10210', 'MST20050', 'CHEM10100', 'HIST20200', 'BIO20500', 'PHYS30100', 'ART11000'];
+  const courseColors = ['course-teal', 'course-red', 'course-blue', 'course-yellow', 'course-purple', 'course-green', 'course-pink', 'course-gray'];
+  const plans = courseCodes.map((courseCode, index) => summary(
+    index + 1,
+    courseCode,
+    courseColors[index],
+    `2026-08-${String(index + 5).padStart(2, '0')}`,
+    index === 0 ? 2 : 0
+  ));
   let dashboardRequests = 0;
-  let completed = false;
+  const completedTasks = new Set<string>();
   let noteRequests = 0;
 
   await page.route('**/api/study-plans/dashboard**', async (route) => {
     dashboardRequests += 1;
-    const tasks = Array.from({ length: 6 }, (_, index) => ({
+    const tasks = Array.from({ length: 30 }, (_, index) => {
+      const courseIndex = index === 29 ? 7 : index % 7;
+      return {
       id: `task-${index + 1}`,
-      plan_id: index < 3 ? 1 : 2,
+      plan_id: courseIndex + 1,
       topic_id: index + 1,
       phase: index % 2 === 0 ? 'practice' : 'recall',
       title: `Study task ${index + 1}`,
@@ -75,16 +81,17 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
       estimated_minutes: 30,
       completed_at: null,
       sequence: index,
-      course_id: index < 3 ? 1 : 2,
-      course_code: index < 3 ? 'COMP31020' : 'MATH10210',
-      course_name: index < 3 ? 'Formal Foundations' : 'Calculus',
-      course_color: index < 3 ? 'course-teal' : 'course-red',
-      course_homepage_url: index < 3 ? 'https://courses.example.edu/comp31020' : null,
-    })).filter((task) => !completed || task.id !== 'task-1');
+      course_id: courseIndex + 1,
+      course_code: courseCodes[courseIndex],
+      course_name: `${courseCodes[courseIndex]} Course`,
+      course_color: courseColors[courseIndex],
+      course_homepage_url: courseIndex === 0 ? 'https://courses.example.edu/comp31020' : null,
+      };
+    }).filter((task) => !completedTasks.has(task.id));
     await fulfillJson(route, {
       plans,
       tasks,
-      activePlanCount: 3,
+      activePlanCount: plans.length,
       overduePlanCount: 1,
       urgentPlan: plans[0],
       nextStudyDate: '2026-07-26',
@@ -92,8 +99,12 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   });
 
   await page.route('**/api/study-plans/1/tasks/task-1', async (route) => {
-    completed = true;
+    completedTasks.add('task-1');
     await fulfillJson(route, { id: 'task-1', completedAt: '2026-07-25T12:00:00.000Z' });
+  });
+  await page.route('**/api/study-plans/8/tasks/task-30', async (route) => {
+    completedTasks.add('task-30');
+    await fulfillJson(route, { id: 'task-30', completedAt: '2026-07-25T12:00:00.000Z' });
   });
   await page.route('**/api/study-plans/1/tasks/task-1/note', async (route) => {
     noteRequests += 1;
@@ -106,15 +117,38 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/#/');
   await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
+  await expect(page.getByText('30 tasks · 8 classes · 15h remaining')).toBeVisible();
+  await expect(page.getByText('8 active plans · nearest first')).toBeVisible();
   await expect(page.getByText('COMP31020 Final')).toBeVisible();
   await expect(page.getByText('MATH10210 Midterm')).toBeVisible();
   await expect(page.getByText('MST20050 Final')).toBeVisible();
+  await expect(page.getByText('ART11000 Final')).toBeVisible();
   await expect(page.getByText('1 plan needs attention')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Complete Study task/ })).toHaveCount(22);
+  await expect(page.getByRole('button', { name: /^Show \d+ more/ })).toHaveCount(7);
+  await expect(page.getByRole('button', { name: 'Complete Study task 29 for COMP31020', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'ART11000' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Open notes for Study task 1' }).click();
+  for (const testId of ['study-task-scroll', 'study-plan-scroll']) {
+    const scrollState = await page.getByTestId(testId).evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      overflowY: getComputedStyle(element).overflowY,
+    }));
+    expect(scrollState.overflowY).toBe('auto');
+    expect(scrollState.scrollHeight).toBeGreaterThan(scrollState.clientHeight);
+  }
+
+  const expandCompTasks = page.getByRole('button', { name: 'Show 2 more tasks for COMP31020', exact: true });
+  await expect(expandCompTasks).toHaveAttribute('aria-expanded', 'false');
+  await expandCompTasks.click();
+  await expect(page.getByRole('button', { name: 'Complete Study task 29 for COMP31020', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show fewer tasks for COMP31020', exact: true })).toHaveAttribute('aria-expanded', 'true');
+
+  await page.getByRole('button', { name: 'Open notes for Study task 1', exact: true }).click();
   await expect(page).toHaveURL(/#\/notes\/99$/);
   expect(noteRequests).toBe(1);
-  expect(completed).toBe(false);
+  expect(completedTasks.size).toBe(0);
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
 
@@ -122,22 +156,34 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await page.getByRole('button', { name: 'Open COMP31020 homepage' }).first().click();
   const popup = await popupPromise;
   await expect(popup).toHaveURL('https://courses.example.edu/comp31020');
-  expect(completed).toBe(false);
+  expect(completedTasks.size).toBe(0);
 
   const requestsBeforeCompletion = dashboardRequests;
-  await page.getByRole('button', { name: 'Complete Study task 1 for COMP31020' }).click();
+  await page.getByRole('button', { name: 'Complete Study task 1 for COMP31020', exact: true }).click();
   await expect.poll(() => dashboardRequests).toBe(requestsBeforeCompletion + 1);
-  await expect(page.getByRole('button', { name: 'Complete Study task 1 for COMP31020' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Complete Study task 1 for COMP31020', exact: true })).toHaveCount(0);
+  await expect(page.getByText('29 tasks · 8 classes · 14h 30m remaining')).toBeVisible();
+
+  const requestsBeforeLastClassCompletion = dashboardRequests;
+  await page.getByRole('button', { name: 'Complete Study task 30 for ART11000', exact: true }).click();
+  await expect.poll(() => dashboardRequests).toBe(requestsBeforeLastClassCompletion + 1);
+  await expect(page.getByRole('heading', { name: 'ART11000' })).toHaveCount(0);
+  await expect(page.getByText('28 tasks · 7 classes · 14h remaining')).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByText('COMP31020 Final')).toBeVisible();
-  await expect(page.getByText('MATH10210 Midterm')).toBeHidden();
-  const mobileNoteButton = page.getByRole('button', { name: 'Open notes for Study task 2' });
+  await expect(page.getByText('MATH10210 Midterm')).toBeVisible();
+  const mobileNoteButton = page.getByRole('button', { name: 'Open notes for Study task 2', exact: true });
   const mobileHomepageButton = page.getByRole('button', { name: 'Open COMP31020 homepage' }).first();
   await expect(mobileNoteButton).toBeVisible();
   await expect(mobileHomepageButton).toBeVisible();
   expect((await mobileNoteButton.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   expect((await mobileHomepageButton.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-  await expect(page.getByRole('link', { name: /View all today/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /View all today/i })).toHaveCount(0);
+  await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(page.getByText('28 tasks · 7 classes · 14h remaining')).toBeVisible();
+  await expect(page.getByText('ART11000 Final')).toBeVisible();
   await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

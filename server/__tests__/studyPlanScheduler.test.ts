@@ -308,6 +308,30 @@ describe('study plan scheduling', () => {
     expect(calls[3].params).toEqual(['owner-1', '2026-07-19', '2026-08-30']);
   });
 
+  it('returns every upcoming active plan on the dashboard without a three-plan cap', async () => {
+    const summaries = Array.from({ length: 6 }, (_, index) => ({
+      id: String(index + 1),
+      exam_date: index === 0 ? '2026-07-24' : `2026-08-${String(index + 1).padStart(2, '0')}`,
+      local_today: '2026-07-25',
+      overdue_tasks: index === 1 ? 2 : 0,
+      next_study_date: `2026-07-${String(index + 26).padStart(2, '0')}`,
+    }));
+    let queryCount = 0;
+    const client = {
+      query: async () => {
+        queryCount += 1;
+        return { rows: queryCount === 1 ? summaries : [] };
+      },
+    };
+
+    const dashboard = await loadStudyPlanDashboard(client as never, 'owner-1');
+
+    expect(dashboard.activePlanCount).toBe(6);
+    expect(dashboard.plans.map((plan) => plan.id)).toEqual(['2', '3', '4', '5', '6']);
+    expect(dashboard.overduePlanCount).toBe(1);
+    expect(dashboard.urgentPlan?.id).toBe('2');
+  });
+
   it('keeps create and edit query counts constant from 1 to 100 topics', async () => {
     const buildInput = (topicCount: number): StudyPlanInput => ({
       courseId: '2',
