@@ -542,7 +542,7 @@ function ClassSchedulePage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div data-tour="class-schedule" className="flex h-full flex-col gap-4">
       {isMobile ? mobileSchedule : desktopSchedule}
 
       <ClassSessionFormDialog

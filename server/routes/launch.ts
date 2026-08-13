@@ -12,6 +12,11 @@ const launchEventNames = new Set([
   'onboarding_started',
   'course_created',
   'onboarding_completed',
+  'onboarding_step_completed',
+  'onboarding_step_deferred',
+  'onboarding_skipped',
+  'onboarding_resumed',
+  'onboarding_checklist_dismissed',
   'dashboard_opened',
   'import_started',
   'import_reviewed',
@@ -31,6 +36,10 @@ const propertyEnums: Record<string, Set<string>> = {
   sourceType: new Set(['google_calendar', 'brightspace_pdf']),
   targetType: new Set(['exam', 'assignment', 'project']),
   list: new Set(['ucd_incoming', 'ios']),
+  step: new Set([
+    'welcome', 'course', 'coursework', 'schedule', 'services', 'dashboard', 'calendar',
+    'homework', 'class_schedule', 'notes', 'courses', 'navigation', 'account', 'complete',
+  ]),
 };
 
 const attributionNames = ['source', 'campaign', 'ambassador', 'society', 'referral', 'launchSession'] as const;

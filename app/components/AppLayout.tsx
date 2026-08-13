@@ -7,6 +7,7 @@ import NotificationCenter from '@/app/components/NotificationCenter';
 import type { SubscriptionOutletContext } from '@/app/components/SubscriptionRoute';
 import { AlertTriangle, LockKeyhole } from 'lucide-react';
 import { trackProductEvent } from '@/app/lib/launch/client';
+import OnboardingExperience from '@/app/components/onboarding/OnboardingExperience';
 
 function AppLayout() {
   const { accessStatus } = useOutletContext<SubscriptionOutletContext>();
@@ -76,6 +77,7 @@ function AppLayout() {
         </MobileSwipeNavigation>
       </main>
       <MobileBottomNavigation />
+      <OnboardingExperience />
     </div>
   );
 }

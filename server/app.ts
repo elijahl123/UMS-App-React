@@ -16,6 +16,7 @@ import { launchRouter } from './routes/launch';
 import { accessRouter } from './routes/access';
 import { accountRouter } from './routes/account';
 import { telemetryRouter } from './routes/telemetry';
+import { onboardingRouter } from './routes/onboarding';
 
 export function createApp() {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/access', accessRouter);
   app.use('/api/account', accountRouter);
   app.use('/api/telemetry', telemetryRouter);
+  app.use('/api/onboarding', onboardingRouter);
   app.use('/api/actions', actionsRouter);
   app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
   app.use('/api/billing', billingRouter);

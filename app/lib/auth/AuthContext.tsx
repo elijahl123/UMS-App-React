@@ -16,6 +16,7 @@ import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAcc
 import { reconcileAccess } from '@/app/lib/access/client';
 import { isExactUcdEmail, isUcdLaunchJourney } from '@/app/lib/launch/attribution';
 import { trackProductEvent } from '@/app/lib/launch/client';
+import { initializeOnboarding, ONBOARDING_INITIALIZE_PENDING_KEY } from '@/app/lib/onboarding/client';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
 const TRIAL_REDIRECT_STORAGE_KEY = 'schoolwork_trial_started_redirect';
@@ -238,6 +239,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       persistSession(result.idToken, nextUser);
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       if (result.isNewUser) {
+        initializeFirstRun(nextUser);
         void trackProductEvent('signup_completed');
       }
       await refreshStagingAccess(result.idToken, accessControlEnabled);
@@ -354,6 +356,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
   };
 
+  const initializeFirstRun = (nextUser: AppUser) => {
+    localStorage.setItem(ONBOARDING_INITIALIZE_PENDING_KEY, nextUser.id);
+    void initializeOnboarding().then(() => {
+      if (localStorage.getItem(ONBOARDING_INITIALIZE_PENDING_KEY) === nextUser.id) {
+        localStorage.removeItem(ONBOARDING_INITIALIZE_PENDING_KEY);
+      }
+    }).catch(() => undefined);
+  };
+
   const login = async (email: string, password: string) => {
     try {
       const result: FirebaseAuthResult = await firebaseAuth.signIn({ email, password });
@@ -387,6 +398,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         connectedProviders: ['password'],
       };
       persistSession(result.idToken, nextUser);
+      initializeFirstRun(nextUser);
       void trackProductEvent('signup_completed');
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       await refreshStagingAccess(result.idToken);

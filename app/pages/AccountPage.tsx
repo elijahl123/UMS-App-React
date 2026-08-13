@@ -24,6 +24,7 @@ import {
   Unlink,
   Eye,
   Download,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -640,7 +641,7 @@ function AccountPage() {
           : 'Device notifications unavailable';
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div data-tour="account" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 pb-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account</h1>
@@ -698,6 +699,27 @@ function AccountPage() {
               <CreditCard className="h-4 w-4" />
               Manage Subscription
             </Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5 text-primary" />
+            <CardTitle>Guided walkthrough</CardTitle>
+          </div>
+          <CardDescription>Review the core tools and setup steps again. Restarting does not change or remove any of your data.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-2 sm:w-auto"
+            onClick={() => window.dispatchEvent(new CustomEvent('ums-onboarding-restart'))}
+          >
+            <RotateCcw className="h-4 w-4" />
+            Restart walkthrough
           </Button>
         </CardContent>
       </Card>

@@ -113,7 +113,7 @@ function CoursesPage() {
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-tour="courses" className="flex h-full min-h-0 flex-col">
       <section className="mobile-page-stack flex-1 md:gap-0 md:rounded-lg md:border-2 md:border-primary md:bg-card md:text-card-foreground md:shadow-none">
       <header className="mobile-page-header shrink-0 md:flex md:flex-row md:items-center md:justify-between md:gap-4 md:p-6 md:pr-6">
         <div className="min-w-0">

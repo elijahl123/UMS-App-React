@@ -4,6 +4,7 @@ import type { AppUser, StagingAccessUser, StudyPlan } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
+import type { OnboardingState } from '@/app/lib/onboarding/client';
 
 type AuthActionResult = { success: boolean; error?: string; trialStartedNow?: boolean };
 
@@ -186,6 +187,38 @@ export const studyPlanActions = {
       .filter(Boolean),
 };
 
+export const onboardingState = {
+  value: null as OnboardingState | null,
+};
+
+export const onboardingActions = {
+  getOnboarding: vi.fn(async () => onboardingState.value),
+  initializeOnboarding: vi.fn(async () => onboardingState.value),
+  updateOnboarding: vi.fn(async (input: { action: string; step?: string; nextStep?: string }) => {
+    if (!onboardingState.value) throw new Error('No onboarding state');
+    const current = onboardingState.value;
+    const next: OnboardingState = {
+      ...current,
+      status: input.action === 'skip' ? 'skipped' : input.action === 'complete' ? 'completed' : 'active',
+      currentStep: (input.nextStep ?? current.currentStep) as OnboardingState['currentStep'],
+      completedSteps: input.action === 'complete_step' && input.step
+        ? [...new Set([...current.completedSteps, input.step as OnboardingState['currentStep']])]
+        : current.completedSteps,
+      deferredSteps: input.action === 'defer_step' && input.step
+        ? [...new Set([...current.deferredSteps, input.step as OnboardingState['currentStep']])]
+        : current.deferredSteps,
+      checklistDismissedAt: input.action === 'dismiss_checklist' ? new Date().toISOString() : current.checklistDismissedAt,
+    };
+    onboardingState.value = next;
+    return next;
+  }),
+  restartOnboarding: vi.fn(async () => {
+    if (!onboardingState.value) throw new Error('No onboarding state');
+    onboardingState.value = { ...onboardingState.value, status: 'active', currentStep: 'welcome', checklistDismissedAt: null };
+    return onboardingState.value;
+  }),
+};
+
 export function resetMockState() {
   authState.user = mockUser;
   authState.idToken = 'mock-id-token';
@@ -236,10 +269,12 @@ export function resetMockState() {
     reauthorizationRequired: false,
   };
   studyPlanState.plans = [];
+  onboardingState.value = null;
   Object.values(authActions).forEach((mock) => mock.mockClear());
   Object.values(accountEmailActions).forEach((mock) => mock.mockClear());
   Object.values(googleCalendarActions).forEach((mock) => mock.mockClear());
   Object.values(studyPlanActions).forEach((mock) => {
     if (typeof mock === 'function' && 'mockClear' in mock) mock.mockClear();
   });
+  Object.values(onboardingActions).forEach((mock) => mock.mockClear());
 }

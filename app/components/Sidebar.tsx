@@ -118,6 +118,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
 
   return (
     <aside
+      data-tour="navigation"
       className={cn(
         'flex h-[100dvh] max-h-[100dvh] w-72 shrink-0 flex-col overflow-hidden border-r-2 border-[var(--border-light)] bg-[var(--secondary-color)] transition-[width] duration-200',
         collapsed && 'md:w-20'

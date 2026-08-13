@@ -9,6 +9,7 @@ import {
   authState,
   billingState,
   googleCalendarActions,
+  onboardingActions,
   resetMockState,
   studyPlanActions,
   studyPlanState,
@@ -51,6 +52,11 @@ vi.doMock('@/app/lib/accountEmails/client', () => ({
 
 vi.doMock('@/app/lib/googleCalendar/client', () => ({
   ...googleCalendarActions,
+}));
+
+vi.doMock('@/app/lib/onboarding/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/app/lib/onboarding/client')>()),
+  ...onboardingActions,
 }));
 
 vi.doMock('@/app/lib/studyPlans/client', () => ({

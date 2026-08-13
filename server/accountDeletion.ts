@@ -55,6 +55,7 @@ async function deleteRows(client: PoolClient, userId: string, emails: string[], 
   await client.query('DELETE FROM google_calendar_connections WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM product_events WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM campaign_attributions WHERE user_id = $1;', [userId]);
+  await client.query('DELETE FROM product_onboarding WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM ucd_onboarding WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM access_entitlements WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM account_email_addresses WHERE firebase_uid = $1;', [userId]);
@@ -90,6 +91,7 @@ export async function reapplyDeletionTombstones() {
         UNION SELECT user_id FROM google_calendar_connections
         UNION SELECT user_id FROM user_subscriptions
         UNION SELECT user_id FROM access_entitlements
+        UNION SELECT user_id FROM product_onboarding
         UNION SELECT user_id FROM ucd_onboarding
         UNION SELECT user_id FROM campaign_attributions
         UNION SELECT user_id FROM product_events WHERE user_id IS NOT NULL

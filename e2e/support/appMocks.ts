@@ -46,6 +46,21 @@ type MockAuthenticatedAppOptions = {
     loginEmail?: string;
     emails: AccountEmailAddress[];
   };
+  onboarding?: MockOnboardingState | null;
+};
+
+export type MockOnboardingState = {
+  version: number;
+  status: 'active' | 'skipped' | 'completed';
+  currentStep: string;
+  completedSteps: string[];
+  deferredSteps: string[];
+  inferredCompletedSteps: string[];
+  checklistDismissedAt: string | null;
+  startedAt: string;
+  skippedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
 };
 
 type MockSecondaryEmailLoginOptions = {
@@ -177,7 +192,8 @@ const fullAccessStatus = {
   entitlement: null,
 };
 
-async function mockAccessAndTelemetryApis(page: Page) {
+async function mockAccessAndTelemetryApis(page: Page, initialOnboarding: MockOnboardingState | null = null) {
+  let onboarding = initialOnboarding;
   await page.route('**/api/telemetry/events', async (route) => {
     await route.fulfill({ status: 204, body: '' });
   });
@@ -194,6 +210,49 @@ async function mockAccessAndTelemetryApis(page: Page) {
     }
     await fulfillJson(route, fullAccessStatus);
   });
+
+  await page.route('**/api/onboarding**', async (route) => {
+    const url = new URL(route.request().url());
+    const method = route.request().method();
+    if (url.pathname.endsWith('/restart')) {
+      onboarding = onboarding ? { ...onboarding, status: 'active', currentStep: 'welcome', completedSteps: [], deferredSteps: [], checklistDismissedAt: null } : null;
+    } else if (url.pathname.endsWith('/initialize')) {
+      onboarding ??= createMockOnboarding();
+    } else if (method === 'PUT' && onboarding) {
+      const body = route.request().postDataJSON() as { action: string; step?: string; nextStep?: string };
+      if (body.action === 'complete_step') {
+        onboarding = { ...onboarding, status: 'active', currentStep: body.nextStep ?? onboarding.currentStep, completedSteps: [...new Set([...onboarding.completedSteps, body.step ?? ''])] };
+      } else if (body.action === 'defer_step') {
+        onboarding = { ...onboarding, status: 'active', currentStep: body.nextStep ?? onboarding.currentStep, deferredSteps: [...new Set([...onboarding.deferredSteps, body.step ?? ''])] };
+      } else if (body.action === 'skip') {
+        onboarding = { ...onboarding, status: 'skipped' };
+      } else if (body.action === 'resume') {
+        onboarding = { ...onboarding, status: 'active' };
+      } else if (body.action === 'complete') {
+        onboarding = { ...onboarding, status: 'completed', completedAt: new Date().toISOString() };
+      } else if (body.action === 'dismiss_checklist') {
+        onboarding = { ...onboarding, checklistDismissedAt: new Date().toISOString() };
+      }
+    }
+    await fulfillJson(route, onboarding);
+  });
+}
+
+export function createMockOnboarding(overrides: Partial<MockOnboardingState> = {}): MockOnboardingState {
+  return {
+    version: 1,
+    status: 'active',
+    currentStep: 'welcome',
+    completedSteps: [],
+    deferredSteps: [],
+    inferredCompletedSteps: [],
+    checklistDismissedAt: null,
+    startedAt: '2026-08-13T12:00:00.000Z',
+    skippedAt: null,
+    completedAt: null,
+    updatedAt: '2026-08-13T12:00:00.000Z',
+    ...overrides,
+  };
 }
 
 async function mockNotificationApis(page: Page) {
@@ -318,11 +377,11 @@ async function mockActiveBillingApis(page: Page) {
   });
 }
 
-export async function mockPublicAppApis(page: Page) {
+export async function mockPublicAppApis(page: Page, onboarding: MockOnboardingState | null = null) {
   await page.route('**/api/staging-access/config', async (route) => {
     await fulfillJson(route, { enabled: false });
   });
-  await mockAccessAndTelemetryApis(page);
+  await mockAccessAndTelemetryApis(page, onboarding);
 }
 
 export async function mockAuthenticatedApp(page: Page, options: MockAuthenticatedAppOptions = {}) {
@@ -336,7 +395,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
     { key: sessionStorageKey, user }
   );
 
-  await mockPublicAppApis(page);
+  await mockPublicAppApis(page, options.onboarding);
 
   await page.route('**/api/auth/session', async (route) => {
     await fulfillJson(

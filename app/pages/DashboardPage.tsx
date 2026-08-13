@@ -211,7 +211,7 @@ function DashboardPage() {
   }
 
   return (
-    <div className="mobile-page-stack md:flex md:h-full md:flex-col md:gap-5 md:overflow-y-auto xl:gap-6">
+    <div data-tour="dashboard" className="mobile-page-stack md:flex md:h-full md:flex-col md:gap-5 md:overflow-y-auto xl:gap-6">
       <div className="mobile-page-header !pr-1 md:hidden">
         <h1 className="mobile-page-title whitespace-nowrap text-[1.65rem] sm:text-[2rem]">Welcome to UMS</h1>
         <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem]">

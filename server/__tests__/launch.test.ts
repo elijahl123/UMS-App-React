@@ -38,12 +38,13 @@ describe('UCD launch public inputs', () => {
       sourceType: 'brightspace_pdf',
       targetType: 'assignment',
       list: 'ios',
+      step: 'coursework',
       savedCount: 3,
       rejectedCount: -1,
       correctedCount: 2.5,
       title: 'private schoolwork title',
       error: 'raw PDF text',
       unexpected: true,
-    })).toEqual({ sourceType: 'brightspace_pdf', targetType: 'assignment', list: 'ios', savedCount: 3 });
+    })).toEqual({ sourceType: 'brightspace_pdf', targetType: 'assignment', list: 'ios', step: 'coursework', savedCount: 3 });
   });
 });
