@@ -30,8 +30,14 @@ Use production credentials:
 NODE_ENV=production
 APP_ENV=production
 APP_ORIGIN=https://app.untitledmanagementsoftware.com
-APP_ORIGINS=https://app.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
+APP_ORIGINS=https://app.untitledmanagementsoftware.com,https://untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://app.untitledmanagementsoftware.com
+MARKETING_ORIGIN=https://untitledmanagementsoftware.com
+UCD_ACCESS_ENABLED=false
+UCD_ACCESS_DOMAIN=ucdconnect.ie
+UCD_ACCESS_END_AT=2027-01-18T00:00:00Z
+UCD_ACCESS_GRACE_END_AT=2027-02-01T00:00:00Z
+SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID=261009
 DATABASE_URL=<production-managed-postgres-url>
 STAGING_ACCESS_CONTROL_ENABLED=false
 VITE_FIREBASE_API_KEY=<production-firebase-api-key>

@@ -3,6 +3,7 @@ import { authenticatedFirebaseUser } from './auth';
 import { pool, type QueryConfig } from './db';
 import { ApiError } from './errors';
 import { expandRecurringEventRows, type RecurringEventRow } from './googleCalendarRecurrence';
+import { requireContentReadAccess, requireFullWriteAccess } from './access';
 
 export type NotificationSourceType = 'assignment' | 'event' | 'class_session';
 
@@ -503,7 +504,7 @@ notificationsRouter.put('/preferences', async (req, res) => {
   }
 });
 
-notificationsRouter.post('/sync', async (req, res) => {
+notificationsRouter.post('/sync', requireFullWriteAccess, async (req, res) => {
   try {
     const userId = await currentUserId(req);
     const instances = await syncNotificationInstancesForUser(userId);
@@ -513,7 +514,7 @@ notificationsRouter.post('/sync', async (req, res) => {
   }
 });
 
-notificationsRouter.get('/instances', async (req, res) => {
+notificationsRouter.get('/instances', requireContentReadAccess, async (req, res) => {
   try {
     const userId = await currentUserId(req);
     const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 100);
@@ -525,7 +526,7 @@ notificationsRouter.get('/instances', async (req, res) => {
   }
 });
 
-notificationsRouter.post('/instances/:id/read', async (req, res) => {
+notificationsRouter.post('/instances/:id/read', requireFullWriteAccess, async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -542,7 +543,7 @@ notificationsRouter.post('/instances/:id/read', async (req, res) => {
   }
 });
 
-notificationsRouter.post('/instances/:id/dismiss', async (req, res) => {
+notificationsRouter.post('/instances/:id/dismiss', requireFullWriteAccess, async (req, res) => {
   try {
     const result = await pool.query(
       `
@@ -559,7 +560,7 @@ notificationsRouter.post('/instances/:id/dismiss', async (req, res) => {
   }
 });
 
-notificationsRouter.post('/read-all', async (req, res) => {
+notificationsRouter.post('/read-all', requireFullWriteAccess, async (req, res) => {
   try {
     await pool.query(
       `

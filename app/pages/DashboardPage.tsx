@@ -21,13 +21,15 @@ import {
   NotebookPen,
   StickyNote,
 } from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatStudyDate, formatStudyMinutes, studyPlanProgress } from '@/app/data/studyPlans';
 import { openStudyTaskNote, setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
 import { openExternalUrl } from '@/app/lib/externalLinks';
+import { getAccessStatus, recordOnboardingMilestone } from '@/app/lib/access/client';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 function DashboardPage() {
   const { user } = useAuth();
@@ -51,6 +53,16 @@ function DashboardPage() {
   const [busyStudyNote, setBusyStudyNote] = useState<string | null>(null);
   const [studyError, setStudyError] = useState<string | null>(null);
   const [expandedStudyCourses, setExpandedStudyCourses] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAccessStatus().then(async (status) => {
+      if (cancelled || !status.entitlement) return;
+      await recordOnboardingMilestone('dashboard_opened');
+      void trackProductEvent('dashboard_opened');
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const [addAssignment] = useMutateAction('createAssignment');
   const [addEvent] = useMutateAction('createEvent');

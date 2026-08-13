@@ -10,7 +10,14 @@ afterEach(() => {
 });
 
 describe('Google Calendar sync utilities', () => {
-  it('requests owned events plus only the non-sensitive read-only CalendarList scope', async () => {
+  it('recognizes UCD-style course codes without guessing unmatched titles', async () => {
+    const { courseCodeFromCalendarTitle } = await import('../googleCalendarSync');
+    expect(courseCodeFromCalendarTitle('COMP30870 Software Engineering Lecture')).toBe('COMP30870');
+    expect(courseCodeFromCalendarTitle('COMP30870A - Tutorial')).toBe('COMP30870A');
+    expect(courseCodeFromCalendarTitle('Student society meeting')).toBeNull();
+  });
+
+  it('requests owned-event writes plus read-only shared events and CalendarList scopes', async () => {
     const { pool } = await import('../db');
     vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [] } as never);
     const { buildGoogleCalendarAuthUrl } = await import('../googleCalendarSync');
@@ -22,6 +29,7 @@ describe('Google Calendar sync utilities', () => {
     expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events.owned');
     expect(calendarScopes).toEqual([
       'https://www.googleapis.com/auth/calendar.events.owned',
+      'https://www.googleapis.com/auth/calendar.events.readonly',
       'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
     ]);
     expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events');

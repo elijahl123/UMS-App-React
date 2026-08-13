@@ -183,3 +183,56 @@ export function todayInTimeZone(timeZone: string, now = new Date()): string {
     return now.toISOString().slice(0, 10);
   }
 }
+
+export type EvenWorkTask = {
+  scheduledDate: string;
+  minutes: number;
+  sequence: number;
+};
+
+export type EvenWorkSchedule = {
+  tasks: EvenWorkTask[];
+  scheduledMinutes: number;
+  unscheduledMinutes: number;
+  availableMinutes: number;
+  explanation: string;
+  schedulerVersion: number;
+};
+
+export function scheduleEvenWork(params: {
+  startDate: string;
+  dueDate: string;
+  estimatedMinutes: number;
+  availableWeekdays: number[];
+  maximumMinutesPerDay: number;
+}): EvenWorkSchedule {
+  const weekdays = new Set(params.availableWeekdays);
+  const days: string[] = [];
+  const cursor = parseIsoDate(params.startDate);
+  const due = parseIsoDate(params.dueDate);
+  while (cursor < due) {
+    if (weekdays.has(cursor.getUTCDay())) days.push(toIsoDate(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const capUnits = Math.floor(params.maximumMinutesPerDay / 15);
+  const requestedUnits = Math.floor(params.estimatedMinutes / 15);
+  const availableUnits = days.length * capUnits;
+  const scheduledUnits = Math.min(requestedUnits, availableUnits);
+  const baseUnits = days.length > 0 ? Math.floor(scheduledUnits / days.length) : 0;
+  let remainder = days.length > 0 ? scheduledUnits % days.length : 0;
+  const tasks = days.flatMap((date, index) => {
+    const units = baseUnits + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    return units > 0 ? [{ scheduledDate: date, minutes: units * 15, sequence: index }] : [];
+  });
+  const scheduledMinutes = scheduledUnits * 15;
+  return {
+    tasks,
+    scheduledMinutes,
+    unscheduledMinutes: params.estimatedMinutes - scheduledMinutes,
+    availableMinutes: availableUnits * 15,
+    explanation: 'Work is divided evenly across selected weekdays before the due date in 15-minute units; rounding remainder is assigned to earlier days.',
+    schedulerVersion: 2,
+  };
+}

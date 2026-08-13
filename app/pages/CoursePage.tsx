@@ -357,8 +357,8 @@ function CoursePage() {
         <CardContent>
           {studyPlans.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm font-semibold">No exam study plan yet.</p>
-              <p className="mt-1 text-xs text-muted-foreground">Turn your course topics into a realistic daily schedule.</p>
+              <p className="text-sm font-semibold">No study plan yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Plan an exam, assignment, or project into a realistic daily schedule.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -375,8 +375,8 @@ function CoursePage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-sm font-bold capitalize">{plan.examType} study plan</p>
-                        <p className="text-xs opacity-80">Exam {formatStudyDate(plan.examDate)}</p>
+                        <p className="text-sm font-bold">{plan.targetTitle}</p>
+                        <p className="text-xs opacity-80">{plan.targetType === 'exam' ? 'Exam' : 'Due'} {formatStudyDate(plan.targetDate)}</p>
                       </div>
                       <Badge variant="secondary" className={behind ? 'bg-destructive/10 text-destructive' : ''}>
                         {plan.archived ? 'Archived' : behind ? 'Refresh' : `${progress.percent}%`}

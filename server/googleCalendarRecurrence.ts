@@ -25,6 +25,8 @@ export type RecurringEventRow = {
   google_original_start: string | null;
   google_cancelled: boolean;
   updated_at: string | Date | null;
+  course_id?: string | number | null;
+  academic_kind?: 'class' | null;
 };
 
 export type ExpandedEventRow = RecurringEventRow & {

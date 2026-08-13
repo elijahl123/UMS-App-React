@@ -305,6 +305,24 @@ export async function requireStagingAccess(req: Request, res: Response, next: Ne
   }
 }
 
+export async function requireAppAuthentication(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (req.auth?.uid && req.auth.email) {
+      const primaryUid = await resolvePrimaryUidForEmail(req.auth.email, req.auth.uid);
+      req.auth.uid = primaryUid;
+      return next();
+    }
+    const user = await authenticatedFirebaseUser(req);
+    const primaryUid = await resolvePrimaryUidForEmail(user.email, user.uid);
+    req.auth = { uid: primaryUid, email: user.email, role: 'viewer' };
+    return next();
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 401;
+    const message = err instanceof Error ? err.message : 'INVALID_AUTH_TOKEN';
+    return res.status(status).json({ error: { message } });
+  }
+}
+
 export function requireStagingAdmin(req: Request, res: Response, next: NextFunction) {
   if (!config.stagingAccessControlEnabled) {
     return next();

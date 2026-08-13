@@ -2,10 +2,12 @@ import { createApp } from './app';
 import { ensureBillingTables } from './billing';
 import { config } from './config';
 import { pool } from './db';
+import { startRetentionCleanup } from './retention';
 
 await ensureBillingTables();
 
 const app = createApp();
+startRetentionCleanup();
 const server = app.listen(config.port, () => {
   console.log(`UMS API listening on http://localhost:${config.port}`);
 });

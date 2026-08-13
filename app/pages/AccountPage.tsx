@@ -22,6 +22,8 @@ import {
   CalendarDays,
   RefreshCw,
   Unlink,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -52,11 +54,15 @@ import {
   disconnectGoogleCalendar,
   getOwnedGoogleCalendars,
   getGoogleCalendarStatus,
+  previewGoogleCalendarImport,
   syncGoogleCalendar,
   updateGoogleCalendarSettings,
   type GoogleOwnedCalendar,
   type GoogleCalendarStatus,
+  type GoogleCalendarPreviewItem,
 } from '@/app/lib/googleCalendar/client';
+import { trackProductEvent } from '@/app/lib/launch/client';
+import { downloadAccountExport } from '@/app/lib/account/client';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -155,10 +161,16 @@ function AccountPage() {
   const [googleOwnedCalendars, setGoogleOwnedCalendars] = useState<GoogleOwnedCalendar[]>([]);
   const [googleSelectedCalendarIds, setGoogleSelectedCalendarIds] = useState<string[]>([]);
   const [googleHistoryMonths, setGoogleHistoryMonths] = useState(6);
+  const [googleCalendarPreview, setGoogleCalendarPreview] = useState<{
+    items: GoogleCalendarPreviewItem[];
+    reviewedCount: number;
+  } | null>(null);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [exportSubmitting, setExportSubmitting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -294,6 +306,7 @@ function AccountPage() {
     const result = searchParams.get('googleCalendar');
     if (result === 'connected') {
       setGoogleCalendarSuccess('Google Calendar connected. Choose calendars, then save and import.');
+      void trackProductEvent('google_calendar_connected');
       void loadGoogleCalendarConnection();
     } else if (result === 'error') {
       setGoogleCalendarError(searchParams.get('message') ?? 'Google Calendar connection failed.');
@@ -495,16 +508,39 @@ function AccountPage() {
     setGoogleCalendarError(null);
     setGoogleCalendarSuccess(null);
     try {
+      if (!googleCalendarPreview) {
+        void trackProductEvent('import_started', { sourceType: 'google_calendar' });
+        const preview = await previewGoogleCalendarImport(googleSelectedCalendarIds, googleHistoryMonths);
+        setGoogleCalendarPreview(preview);
+        setGoogleCalendarSuccess(`Review the ${Math.min(preview.items.length, 50)} preview item${preview.items.length === 1 ? '' : 's'}, then confirm the import.`);
+        void trackProductEvent('import_reviewed', {
+          sourceType: 'google_calendar',
+          savedCount: preview.reviewedCount,
+        });
+        return;
+      }
       await updateGoogleCalendarSettings(googleSelectedCalendarIds, googleHistoryMonths);
       const result = await syncGoogleCalendar(true);
+      const savedCount = result.importedCount + result.updatedCount;
       setGoogleCalendarSuccess(
         `Imported ${result.importedCount + result.updatedCount} event record${result.importedCount + result.updatedCount === 1 ? '' : 's'} from ${googleSelectedCalendarIds.length} calendar${googleSelectedCalendarIds.length === 1 ? '' : 's'}.`
       );
       await loadGoogleCalendarConnection();
       window.dispatchEvent(new CustomEvent('ums-api-action-mutated', { detail: { name: 'createEvent' } }));
       window.dispatchEvent(new CustomEvent('ums-notifications-changed'));
+      if (savedCount >= 3) {
+        void trackProductEvent('import_completed', {
+          sourceType: 'google_calendar',
+          savedCount,
+          rejectedCount: 0,
+          correctedCount: 0,
+          errorCount: 0,
+        });
+      }
+      setGoogleCalendarPreview(null);
     } catch (err) {
       setGoogleCalendarError(requestError(err, 'Unable to save Google Calendar import settings.'));
+      void trackProductEvent('import_failed', { sourceType: 'google_calendar', errorCount: 1 });
     } finally {
       setGoogleCalendarSubmitting(false);
     }
@@ -512,6 +548,7 @@ function AccountPage() {
 
   const handleGoogleCalendarSelectionChange = (calendar: GoogleOwnedCalendar, selected: boolean) => {
     if (calendar.primary) return;
+    setGoogleCalendarPreview(null);
     setGoogleSelectedCalendarIds((current) =>
       selected ? [...new Set([...current, calendar.id])] : current.filter((id) => id !== calendar.id)
     );
@@ -565,6 +602,18 @@ function AccountPage() {
       }
     } finally {
       setDeleteSubmitting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExportSubmitting(true);
+    setExportError(null);
+    try {
+      await downloadAccountExport();
+    } catch (err) {
+      setExportError(requestError(err, 'Unable to export account data.'));
+    } finally {
+      setExportSubmitting(false);
     }
   };
 
@@ -749,8 +798,9 @@ function AccountPage() {
                 </div>
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {googleOwnedCalendars.map((calendar) => (
-                    <label key={calendar.id} className="flex items-start gap-3 rounded-md border p-3 text-sm">
+                  {googleOwnedCalendars.map((calendar) => {
+                    const isUcdTimetable = calendar.summary.trim().toLowerCase() === 'ucd timetable';
+                    return <label key={calendar.id} className={`flex items-start gap-3 rounded-md border p-3 text-sm ${isUcdTimetable ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : ''}`}>
                       <input
                         type="checkbox"
                         className="mt-1 h-4 w-4"
@@ -765,13 +815,28 @@ function AccountPage() {
                             style={{ backgroundColor: calendar.backgroundColor ?? 'var(--course-blue)' }}
                           />
                           <span className="truncate">{calendar.summary}</span>
+                          {isUcdTimetable && <Badge variant="secondary">Recommended for classes</Badge>}
                         </span>
                         <span className="text-muted-foreground">
                           {calendar.primary ? 'Primary · required' : calendar.timeZone}
                         </span>
                       </span>
-                    </label>
-                  ))}
+                    </label>;
+                  })}
+                </div>
+              )}
+              {googleCalendarPreview && (
+                <div className="grid gap-2 rounded-md border bg-muted/20 p-3" aria-label="Google Calendar import preview">
+                  <p className="flex items-center gap-2 text-sm font-semibold"><Eye className="h-4 w-4" />Import preview</p>
+                  <p className="text-xs text-muted-foreground">Showing up to 50 of {googleCalendarPreview.reviewedCount} reviewed entries. Nothing is saved until you confirm.</p>
+                  <div className="max-h-64 overflow-y-auto rounded border bg-background">
+                    {googleCalendarPreview.items.map((item, index) => (
+                      <div key={`${item.calendarId}-${item.date}-${item.title}-${index}`} className="flex items-start justify-between gap-3 border-b px-3 py-2 text-xs last:border-b-0">
+                        <span><span className="block font-medium text-foreground">{item.title}</span><span className="text-muted-foreground">{item.calendarSummary}{item.inferredCourseCode ? ` · ${item.inferredCourseCode}` : ''}</span></span>
+                        <span className="shrink-0 text-muted-foreground">{item.date}{item.time ? ` ${item.time}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -781,7 +846,7 @@ function AccountPage() {
                     className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:w-48"
                     value={googleHistoryMonths}
                     disabled={googleCalendarSubmitting}
-                    onChange={(event) => setGoogleHistoryMonths(Number(event.target.value))}
+                    onChange={(event) => { setGoogleHistoryMonths(Number(event.target.value)); setGoogleCalendarPreview(null); }}
                   >
                     {[1, 3, 6, 12, 24].map((months) => (
                       <option key={months} value={months}>
@@ -797,7 +862,7 @@ function AccountPage() {
                   onClick={handleGoogleCalendarSettingsSave}
                 >
                   {googleCalendarSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Save &amp; import
+                  {googleCalendarPreview ? 'Confirm & import' : 'Preview import'}
                 </Button>
               </div>
             </div>
@@ -1244,6 +1309,20 @@ function AccountPage() {
               </Button>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2"><Download className="h-5 w-5 text-primary" /><CardTitle>Export your data</CardTitle></div>
+          <CardDescription>Download courses, assignments, events, classes, and plans as CSV files, plus sanitized notes as HTML in one ZIP.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <Button type="button" className="w-full gap-2 sm:w-fit" disabled={exportSubmitting} onClick={handleExport}>
+            {exportSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exportSubmitting ? 'Preparing export…' : 'Download account export'}
+          </Button>
+          {exportError && <p className="text-sm font-medium text-destructive">{exportError}</p>}
         </CardContent>
       </Card>
 

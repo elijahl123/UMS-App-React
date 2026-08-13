@@ -9,8 +9,10 @@ import {
   getGoogleCalendarStatus,
   handleGoogleCalendarCallback,
   runGoogleCalendarSync,
+  previewGoogleCalendarImport,
   updateGoogleCalendarSettings,
 } from '../googleCalendarSync';
+import { requireContentReadAccess, requireFullWriteAccess } from '../access';
 
 export const googleCalendarRouter = Router();
 export const googleCalendarOAuthRouter = Router();
@@ -64,7 +66,7 @@ googleCalendarRouter.post('/connect', async (req, res) => {
   }
 });
 
-googleCalendarRouter.get('/calendars', async (req, res) => {
+googleCalendarRouter.get('/calendars', requireContentReadAccess, async (req, res) => {
   try {
     const user = await authenticatedFirebaseUser(req);
     return res.json(await getOwnedGoogleCalendars(user.uid));
@@ -75,7 +77,21 @@ googleCalendarRouter.get('/calendars', async (req, res) => {
   }
 });
 
-googleCalendarRouter.put('/settings', async (req, res) => {
+googleCalendarRouter.post('/preview', requireFullWriteAccess, async (req, res) => {
+  try {
+    const user = await authenticatedFirebaseUser(req);
+    const calendarIds = Array.isArray(req.body?.calendarIds)
+      ? req.body.calendarIds.filter((value: unknown): value is string => typeof value === 'string')
+      : [];
+    return res.json(await previewGoogleCalendarImport(user.uid, calendarIds, Number(req.body?.historyMonths)));
+  } catch (err) {
+    const status = err instanceof ApiError ? err.status : 500;
+    const message = err instanceof Error ? err.message : 'SERVER_ERROR';
+    return res.status(status).json({ error: { message } });
+  }
+});
+
+googleCalendarRouter.put('/settings', requireFullWriteAccess, async (req, res) => {
   try {
     const user = await authenticatedFirebaseUser(req);
     const calendarIds = Array.isArray(req.body?.calendarIds)
@@ -90,7 +106,7 @@ googleCalendarRouter.put('/settings', async (req, res) => {
   }
 });
 
-googleCalendarRouter.post('/sync', async (req, res) => {
+googleCalendarRouter.post('/sync', requireFullWriteAccess, async (req, res) => {
   try {
     const user = await authenticatedFirebaseUser(req);
     const result = await runGoogleCalendarSync(user.uid, { forceFull: Boolean(req.body?.forceFull) });

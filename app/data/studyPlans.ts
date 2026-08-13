@@ -22,7 +22,7 @@ export function todayForTimeZone(timeZone: string, now = new Date()): string {
 }
 
 export function isStudyPlanBehind(plan: StudyPlanSummary, today = todayForTimeZone(plan.timeZone)): boolean {
-  return plan.examDate > today && plan.overdueTasks > 0;
+  return plan.targetDate > today && plan.overdueTasks > 0;
 }
 
 export function studyPlanProgress(plan: StudyPlanSummary): { completed: number; total: number; percent: number } {

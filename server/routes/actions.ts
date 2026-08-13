@@ -9,6 +9,7 @@ import {
   syncEventMutationToGoogle,
 } from '../googleCalendarSync';
 import { syncNotificationInstancesForUser } from '../notifications';
+import { assertContentReadAccess, assertFullWriteAccess } from '../access';
 
 export const actionsRouter = Router();
 
@@ -26,6 +27,13 @@ const notificationMutationActions = new Set([
 
 actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Response) => {
   try {
+    if (req.auth?.uid) {
+      if (req.params.name.startsWith('load')) {
+        await assertContentReadAccess(req.auth.uid);
+      } else {
+        await assertFullWriteAccess(req.auth.uid);
+      }
+    }
     const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
     if (req.auth?.uid && req.params.name === 'loadEvents') {
       return res.json(
@@ -59,6 +67,8 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
             endTime: typeof req.body?.endTime === 'string' ? req.body.endTime : null,
             timeZone: typeof req.body?.timeZone === 'string' ? req.body.timeZone : undefined,
             description: typeof req.body?.description === 'string' ? req.body.description : null,
+            courseId: typeof req.body?.courseId === 'string' ? req.body.courseId : null,
+            academicKind: req.body?.academicKind === 'class' ? 'class' : null,
           }
         )
       );
@@ -73,6 +83,29 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
     }
 
     const result = await pool.query(query.text, query.values ?? []);
+    if (req.auth?.uid && req.params.name === 'createCourse' && result.rows.length > 0) {
+      await pool.query(
+        `
+          INSERT INTO ucd_onboarding (user_id, first_course_at)
+          VALUES ($1, NOW())
+          ON CONFLICT (user_id) DO UPDATE SET
+            first_course_at = COALESCE(ucd_onboarding.first_course_at, NOW()),
+            updated_at = NOW();
+        `,
+        [req.auth.uid]
+      );
+      await pool.query(
+        `
+          UPDATE ucd_onboarding
+          SET completed_at = COALESCE(completed_at, NOW()), updated_at = NOW()
+          WHERE user_id = $1
+            AND ucd_verified_at IS NOT NULL
+            AND first_course_at IS NOT NULL
+            AND dashboard_opened_at IS NOT NULL;
+        `,
+        [req.auth.uid]
+      );
+    }
     if (req.auth?.uid && ['createEvent', 'updateEvent', 'deleteEvent'].includes(req.params.name)) {
       await syncEventMutationToGoogle(req.auth.uid, req.params.name, result.rows, beforeDelete);
     }

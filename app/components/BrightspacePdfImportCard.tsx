@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileQuestion, FileUp, Loader2 } from 'lucide-react';
+import { Fragment, useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileQuestion, FileUp, Loader2, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { importBrightspaceCalendarRows, type BrightspaceImportResponse } from '@
 import { formatBrightspacePdfDiagnostic, parseBrightspacePdfFile } from '@/app/lib/brightspaceCalendar/pdf';
 import type { BrightspaceCalendarPreviewRow } from '@/app/lib/brightspaceCalendar/parser';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 const mutationEvent = 'ums-api-action-mutated';
 
@@ -65,6 +66,7 @@ export default function BrightspacePdfImportCard({
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [rows, setRows] = useState<BrightspaceCalendarPreviewRow[]>([]);
+  const [originalRows, setOriginalRows] = useState<BrightspaceCalendarPreviewRow[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [parseLoading, setParseLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
@@ -73,6 +75,7 @@ export default function BrightspacePdfImportCard({
   const [result, setResult] = useState<BrightspaceImportResponse | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [guideStepIndex, setGuideStepIndex] = useState(0);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const selectedRows = rows.filter((_, index) => selected.has(index));
   const currentGuideStep = brightspaceGuideSteps[guideStepIndex];
@@ -94,18 +97,26 @@ export default function BrightspacePdfImportCard({
     try {
       const parsedRows = await parseBrightspacePdfFile(file);
       setRows(parsedRows);
-      setSelected(new Set(parsedRows.map((_, index) => index)));
+      setOriginalRows(parsedRows.map((row) => ({ ...row })));
+      setSelected(new Set(parsedRows.flatMap((row, index) => (row.defaultSelected ?? true) ? [index] : [])));
+      void trackProductEvent('import_started', { sourceType: 'brightspace_pdf' });
     } catch (err) {
       setRows([]);
+      setOriginalRows([]);
       setSelected(new Set());
       setError(requestError(err, 'Unable to parse that Brightspace PDF.'));
       setParseDiagnostic(formatBrightspacePdfDiagnostic(err));
+      void trackProductEvent('import_failed', { sourceType: 'brightspace_pdf', errorCount: 1 });
     } finally {
       setParseLoading(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const updateRow = (index: number, changes: Partial<BrightspaceCalendarPreviewRow>) => {
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...changes } : row));
   };
 
   const toggleRow = (index: number) => {
@@ -133,8 +144,23 @@ export default function BrightspacePdfImportCard({
       const importResult = await importBrightspaceCalendarRows(selectedRows, user?.id);
       setResult(importResult);
       publishImportMutations();
+      const savedCount = importResult.createdAssignments + importResult.createdEvents;
+      if (importResult.createdCourses > 0) void trackProductEvent('course_created');
+      const correctedCount = rows.reduce((count, row, index) => count + (JSON.stringify(row) !== JSON.stringify(originalRows[index]) ? 1 : 0), 0);
+      void trackProductEvent('import_reviewed', {
+        sourceType: 'brightspace_pdf', savedCount: selectedRows.length,
+        rejectedCount: rows.length - selectedRows.length, correctedCount,
+      });
+      if (savedCount >= 3) {
+        void trackProductEvent('import_completed', {
+          sourceType: 'brightspace_pdf', savedCount,
+          rejectedCount: rows.length - selectedRows.length,
+          correctedCount, errorCount: importResult.errors.length,
+        });
+      }
     } catch (err) {
       setError(requestError(err, 'Unable to import Brightspace rows.'));
+      void trackProductEvent('import_failed', { sourceType: 'brightspace_pdf', errorCount: 1 });
     } finally {
       setImportLoading(false);
     }
@@ -211,6 +237,9 @@ export default function BrightspacePdfImportCard({
               {result.createdCourses} courses, {result.createdAssignments} assignments, and {result.createdEvents} events created.
               {result.skippedDuplicates > 0 ? ` ${result.skippedDuplicates} duplicates skipped.` : ''}
             </p>
+            {result.createdAssignments + result.createdEvents < 3 && (
+              <p>This save completed, but it is not counted as an import success until at least three reviewed items are saved.</p>
+            )}
             {result.errors.length > 0 && <p>{result.errors.length} rows could not be imported.</p>}
           </div>
         )}
@@ -243,11 +272,13 @@ export default function BrightspacePdfImportCard({
                     <TableHead>Course</TableHead>
                     <TableHead>Kind</TableHead>
                     <TableHead>Date</TableHead>
+                    <TableHead className="w-20">Review</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rows.map((row, index) => (
-                    <TableRow key={`${row.courseCode}-${row.title}-${row.date}-${index}`} data-state={selected.has(index) ? 'selected' : undefined}>
+                    <Fragment key={`${row.courseCode}-${row.title}-${row.date}-${index}`}>
+                    <TableRow data-state={selected.has(index) ? 'selected' : undefined}>
                       <TableCell>
                         <input
                           type="checkbox"
@@ -257,7 +288,10 @@ export default function BrightspacePdfImportCard({
                           onChange={() => toggleRow(index)}
                         />
                       </TableCell>
-                      <TableCell className="min-w-48 font-medium">{row.title}</TableCell>
+                      <TableCell className="min-w-48 font-medium">
+                        {row.title}
+                        {row.ambiguousDuplicate && <Badge variant="outline" className="ml-2">Review duplicate</Badge>}
+                      </TableCell>
                       <TableCell className="min-w-40">
                         <span className="font-semibold">{row.courseCode}</span>
                         <span className="block text-xs text-muted-foreground">{row.courseName}</span>
@@ -268,7 +302,25 @@ export default function BrightspacePdfImportCard({
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{formatPreviewDate(row)}</TableCell>
+                      <TableCell><Button type="button" variant="ghost" size="sm" className="gap-1" onClick={() => setEditingIndex(editingIndex === index ? null : index)}><Pencil className="h-3.5 w-3.5" />Edit</Button></TableCell>
                     </TableRow>
+                    {editingIndex === index && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="bg-muted/20">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <label className="grid gap-1 text-xs font-medium">Title<input className="h-9 rounded-md border bg-background px-2 text-sm" value={row.title} onChange={(event) => updateRow(index, { title: event.target.value })} /></label>
+                            <label className="grid gap-1 text-xs font-medium">Course code<input className="h-9 rounded-md border bg-background px-2 text-sm" value={row.courseCode} onChange={(event) => updateRow(index, { courseCode: event.target.value.toUpperCase() })} /></label>
+                            <label className="grid gap-1 text-xs font-medium">Course name<input className="h-9 rounded-md border bg-background px-2 text-sm" value={row.courseName} onChange={(event) => updateRow(index, { courseName: event.target.value })} /></label>
+                            <label className="grid gap-1 text-xs font-medium">Type<select className="h-9 rounded-md border bg-background px-2 text-sm" value={row.entryKind} onChange={(event) => updateRow(index, { entryKind: event.target.value as 'homework' | 'event' })}><option value="homework">Assignment</option><option value="event">Event/window</option></select></label>
+                            <label className="grid gap-1 text-xs font-medium">Start date<input type="date" className="h-9 rounded-md border bg-background px-2 text-sm" value={row.date} onChange={(event) => updateRow(index, { date: event.target.value })} /></label>
+                            <label className="grid gap-1 text-xs font-medium">Start time<input type="time" className="h-9 rounded-md border bg-background px-2 text-sm" value={row.time ?? ''} onChange={(event) => updateRow(index, { time: event.target.value || undefined })} /></label>
+                            {row.endDate && <label className="grid gap-1 text-xs font-medium">End date<input type="date" className="h-9 rounded-md border bg-background px-2 text-sm" value={row.endDate} onChange={(event) => updateRow(index, { endDate: event.target.value || undefined })} /></label>}
+                            {row.endDate && <label className="grid gap-1 text-xs font-medium">End time<input type="time" className="h-9 rounded-md border bg-background px-2 text-sm" value={row.endTime ?? ''} onChange={(event) => updateRow(index, { endTime: event.target.value || undefined })} /></label>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>

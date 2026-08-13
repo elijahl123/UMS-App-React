@@ -257,6 +257,8 @@ const actionBuilders: Record<string, ActionBuilder> = {
         google_event_id,
         google_etag,
         google_updated_at,
+        course_id,
+        academic_kind,
         updated_at
       FROM events
       WHERE user_id = $1
@@ -269,8 +271,12 @@ const actionBuilders: Record<string, ActionBuilder> = {
     const range = eventRange(params);
     return {
       text: `
-      INSERT INTO events (title, event_date, end_date, event_time, end_time, event_timezone, description, user_id)
-      VALUES ($1, $2::date, $3::date, $4::time, $5::time, $6, $7, $8)
+      INSERT INTO events (title, event_date, end_date, event_time, end_time, event_timezone, description, user_id, course_id, academic_kind)
+      VALUES (
+        $1, $2::date, $3::date, $4::time, $5::time, $6, $7, $8,
+        (SELECT id FROM courses WHERE id = NULLIF($9, '')::bigint AND user_id = $8),
+        CASE WHEN NULLIF($9, '') IS NOT NULL AND $10 = 'class' THEN 'class' ELSE NULL END
+      )
       RETURNING
         id,
         title,
@@ -286,6 +292,8 @@ const actionBuilders: Record<string, ActionBuilder> = {
         google_event_id,
         google_etag,
         google_updated_at,
+        course_id,
+        academic_kind,
         updated_at;
     `,
       values: [
@@ -297,6 +305,8 @@ const actionBuilders: Record<string, ActionBuilder> = {
         params.timeZone ?? 'UTC',
         params.description ?? null,
         required(params, 'userId'),
+        params.courseId ?? null,
+        params.academicKind ?? null,
       ],
     };
   },
@@ -313,8 +323,10 @@ const actionBuilders: Record<string, ActionBuilder> = {
           end_time = $5::time,
           event_timezone = $6,
           description = $7,
+          course_id = (SELECT id FROM courses WHERE id = NULLIF($8, '')::bigint AND user_id = $11),
+          academic_kind = CASE WHEN NULLIF($8, '') IS NOT NULL AND $9 = 'class' THEN 'class' ELSE NULL END,
           updated_at = NOW()
-      WHERE id = $8::bigint AND user_id = $9
+      WHERE id = $10::bigint AND user_id = $11
       RETURNING
         id,
         title,
@@ -330,6 +342,8 @@ const actionBuilders: Record<string, ActionBuilder> = {
         google_event_id,
         google_etag,
         google_updated_at,
+        course_id,
+        academic_kind,
         updated_at;
     `,
       values: [
@@ -340,6 +354,8 @@ const actionBuilders: Record<string, ActionBuilder> = {
         range.endTime,
         params.timeZone ?? 'UTC',
         params.description ?? null,
+        params.courseId ?? null,
+        params.academicKind ?? null,
         required(params, 'id'),
         required(params, 'userId'),
       ],

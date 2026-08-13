@@ -11,8 +11,9 @@ export type BrightspaceImportRow = {
   entryKind: 'homework' | 'event';
   date: string;
   time?: string | null;
+  endDate?: string | null;
+  endTime?: string | null;
   sourceLabel: string;
-  rawText: string;
 };
 
 export type BrightspaceImportResponse = {
@@ -48,7 +49,9 @@ function normalizeTime(value: unknown): string | null {
 }
 
 export function buildBrightspaceSourceKey(row: BrightspaceImportRow): string {
-  return [row.courseCode, row.title, row.entryKind, row.date, row.time ?? '']
+  const parts = [row.courseCode, row.title, row.entryKind, row.date, row.time ?? ''];
+  if (row.endDate || row.endTime) parts.push(row.endDate ?? '', row.endTime ?? '');
+  return parts
     .map((part) => normalizeText(part).toLowerCase().replace(/\s+/g, ' '))
     .join('|');
 }
@@ -66,10 +69,11 @@ export function normalizeBrightspaceImportRows(rows: unknown): BrightspaceImport
     const entryKind = candidate.entryKind;
     const date = normalizeDate(candidate.date);
     const time = normalizeTime(candidate.time);
+    const endDate = candidate.endDate ? normalizeDate(candidate.endDate) : null;
+    const endTime = normalizeTime(candidate.endTime);
     const sourceLabel = normalizeText(candidate.sourceLabel);
-    const rawText = normalizeText(candidate.rawText);
 
-    if (!title || !courseCode || !courseName || !sourceLabel || !rawText) {
+    if (!title || !courseCode || !courseName || !sourceLabel) {
       throw new Error(`Row ${index + 1} is missing required import data`);
     }
 
@@ -77,7 +81,9 @@ export function normalizeBrightspaceImportRows(rows: unknown): BrightspaceImport
       throw new Error(`Row ${index + 1} has an unsupported entry kind`);
     }
 
-    return { title, courseCode, courseName, entryKind, date, time, sourceLabel, rawText };
+    if (endDate && endDate < date) throw new Error(`Row ${index + 1} ends before it starts`);
+    if (endTime && !time) throw new Error(`Row ${index + 1} needs a start time when an end time is present`);
+    return { title, courseCode, courseName, entryKind, date, time, endDate, endTime, sourceLabel };
   });
 }
 
@@ -129,33 +135,45 @@ async function insertAssignment(client: Queryable, courseId: string, row: Bright
         DO NOTHING
       RETURNING id;
     `,
-    [courseId, row.title, row.date, row.time, IMPORT_TIME_ZONE, row.rawText, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey]
+    [courseId, row.title, row.date, row.time, IMPORT_TIME_ZONE, null, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey]
   );
 
   return result.rowCount === 1;
 }
 
-async function insertEvent(client: Queryable, userId: string, row: BrightspaceImportRow, sourceKey: string): Promise<boolean> {
-  const description = `${row.courseCode} - ${row.courseName}\n${row.rawText}`;
+async function insertEvent(
+  client: Queryable,
+  userId: string,
+  courseId: string,
+  row: BrightspaceImportRow,
+  sourceKey: string
+): Promise<boolean> {
+  const description = `${row.courseCode} - ${row.courseName} (${row.sourceLabel})`;
   const result = await client.query(
     `
       INSERT INTO events (
         title,
         event_date,
+        end_date,
         event_time,
+        end_time,
         event_timezone,
         description,
         user_id,
         source_provider,
-        source_key
+        source_key,
+        course_id
       )
-      VALUES ($1, $2::date, $3::time, $4, $5, $6, $7, $8)
+      VALUES ($1, $2::date, $3::date, $4::time, $5::time, $6, $7, $8, $9, $10, $11::bigint)
       ON CONFLICT (user_id, source_provider, source_key)
         WHERE user_id IS NOT NULL AND source_provider IS NOT NULL AND source_key IS NOT NULL
         DO NOTHING
       RETURNING id;
     `,
-    [row.title, row.date, row.time, IMPORT_TIME_ZONE, description, userId, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey]
+    [
+      row.title, row.date, row.endDate, row.time, row.endTime, IMPORT_TIME_ZONE,
+      description, userId, BRIGHTSPACE_SOURCE_PROVIDER, sourceKey, courseId,
+    ]
   );
 
   return result.rowCount === 1;
@@ -187,7 +205,7 @@ export async function importBrightspaceRows(
       const inserted =
         row.entryKind === 'homework'
           ? await insertAssignment(client, course.id, row, sourceKey)
-          : await insertEvent(client, userId, row, sourceKey);
+          : await insertEvent(client, userId, course.id, row, sourceKey);
 
       if (inserted && row.entryKind === 'homework') {
         response.createdAssignments += 1;
@@ -200,6 +218,18 @@ export async function importBrightspaceRows(
       const message = err instanceof Error ? err.message : 'Import row failed';
       response.errors.push(`${row.courseCode} ${row.title}: ${message}`);
     }
+  }
+
+  if (response.createdCourses > 0) {
+    await client.query(
+      `
+        INSERT INTO ucd_onboarding (user_id, first_course_at)
+        VALUES ($1, NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          first_course_at = COALESCE(ucd_onboarding.first_course_at, NOW()), updated_at = NOW();
+      `,
+      [userId]
+    );
   }
 
   return response;

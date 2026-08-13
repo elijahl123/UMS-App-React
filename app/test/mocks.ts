@@ -139,6 +139,18 @@ export const googleCalendarActions = {
     },
   ]),
   updateGoogleCalendarSettings: vi.fn(async () => googleCalendarState.status),
+  previewGoogleCalendarImport: vi.fn(async () => ({
+    reviewedCount: 1,
+    items: [{
+      calendarId: 'primary',
+      calendarSummary: 'Primary calendar',
+      title: 'Study group',
+      date: '2026-07-22',
+      time: '16:00',
+      inferredCourseCode: null,
+      academicClass: false,
+    }],
+  })),
   connectGoogleCalendar: vi.fn(async () => ({ authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?mock=1' })),
   syncGoogleCalendar: vi.fn(async () => ({
     importedCount: 1,

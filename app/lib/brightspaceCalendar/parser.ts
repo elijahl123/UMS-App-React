@@ -7,8 +7,12 @@ export type BrightspaceCalendarPreviewRow = {
   entryKind: BrightspaceEntryKind;
   date: string;
   time?: string;
+  endDate?: string;
+  endTime?: string;
   sourceLabel: string;
   rawText: string;
+  defaultSelected?: boolean;
+  ambiguousDuplicate?: boolean;
 };
 
 type CourseToken = {
@@ -187,13 +191,13 @@ export function parseBrightspaceCalendarText(text: string): BrightspaceCalendarP
   const tokens = tokenizeBrightspaceText(text);
   const seenRows = new Set<string>();
 
-  return tokens.flatMap((token, index) => {
+  const rows = tokens.flatMap((token, index) => {
     if (token.type !== 'entry') return [];
 
     const course = nearestCourseForEntry(tokens, index);
     if (!course) return [];
 
-    const rowKey = [course.code, token.title, token.entryKind, token.date, token.time ?? '']
+    const rowKey = [course.code, token.title, token.entryKind, token.sourceLabel, token.date, token.time ?? '']
       .map((part) => part.toLowerCase().replace(/\s+/g, ' ').trim())
       .join('|');
     if (seenRows.has(rowKey)) return [];
@@ -209,9 +213,57 @@ export function parseBrightspaceCalendarText(text: string): BrightspaceCalendarP
         time: token.time,
         sourceLabel: token.sourceLabel,
         rawText: `${course.raw}\n${token.raw}`,
+        defaultSelected: token.sourceLabel !== 'Available' && !/\b(solution|solutions|resource|resources|sample answer|answers)\b/i.test(token.title),
+        ambiguousDuplicate: false,
       },
     ];
   });
+
+  const normalizedKey = (row: BrightspaceCalendarPreviewRow) =>
+    `${row.courseCode}|${row.title}`.toLowerCase().replace(/\s+/g, ' ').trim();
+  const availableByKey = new Map<string, BrightspaceCalendarPreviewRow[]>();
+  const endsByKey = new Map<string, BrightspaceCalendarPreviewRow[]>();
+  rows.forEach((row) => {
+    const map = row.sourceLabel === 'Available' ? availableByKey : row.sourceLabel === 'Availability Ends' ? endsByKey : null;
+    if (!map) return;
+    const key = normalizedKey(row);
+    map.set(key, [...(map.get(key) ?? []), row]);
+  });
+
+  const consumed = new Set<BrightspaceCalendarPreviewRow>();
+  const paired: BrightspaceCalendarPreviewRow[] = [];
+  for (const [key, starts] of availableByKey) {
+    const ends = endsByKey.get(key) ?? [];
+    const sortedStarts = [...starts].sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`));
+    const sortedEnds = [...ends].sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`));
+    for (const start of sortedStarts) {
+      const end = sortedEnds.find((candidate) => !consumed.has(candidate)
+        && `${candidate.date} ${candidate.time ?? '23:59'}` >= `${start.date} ${start.time ?? '00:00'}`);
+      if (!end) continue;
+      consumed.add(start);
+      consumed.add(end);
+      paired.push({
+        ...start,
+        endDate: end.date,
+        endTime: start.time ? end.time : undefined,
+        sourceLabel: 'Available → Availability Ends',
+        rawText: `${start.rawText}\n${end.rawText}`,
+        defaultSelected: !/\b(solution|solutions|resource|resources|sample answer|answers)\b/i.test(start.title),
+        ambiguousDuplicate: starts.length > 1 || ends.length > 1,
+      });
+    }
+  }
+
+  const combined = [...rows.filter((row) => !consumed.has(row)), ...paired];
+  const titleGroups = new Map<string, BrightspaceCalendarPreviewRow[]>();
+  combined.forEach((row) => {
+    const key = normalizedKey(row);
+    titleGroups.set(key, [...(titleGroups.get(key) ?? []), row]);
+  });
+  return combined.map((row) => ({
+    ...row,
+    ambiguousDuplicate: row.ambiguousDuplicate || (titleGroups.get(normalizedKey(row))?.length ?? 0) > 1,
+  })).sort((a, b) => `${a.date} ${a.time ?? ''} ${a.courseCode} ${a.title}`.localeCompare(`${b.date} ${b.time ?? ''} ${b.courseCode} ${b.title}`));
 }
 
 export function parseBrightspaceCalendarPages(pages: string[]): BrightspaceCalendarPreviewRow[] {

@@ -167,6 +167,35 @@ const activeBillingStatus = {
   hasAccess: true,
 };
 
+const fullAccessStatus = {
+  ...activeBillingStatus,
+  accessMode: 'full',
+  canRead: true,
+  canWrite: true,
+  canExport: true,
+  billingWarning: null,
+  entitlement: null,
+};
+
+async function mockAccessAndTelemetryApis(page: Page) {
+  await page.route('**/api/telemetry/events', async (route) => {
+    await route.fulfill({ status: 204, body: '' });
+  });
+
+  await page.route('**/api/access/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/onboarding/milestones')) {
+      await fulfillJson(route, { ok: true, onboarding: null, completedNow: false });
+      return;
+    }
+    if (url.pathname.endsWith('/onboarding')) {
+      await fulfillJson(route, null);
+      return;
+    }
+    await fulfillJson(route, fullAccessStatus);
+  });
+}
+
 async function mockNotificationApis(page: Page) {
   const preferences = {
     userId: testUser.id,
@@ -293,6 +322,7 @@ export async function mockPublicAppApis(page: Page) {
   await page.route('**/api/staging-access/config', async (route) => {
     await fulfillJson(route, { enabled: false });
   });
+  await mockAccessAndTelemetryApis(page);
 }
 
 export async function mockAuthenticatedApp(page: Page, options: MockAuthenticatedAppOptions = {}) {

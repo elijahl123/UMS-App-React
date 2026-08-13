@@ -16,7 +16,6 @@ function row(overrides: Partial<BrightspaceImportRow> = {}): BrightspaceImportRo
     date: '2026-03-01',
     time: '23:59',
     sourceLabel: 'Due',
-    rawText: 'COMP30870-Graph Algorithms-2025/26 Spring\nMid-Term Assignment (50%) - Due 01 March 2026 11:59 PM',
     ...overrides,
   };
 }
@@ -96,7 +95,6 @@ describe('Brightspace PDF importer', () => {
         date: '2026-02-03',
         time: '16:00',
         sourceLabel: 'Available',
-        rawText: 'COMP30870-Graph Algorithms-2025/26 Spring\nPractical 2 - Available 03 February 2026 4:00 PM',
       }),
     ]);
 

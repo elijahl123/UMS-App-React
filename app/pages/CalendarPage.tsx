@@ -325,6 +325,8 @@ function CalendarPage() {
         googleCalendarId: event.googleCalendarId,
         recurringSeriesId: event.recurringSeriesId,
         recurrenceOriginalStart: event.recurrenceOriginalStart,
+        courseId: event.courseId,
+        academicKind: event.academicKind,
       });
       setEditEventOpen(true);
     }
@@ -370,6 +372,8 @@ function CalendarPage() {
       description: values.description ?? null,
       recurringSeriesId: values.recurringSeriesId,
       recurrenceOriginalStart: values.recurrenceOriginalStart,
+      courseId: values.courseId ?? null,
+      academicKind: values.academicKind ?? null,
       userId: user?.id,
     });
     refreshEvents();
@@ -597,7 +601,7 @@ function CalendarPage() {
         onStudyTaskToggle={handleStudyTaskToggle}
       />
       <AddEventDialog open={addEventOpen} onOpenChange={setAddEventOpen} onSubmit={handleAddEvent} />
-      <EditEventDialog open={editEventOpen} onOpenChange={setEditEventOpen} event={editingEvent} onSubmit={handleEditEvent} onDelete={handleDeleteEvent} />
+      <EditEventDialog open={editEventOpen} onOpenChange={setEditEventOpen} event={editingEvent} courses={courses} onSubmit={handleEditEvent} onDelete={handleDeleteEvent} />
     </>
   );
 }

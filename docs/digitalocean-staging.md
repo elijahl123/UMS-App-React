@@ -51,8 +51,14 @@ Use staging values:
 NODE_ENV=production
 APP_ENV=staging
 APP_ORIGIN=https://dev.untitledmanagementsoftware.com
-APP_ORIGINS=https://dev.untitledmanagementsoftware.com,capacitor://localhost,http://localhost
+APP_ORIGINS=https://dev.untitledmanagementsoftware.com,https://untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://dev.untitledmanagementsoftware.com
+MARKETING_ORIGIN=https://untitledmanagementsoftware.com
+UCD_ACCESS_ENABLED=true
+UCD_ACCESS_DOMAIN=ucdconnect.ie
+UCD_ACCESS_END_AT=2027-01-18T00:00:00Z
+UCD_ACCESS_GRACE_END_AT=2027-02-01T00:00:00Z
+SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID=261009
 DATABASE_URL=postgres://<user>:<password>@host.docker.internal:5432/<database>
 STAGING_ACCESS_CONTROL_ENABLED=true
 STAGING_ADMIN_EMAILS=<comma-separated-admin-emails>

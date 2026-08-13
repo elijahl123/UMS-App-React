@@ -37,6 +37,7 @@ import {
   setStudyPlanArchived,
   setStudyTaskCompleted,
   studyPlanErrorMessage,
+  updateStudyTask,
 } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDefinition, useStudyPlanTasks } from '@/app/lib/studyPlans/useStudyPlans';
 import { useAuth } from '@/app/lib/auth/AuthContext';
@@ -72,7 +73,10 @@ function StudyPlanPage() {
   const [error, setError] = useState<string | null>(null);
 
   const today = plan ? todayForTimeZone(plan.timeZone) : '';
-  const windowEnd = plan && windowStart ? [addIsoDays(windowStart, WINDOW_DAYS), plan.examDate].sort()[0] : '';
+  const scheduleEnd = plan?.targetDate ?? plan?.examDate ?? '';
+  const windowEnd = plan && windowStart
+    ? scheduleEnd <= plan.startDate ? addIsoDays(plan.startDate, 1) : [addIsoDays(windowStart, WINDOW_DAYS), scheduleEnd].sort()[0]
+    : '';
   const [tasks, tasksLoading, , reloadTasks, setTasks] = useStudyPlanTasks(
     planId,
     windowStart,
@@ -81,8 +85,10 @@ function StudyPlanPage() {
   );
   useEffect(() => {
     if (!plan) return;
-    if (!windowStart || windowStart < plan.startDate || windowStart >= plan.examDate) {
-      setWindowStart(initialWindowStart(plan.startDate, plan.examDate, todayForTimeZone(plan.timeZone)));
+    if (plan.targetDate <= plan.startDate) {
+      if (windowStart !== plan.startDate) setWindowStart(plan.startDate);
+    } else if (!windowStart || windowStart < plan.startDate || windowStart >= plan.targetDate) {
+      setWindowStart(initialWindowStart(plan.startDate, plan.targetDate, todayForTimeZone(plan.timeZone)));
     }
   }, [plan, windowStart]);
 
@@ -111,7 +117,7 @@ function StudyPlanPage() {
   };
 
   const handleRefresh = async () => {
-    if (!plan || !confirm('Rebalance all incomplete work from today through the day before the exam?')) return;
+    if (!plan || !confirm(`Recalculate all incomplete work from today through the day before the ${plan.targetType === 'exam' ? 'exam' : 'due date'}? Manual task changes will be replaced.`)) return;
     setRefreshing(true);
     setError(null);
     try {
@@ -137,6 +143,36 @@ function StudyPlanPage() {
       setError(studyPlanErrorMessage(err));
     } finally {
       setBusyNoteTask(null);
+    }
+  };
+
+  const handleEditTask = async (taskId: string) => {
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!plan || !task) return;
+    const title = window.prompt('Task title', task.title)?.trim();
+    if (!title) return;
+    const scheduledDate = window.prompt('Scheduled date (YYYY-MM-DD)', task.scheduledDate)?.trim();
+    if (!scheduledDate) return;
+    const minutesText = window.prompt('Estimated minutes (15-minute units)', String(task.estimatedMinutes));
+    if (!minutesText) return;
+    setBusyTask(taskId);
+    setError(null);
+    try {
+      const result = await updateStudyTask(plan.id, taskId, {
+        title,
+        scheduledDate,
+        estimatedMinutes: Math.round(Number(minutesText) / 15) * 15,
+      }, user?.id);
+      setTasks((current) => current.map((candidate) => candidate.id === taskId ? {
+        ...candidate,
+        title: result.title ?? title,
+        scheduledDate: result.scheduledDate,
+        estimatedMinutes: result.estimatedMinutes,
+      } : candidate));
+    } catch (err) {
+      setError(studyPlanErrorMessage(err));
+    } finally {
+      setBusyTask(null);
     }
   };
 
@@ -174,7 +210,7 @@ function StudyPlanPage() {
   const activeTopics = plan.topics.filter((topic) => topic.active);
   const editPath = `/courses/${courseId}/study-plans/${plan.id}/edit`;
   const canGoEarlier = windowStart > plan.startDate;
-  const canGoLater = windowEnd < plan.examDate;
+  const canGoLater = windowEnd < plan.targetDate;
   const windowLastDate = windowEnd ? addIsoDays(windowEnd, -1) : windowStart;
 
   const topicList = (
@@ -231,18 +267,18 @@ function StudyPlanPage() {
                 {plan.courseCode}
               </span>
               <Badge className="border-0 bg-[var(--study-course-text)] text-white">
-                {plan.examType === 'final' ? 'Final' : 'Midterm'}
+                {plan.targetType === 'exam' ? (plan.examType === 'final' ? 'Final exam' : 'Midterm') : plan.targetType}
               </Badge>
               {plan.archived && <Badge variant="secondary">Archived</Badge>}
               {behind && <Badge variant="secondary" className="bg-destructive/10 text-destructive">Needs refresh</Badge>}
             </div>
             <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-[var(--secondary-accent)] sm:text-4xl">
-              {plan.examType === 'final' ? 'Final' : 'Midterm'} study plan
+              {plan.targetTitle}
             </h1>
             <p className="mt-1 text-sm font-semibold text-[var(--study-course-text)] sm:text-base">{plan.courseName}</p>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4 shrink-0" />
-              Exam {formatStudyDate(plan.examDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {plan.targetType === 'exam' ? 'Exam' : 'Due'} {formatStudyDate(plan.targetDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}{plan.targetTime ? ` at ${plan.targetTime}` : ''}
             </p>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2 lg:mt-0 lg:flex lg:shrink-0">
@@ -280,13 +316,20 @@ function StudyPlanPage() {
         </div>
       )}
 
+      {plan.unscheduledMinutes > 0 && (
+        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-amber-300 bg-amber-50 p-3 text-amber-950">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div><p className="font-bold">Partial plan saved</p><p className="mt-1 text-sm">{formatStudyMinutes(plan.unscheduledMinutes)} remains unscheduled because the selected days do not have enough capacity.</p></div>
+        </div>
+      )}
+
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</p>}
 
       <section aria-label="Study plan progress" className="mobile-surface grid shrink-0 grid-cols-2 divide-x divide-y divide-[var(--border-light)] overflow-hidden sm:grid-cols-4 sm:divide-y-0">
         {[
           { label: 'Complete', value: `${progress.percent}%`, icon: CheckCircle2 },
           { label: 'Tasks', value: `${progress.completed}/${progress.total}`, icon: ListChecks },
-          { label: 'Topics', value: activeTopics.length, icon: BookOpenCheck },
+          { label: plan.targetType === 'exam' ? 'Topics' : 'Work target', value: plan.targetType === 'exam' ? activeTopics.length : 1, icon: BookOpenCheck },
           { label: 'Study days left', value: plan.studyDaysLeft, icon: CalendarClock },
         ].map((stat) => {
           const Icon = stat.icon;
@@ -306,8 +349,8 @@ function StudyPlanPage() {
         <details className="group rounded-lg border border-[var(--study-course-border)] bg-white">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_48%,white)] px-4 py-3 marker:content-none">
             <span>
-              <span className="block text-sm font-bold text-[var(--secondary-accent)]">Topics</span>
-              <span className="block text-xs text-muted-foreground">{activeTopics.length} in this plan</span>
+              <span className="block text-sm font-bold text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</span>
+              <span className="block text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</span>
             </span>
             <span className="text-xs font-bold text-[var(--study-course-text)] group-open:hidden">Show</span>
             <span className="hidden text-xs font-bold text-[var(--study-course-text)] group-open:inline">Hide</span>
@@ -369,8 +412,8 @@ function StudyPlanPage() {
           </Button>
       </div>
 
-      <div className="grid shrink-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <section aria-label="Daily study schedule">
+      <div className="grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section aria-label="Daily study schedule" className="min-w-0">
           {tasksLoading ? (
             <div className="mobile-surface py-10 text-center text-sm text-muted-foreground">Loading this four-week window...</div>
           ) : days.length === 0 ? (
@@ -424,6 +467,14 @@ function StudyPlanPage() {
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
+                        title={`Edit ${task.title}`}
+                        aria-label={`Edit ${task.title}`}
+                        disabled={Boolean(task.completedAt) || busyTask === task.id || plan.archived}
+                        onClick={() => void handleEditTask(task.id)}
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] disabled:opacity-50 sm:h-9 sm:w-9"
+                      ><Pencil className="h-4 w-4" /></button>
+                      <button
+                        type="button"
                         title={`Open notes for ${task.title}`}
                         aria-label={`Open notes for ${task.title}`}
                         disabled={busyNoteTask === task.id}
@@ -455,12 +506,12 @@ function StudyPlanPage() {
           )}
         </section>
 
-        <aside className="space-y-3 lg:sticky lg:top-0">
+        <aside className="min-w-0 space-y-3 lg:sticky lg:top-0">
           <Card className="hidden h-auto overflow-hidden rounded-lg border border-[var(--study-course-border)] lg:block">
             <CardHeader className="flex flex-row items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--study-course-bg)_48%,white)] p-4">
               <div>
-                <CardTitle className="text-base text-[var(--secondary-accent)]">Topics</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">{activeTopics.length} in this plan</p>
+                <CardTitle className="text-base text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</p>
               </div>
               <Button asChild variant="outline" size="sm" className="h-9 rounded-lg bg-white/80">
                 <Link to={editPath}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Link>

@@ -31,6 +31,16 @@ export type GoogleCalendarSyncResult = {
   fullSync: boolean;
 };
 
+export type GoogleCalendarPreviewItem = {
+  calendarId: string;
+  calendarSummary: string;
+  title: string;
+  date: string;
+  time: string | null;
+  recurring: boolean;
+  inferredCourseCode: string | null;
+};
+
 async function googleCalendarRequest<TResult>(path: string, options?: RequestInit): Promise<TResult> {
   const response = await apiFetch(`/google-calendar${path}`, {
     ...options,
@@ -58,6 +68,13 @@ export async function connectGoogleCalendar(): Promise<{ authorizationUrl: strin
 
 export async function getOwnedGoogleCalendars(): Promise<GoogleOwnedCalendar[]> {
   return googleCalendarRequest<GoogleOwnedCalendar[]>('/calendars');
+}
+
+export function previewGoogleCalendarImport(calendarIds: string[], historyMonths: number) {
+  return googleCalendarRequest<{ items: GoogleCalendarPreviewItem[]; reviewedCount: number }>('/preview', {
+    method: 'POST',
+    body: JSON.stringify({ calendarIds, historyMonths }),
+  });
 }
 
 export async function updateGoogleCalendarSettings(

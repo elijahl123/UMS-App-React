@@ -1,7 +1,9 @@
 import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
 import { requestUserId } from '../auth';
+import { getAccessStatus, isUcdEmail } from '../access';
 import { config } from '../config';
+import { pool } from '../db';
 import { ApiError, required } from '../errors';
 import {
   formatPaymentMethod,
@@ -21,6 +23,7 @@ import {
 
 export const billingRouter = Router();
 export const billingWebhookRouter = Router();
+export const publicBillingRouter = Router();
 
 function errorResponse(res: Response, err: unknown) {
   console.error('[Billing] Request failed:', err);
@@ -43,14 +46,14 @@ function publicPriceConfig() {
   };
 }
 
-billingRouter.get('/config', (_req, res) => {
+publicBillingRouter.get('/config', (_req, res) => {
   res.json(publicPriceConfig());
 });
 
 billingRouter.get('/status', async (req, res) => {
   try {
     const userId = requestUserId(req, req.query);
-    const status = await getBillingStatus(userId);
+    const status = await getAccessStatus(userId);
     return res.json(status);
   } catch (err) {
     return errorResponse(res, err);
@@ -64,9 +67,9 @@ billingRouter.get('/status/refresh', async (req, res) => {
     if (status.stripeSubscriptionId) {
       const subscription = await stripeClient().subscriptions.retrieve(status.stripeSubscriptionId);
       await updateSubscriptionByStripeSubscription(subscription);
-      return res.json(await getBillingStatus(userId));
+      return res.json(await getAccessStatus(userId));
     }
-    return res.json(status);
+    return res.json(await getAccessStatus(userId));
   } catch (err) {
     return errorResponse(res, err);
   }
@@ -76,6 +79,19 @@ billingRouter.post('/trial/start', async (req, res) => {
   try {
     const userId = requestUserId(req, req.body);
     const email = req.auth?.email ?? (required(req.body, 'email') as string);
+    const access = await getAccessStatus(userId);
+    const ucdJourney = await pool.query<{ matched: boolean }>(
+      `
+        SELECT EXISTS (
+          SELECT 1 FROM campaign_attributions
+          WHERE user_id = $1 AND (first_source = 'ucd_landing' OR last_source = 'ucd_landing')
+        ) AS matched;
+      `,
+      [userId]
+    );
+    if (access.entitlement || isUcdEmail(email) || ucdJourney.rows[0]?.matched) {
+      return res.json({ ...access, trialStartedNow: false });
+    }
     return res.json(await startTrialForUser({ userId, email }));
   } catch (err) {
     return errorResponse(res, err);

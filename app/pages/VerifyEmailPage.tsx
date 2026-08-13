@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { verifyAccountEmailToken } from '@/app/lib/accountEmails/client';
+import { reconcileAccess } from '@/app/lib/access/client';
 
 function getVerificationParam(searchParams: URLSearchParams, name: string): string {
   return searchParams.get(name) ?? new URLSearchParams(window.location.search).get(name) ?? '';
@@ -16,11 +17,11 @@ function verificationError(err: unknown): string {
 }
 
 function VerifyEmailPage() {
-  const { verifyEmailWithToken } = useAuth();
+  const { verifyEmailWithToken, resendVerificationEmail } = useAuth();
   const [searchParams] = useSearchParams();
   const oobCode = getVerificationParam(searchParams, 'oobCode');
   const accountEmailToken = getVerificationParam(searchParams, 'accountEmailToken');
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [status, setStatus] = useState<'pending' | 'verifying' | 'success' | 'error'>('verifying');
   const [error, setError] = useState<string | null>(null);
   const hasRun = useRef(false);
 
@@ -28,6 +29,10 @@ function VerifyEmailPage() {
     if (hasRun.current) return;
     hasRun.current = true;
 
+    if (!oobCode && !accountEmailToken && searchParams.get('pending') === '1') {
+      setStatus('pending');
+      return;
+    }
     if (!oobCode && !accountEmailToken) {
       setStatus('error');
       setError('This verification link is missing or invalid.');
@@ -38,6 +43,7 @@ function VerifyEmailPage() {
       try {
         if (accountEmailToken) {
           await verifyAccountEmailToken(accountEmailToken);
+          await reconcileAccess();
           setStatus('success');
           return;
         }
@@ -54,7 +60,7 @@ function VerifyEmailPage() {
         setError(verificationError(err));
       }
     })();
-  }, [accountEmailToken, oobCode, verifyEmailWithToken]);
+  }, [accountEmailToken, oobCode, searchParams, verifyEmailWithToken]);
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-secondary/40 p-4">
@@ -68,6 +74,16 @@ function VerifyEmailPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center gap-3 py-2 text-center">
+            {status === 'pending' && (
+              <>
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <GraduationCap className="h-6 w-6" />
+                </div>
+                <p className="text-sm text-muted-foreground">Check your inbox and click the verification link. Your UCD access is granted only after the address is verified.</p>
+                <Button className="mt-2 w-full" onClick={() => void resendVerificationEmail()}>Resend verification email</Button>
+                <Button asChild variant="outline" className="w-full"><Link to="/account">Go to account settings</Link></Button>
+              </>
+            )}
             {status === 'verifying' && (
               <>
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

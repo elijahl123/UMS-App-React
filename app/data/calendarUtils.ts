@@ -208,14 +208,17 @@ export function buildCalendarItems(
       sequenceStart = index + 1;
     });
 
-    if (plan.examDate >= visibleStart && plan.examDate <= visibleEnd) {
-      addItem(plan.examDate, {
+    if (plan.targetDate >= visibleStart && plan.targetDate <= visibleEnd) {
+      const targetLabel = plan.targetType === 'exam'
+        ? (plan.examType === 'final' ? 'Final exam' : 'Midterm exam')
+        : plan.targetTitle;
+      addItem(plan.targetDate, {
         sourceId: plan.id,
-        rangeId: `exam-${plan.id}`,
-        rangeStart: plan.examDate,
-        rangeEnd: plan.examDate,
+        rangeId: `target-${plan.id}`,
+        rangeStart: plan.targetDate,
+        rangeEnd: plan.targetDate,
         type: 'exam',
-        title: `${course?.code ?? plan.courseCode}: ${plan.examType === 'final' ? 'Final exam' : 'Midterm exam'}`,
+        title: `${course?.code ?? plan.courseCode}: ${targetLabel}`,
         color: colors.bg,
         textColor: colors.text,
         borderColor: colors.border,

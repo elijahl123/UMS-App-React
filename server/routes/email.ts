@@ -144,20 +144,6 @@ publicEmailRouter.post('/account-addresses/verify', async (req: Request, res: Re
   }
 });
 
-emailRouter.post('/send', async (req: Request, res: Response) => {
-  if (!config.sendgridApiKey) {
-    return res.status(500).json({ error: { message: 'SENDGRID_API_KEY is required' } });
-  }
-
-  try {
-    await sgMail.send(req.body);
-    return res.json({ success: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'SENDGRID_SEND_FAILED';
-    return res.status(500).json({ error: { message } });
-  }
-});
-
 emailRouter.get('/account-addresses', async (req: Request, res: Response) => {
   try {
     const firebaseUser = await authenticatedFirebaseUser(req);

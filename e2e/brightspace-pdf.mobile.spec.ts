@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { mockAuthenticatedApp } from './support/appMocks';
@@ -66,5 +66,20 @@ test('parses a Brightspace PDF upload in the mobile browser', async ({ page }, t
   await expect(page.getByText('Mid-Term Assignment (50%)')).toBeVisible();
   await expect(page.getByRole('table').getByText('COMP30870')).toBeVisible();
   await expect(page.getByRole('button', { name: /Import 1 selected/i })).toBeVisible();
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('parses the operator-supplied Brightspace agenda fixture without copying it into the repository', async ({ page }) => {
+  const fixturePath = process.env.UCD_BRIGHTSPACE_PDF_FIXTURE;
+  test.skip(!fixturePath || !existsSync(fixturePath), 'Set UCD_BRIGHTSPACE_PDF_FIXTURE to run the private local fixture.');
+  const runtimeErrors = watchForRuntimeErrors(page);
+
+  await page.goto('/#/homework');
+  await page.getByRole('button', { name: 'Import Brightspace PDF' }).click();
+  await page.getByLabel('Brightspace calendar PDF').setInputFiles(fixturePath!);
+
+  await expect(page.getByRole('table')).toBeVisible();
+  await expect(page.getByRole('row')).not.toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Import \d+ selected/i })).toBeVisible();
   expect(runtimeErrors).toEqual([]);
 });

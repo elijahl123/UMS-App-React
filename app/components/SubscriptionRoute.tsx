@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { getBillingStatus, type BillingStatus } from '@/app/lib/billing/client';
 
+export type SubscriptionOutletContext = { accessStatus: BillingStatus };
+
 function SubscriptionRoute() {
   const { user } = useAuth();
   const location = useLocation();
@@ -42,11 +44,15 @@ function SubscriptionRoute() {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Checking subscription...</div>;
   }
 
-  if (!status?.hasAccess) {
+  if (!status) {
+    return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Unable to check access. Refresh to try again.</div>;
+  }
+
+  if (!status.hasAccess && location.pathname !== '/account') {
     return <Navigate to="/billing" state={{ from: location.pathname }} replace />;
   }
 
-  return <Outlet />;
+  return <Outlet context={{ accessStatus: status } satisfies SubscriptionOutletContext} />;
 }
 
 export default SubscriptionRoute;
