@@ -17,11 +17,17 @@ import { reconcileAccess } from '@/app/lib/access/client';
 import { isExactUcdEmail, isUcdLaunchJourney } from '@/app/lib/launch/attribution';
 import { trackProductEvent } from '@/app/lib/launch/client';
 import { initializeOnboarding, ONBOARDING_INITIALIZE_PENDING_KEY } from '@/app/lib/onboarding/client';
+import { requestPasswordResetEmail, requestPrimaryEmailVerification } from '@/app/lib/email/client';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
 const TRIAL_REDIRECT_STORAGE_KEY = 'schoolwork_trial_started_redirect';
 
-type AuthResult = Promise<{ success: boolean; error?: string; trialStartedNow?: boolean }>;
+type AuthResult = Promise<{
+  success: boolean;
+  error?: string;
+  trialStartedNow?: boolean;
+  verificationEmailSent?: boolean;
+}>;
 
 interface FirebaseErrorResponse {
   error?: { message?: string };
@@ -91,9 +97,12 @@ function friendlyFirebaseError(code: string): string {
     case 'WEAK_PASSWORD : Password should be at least 6 characters':
       return 'Password should be at least 6 characters.';
     case 'TOO_MANY_ATTEMPTS_TRY_LATER':
+    case 'TOO_MANY_REQUESTS':
       return 'Too many attempts. Please try again later.';
     case 'INVALID_ID_TOKEN':
       return 'Your session has expired. Please log in again.';
+    case 'EMAIL_DELIVERY_FAILED':
+      return 'We could not send the email. Please try again.';
     case 'INVALID_OOB_CODE':
       return 'This link is invalid or has already been used.';
     case 'EXPIRED_OOB_CODE':
@@ -342,13 +351,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const buildContinueUrl = (route: 'verify-email' | 'reset-password'): string => {
-    // Points back to our app's own page. NOTE: for Firebase to actually redirect the
-    // oobCode to this app (instead of Firebase's default hosted handler), the project's
-    // Authentication > Templates > "Action URL" must be set to this app's domain.
-    return `${window.location.origin}/#/${route}`;
-  };
-
   const persistSession = (nextIdToken: string, nextUser: AppUser) => {
     setIdToken(nextIdToken);
     setApiAuthToken(nextIdToken);
@@ -402,12 +404,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
       void trackProductEvent('signup_completed');
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       await refreshStagingAccess(result.idToken);
-      await firebaseAuth.sendOobCode({
-        requestType: 'VERIFY_EMAIL',
-        idToken: result.idToken,
-        continueUrl: buildContinueUrl('verify-email'),
-      });
-      return { success: true, trialStartedNow };
+      let verificationEmailSent = true;
+      try {
+        await requestPrimaryEmailVerification();
+      } catch (err) {
+        verificationEmailSent = false;
+        console.error('[Auth] Initial verification email could not be sent:', extractErrorCode(err));
+      }
+      return { success: true, trialStartedNow, verificationEmailSent };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
     }
@@ -474,11 +478,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'Your email is already verified.' };
     }
     try {
-      await firebaseAuth.sendOobCode({
-        requestType: 'VERIFY_EMAIL',
-        idToken,
-        continueUrl: buildContinueUrl('verify-email'),
-      });
+      const result = await requestPrimaryEmailVerification();
+      if (result.status === 'already_verified') {
+        return { success: false, error: 'Your email is already verified.' };
+      }
       return { success: true };
     } catch (err) {
       return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
@@ -505,15 +508,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (email: string) => {
     try {
-      await firebaseAuth.sendOobCode({
-        requestType: 'PASSWORD_RESET',
-        email: email.trim().toLowerCase(),
-        continueUrl: buildContinueUrl('reset-password'),
-      });
+      await requestPasswordResetEmail(email.trim().toLowerCase());
       return { success: true };
-    } catch {
-      // Always report success to avoid revealing whether an email is registered.
-      return { success: true };
+    } catch (err) {
+      return { success: false, error: friendlyFirebaseError(extractErrorCode(err)) };
     }
   };
 

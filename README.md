@@ -8,7 +8,7 @@ The frontend is intentionally cloned from `UMS-App/src` so the app looks and beh
 - `server/db.ts` owns the Postgres pool.
 - `server/actions.ts` maps app actions to SQL.
 - `server/routes/actions.ts` serves `/api/actions/:name`.
-- `server/routes/email.ts` serves `/api/email/send`.
+- `server/routes/email.ts` serves Firebase action-email and secondary-address email APIs.
 - `server/app.ts` wires middleware and routes.
 - `server/index.ts` starts the API.
 
@@ -36,6 +36,11 @@ The app uses:
 - Postgres for courses, assignments, events, class sessions, notes, links, users, and auth token tables.
 - Firebase Identity Toolkit REST APIs for email/password auth, email verification, password reset, and Google sign-in.
 - SendGrid for transactional email through the Express backend.
+
+Firebase generates primary verification and password-reset action links; the
+Express API renders and delivers them through SendGrid. See
+[`docs/email-delivery.md`](docs/email-delivery.md) for Firebase console,
+SendGrid sender-authentication, and release verification steps.
 
 ## Development
 

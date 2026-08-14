@@ -6,7 +6,12 @@ import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/l
 import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
 import type { OnboardingState } from '@/app/lib/onboarding/client';
 
-type AuthActionResult = { success: boolean; error?: string; trialStartedNow?: boolean };
+type AuthActionResult = {
+  success: boolean;
+  error?: string;
+  trialStartedNow?: boolean;
+  verificationEmailSent?: boolean;
+};
 
 export const authState = {
   user: mockUser as AppUser | null,

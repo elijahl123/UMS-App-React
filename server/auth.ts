@@ -66,6 +66,10 @@ function firebaseApp() {
   return admin.app();
 }
 
+export function firebaseAuth() {
+  return firebaseApp().auth();
+}
+
 function bearerToken(req: Request): string | null {
   const header = req.header('authorization');
   if (!header?.startsWith('Bearer ')) {
