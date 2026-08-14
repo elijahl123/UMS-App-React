@@ -63,7 +63,10 @@ export async function getGoogleCalendarStatus(): Promise<GoogleCalendarStatus> {
 }
 
 export async function connectGoogleCalendar(): Promise<{ authorizationUrl: string }> {
-  return googleCalendarRequest<{ authorizationUrl: string }>('/connect', { method: 'POST', body: '{}' });
+  return googleCalendarRequest<{ authorizationUrl: string }>('/connect', {
+    method: 'POST',
+    body: JSON.stringify({ returnOrigin: window.location.origin }),
+  });
 }
 
 export async function getOwnedGoogleCalendars(): Promise<GoogleOwnedCalendar[]> {

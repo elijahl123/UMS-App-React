@@ -9,8 +9,6 @@ import { syncNotificationInstancesForUser } from './notifications';
 export const GOOGLE_CALENDAR_SOURCE_PROVIDER = 'google_calendar';
 
 const OWNED_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events.owned';
-const SHARED_EVENTS_READ_SCOPE = 'https://www.googleapis.com/auth/calendar.events.readonly';
-const CALENDAR_LIST_SCOPE = 'https://www.googleapis.com/auth/calendar.calendarlist.readonly';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
@@ -96,21 +94,6 @@ type GoogleEventsListResponse = {
   timeZone?: string;
   accessRole?: string;
   error?: { code?: number; message?: string };
-};
-
-type GoogleCalendarListEntry = {
-  id?: string;
-  summary?: string;
-  timeZone?: string;
-  backgroundColor?: string;
-  primary?: boolean;
-  accessRole?: string;
-  deleted?: boolean;
-};
-
-type GoogleCalendarListResponse = {
-  items?: GoogleCalendarListEntry[];
-  nextPageToken?: string;
 };
 
 type DbConnection = {
@@ -244,13 +227,19 @@ function stateSigningKey(): Buffer {
   return crypto.createHash('sha256').update(source).digest();
 }
 
-export function signGoogleCalendarState(userId: string, issuedAt = Date.now()): string {
-  const payload = Buffer.from(JSON.stringify({ userId, issuedAt })).toString('base64url');
+type GoogleCalendarState = {
+  userId: string;
+  issuedAt: number;
+  returnOrigin?: string;
+};
+
+export function signGoogleCalendarState(userId: string, issuedAt = Date.now(), returnOrigin?: string): string {
+  const payload = Buffer.from(JSON.stringify({ userId, issuedAt, returnOrigin })).toString('base64url');
   const signature = crypto.createHmac('sha256', stateSigningKey()).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
 
-export function verifyGoogleCalendarState(state: string, now = Date.now()): string {
+export function verifyGoogleCalendarStateDetails(state: string, now = Date.now()): GoogleCalendarState {
   const [payload, signature] = state.split('.');
   if (!payload || !signature) throw new ApiError('Invalid Google Calendar connection state.', 400);
   const expected = crypto.createHmac('sha256', stateSigningKey()).update(payload).digest('base64url');
@@ -259,11 +248,15 @@ export function verifyGoogleCalendarState(state: string, now = Date.now()): stri
   if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
     throw new ApiError('Invalid Google Calendar connection state.', 400);
   }
-  const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { userId?: string; issuedAt?: number };
+  const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Partial<GoogleCalendarState>;
   if (!parsed.userId || !parsed.issuedAt || now - parsed.issuedAt > STATE_MAX_AGE_MS) {
     throw new ApiError('Expired Google Calendar connection state.', 400);
   }
-  return parsed.userId;
+  return { userId: parsed.userId, issuedAt: parsed.issuedAt, returnOrigin: parsed.returnOrigin };
+}
+
+export function verifyGoogleCalendarState(state: string, now = Date.now()): string {
+  return verifyGoogleCalendarStateDetails(state, now).userId;
 }
 
 async function readConnection(userId: string): Promise<DbConnection | null> {
@@ -301,9 +294,7 @@ async function mapStatus(row: DbConnection | null): Promise<GoogleCalendarStatus
     historyMonths: row?.history_months ?? 6,
     selectedCalendarIds: calendars.map((calendar) => calendar.calendar_id),
     setupCompleted: Boolean(row?.setup_completed),
-    reauthorizationRequired: Boolean(
-      row?.encrypted_refresh_token && (!row.calendar_list_scope_granted || !row.shared_calendar_scope_granted)
-    ),
+    reauthorizationRequired: false,
   };
 }
 
@@ -311,19 +302,17 @@ export async function getGoogleCalendarStatus(userId: string): Promise<GoogleCal
   return mapStatus(await readConnection(userId));
 }
 
-export async function buildGoogleCalendarAuthUrl(userId: string): Promise<string> {
+export async function buildGoogleCalendarAuthUrl(userId: string, returnOrigin?: string): Promise<string> {
   assertGoogleCalendarConfigured();
   const connection = await readConnection(userId);
-  const needsConsent = !connection?.encrypted_refresh_token
-    || !connection.calendar_list_scope_granted
-    || !connection.shared_calendar_scope_granted;
+  const needsConsent = !connection?.encrypted_refresh_token;
   const params = new URLSearchParams({
     client_id: config.googleCalendarClientId ?? '',
     redirect_uri: config.googleCalendarRedirectUri,
     response_type: 'code',
-    scope: `openid email profile ${OWNED_EVENTS_SCOPE} ${SHARED_EVENTS_READ_SCOPE} ${CALENDAR_LIST_SCOPE}`,
+    scope: `openid email profile ${OWNED_EVENTS_SCOPE}`,
     access_type: 'offline',
-    state: signGoogleCalendarState(userId),
+    state: signGoogleCalendarState(userId, Date.now(), returnOrigin),
     prompt: needsConsent ? 'consent select_account' : 'select_account',
   });
   return `${GOOGLE_AUTH_URL}?${params.toString()}`;
@@ -360,24 +349,6 @@ async function googleJson<TResult>(url: string, accessToken: string, init?: Requ
   return payload as TResult;
 }
 
-async function listReadableCalendars(accessToken: string): Promise<GoogleCalendarListEntry[]> {
-  const calendars: GoogleCalendarListEntry[] = [];
-  let pageToken: string | null = null;
-  do {
-    const params = new URLSearchParams({ maxResults: '250', minAccessRole: 'reader' });
-    if (pageToken) params.set('pageToken', pageToken);
-    const payload = await googleJson<GoogleCalendarListResponse>(
-      `${GOOGLE_CALENDAR_API_URL}/users/me/calendarList?${params.toString()}`,
-      accessToken
-    );
-    calendars.push(
-      ...(payload.items ?? []).filter((entry) => !entry.deleted && entry.id)
-    );
-    pageToken = payload.nextPageToken ?? null;
-  } while (pageToken);
-  return calendars;
-}
-
 async function storeOwnedCalendar(
   userId: string,
   calendar: { id: string; summary: string; timeZone: string; primary: boolean }
@@ -409,42 +380,40 @@ async function storeOwnedCalendar(
   );
 }
 
-async function storeOwnedCalendars(userId: string, calendars: GoogleCalendarListEntry[]) {
-  const calendarIds = calendars.flatMap((calendar) => (calendar.id ? [calendar.id] : []));
-  const primaryId = calendars.find((calendar) => calendar.primary)?.id;
-  if (primaryId) {
-    await pool.query(
-      `
-        UPDATE google_calendar_selections
-        SET is_primary = FALSE, updated_at = NOW()
-        WHERE user_id = $1 AND calendar_id <> $2
-      `,
-      [userId, primaryId]
-    );
-  }
-  if (calendarIds.length > 0) {
-    await pool.query(
-      `
-        DELETE FROM google_calendar_selections
-        WHERE user_id = $1 AND calendar_id <> ALL($2::text[])
-      `,
-      [userId, calendarIds]
-    );
-  }
-  for (const calendar of calendars) {
-    if (!calendar.id) continue;
-    await storeOwnedCalendar(userId, {
-      id: calendar.id,
-      summary: calendar.summary?.trim() || 'Untitled calendar',
-      timeZone: calendar.timeZone || 'UTC',
-      primary: Boolean(calendar.primary),
+async function ensurePrimaryCalendarSelection(connection: DbConnection) {
+  const calendarId = connection.calendar_id || DEFAULT_CALENDAR_ID;
+  const existing = (await readCalendars(connection.user_id)).find(
+    (calendar) => calendar.calendar_id === calendarId
+  );
+  if (!existing) {
+    await storeOwnedCalendar(connection.user_id, {
+      id: calendarId,
+      summary: 'Primary calendar',
+      timeZone: 'UTC',
+      primary: true,
     });
   }
+  await pool.query(
+    `
+      UPDATE google_calendar_selections
+      SET is_primary = FALSE, selected = FALSE, updated_at = NOW()
+      WHERE user_id = $1 AND calendar_id <> $2
+    `,
+    [connection.user_id, calendarId]
+  );
+  await pool.query(
+    `
+      UPDATE google_calendar_selections
+      SET is_primary = TRUE, selected = TRUE, updated_at = NOW()
+      WHERE user_id = $1 AND calendar_id = $2
+    `,
+    [connection.user_id, calendarId]
+  );
 }
 
 export async function handleGoogleCalendarCallback(code: string, state: string) {
   assertGoogleCalendarConfigured();
-  const userId = verifyGoogleCalendarState(state);
+  const { userId, returnOrigin } = verifyGoogleCalendarStateDetails(state);
   const existing = await readConnection(userId);
   const token = await googleTokenRequest({
     client_id: config.googleCalendarClientId ?? '',
@@ -453,19 +422,12 @@ export async function handleGoogleCalendarCallback(code: string, state: string) 
     grant_type: 'authorization_code',
     redirect_uri: config.googleCalendarRedirectUri,
   });
-  if (
-    !token.refresh_token
-    && (!existing?.encrypted_refresh_token || !existing.calendar_list_scope_granted || !existing.shared_calendar_scope_granted)
-  ) {
+  if (!token.refresh_token && !existing?.encrypted_refresh_token) {
     throw new ApiError('Google did not return a refresh token. Please try connecting again.', 400);
   }
 
-  const [userInfo, calendars] = await Promise.all([
-    googleJson<GoogleUserInfo>(GOOGLE_USERINFO_URL, token.access_token),
-    listReadableCalendars(token.access_token),
-  ]);
-  const primaryCalendarId =
-    calendars.find((calendar) => calendar.primary)?.id ?? DEFAULT_CALENDAR_ID;
+  const userInfo = await googleJson<GoogleUserInfo>(GOOGLE_USERINFO_URL, token.access_token);
+  const primaryCalendarId = DEFAULT_CALENDAR_ID;
   const expiresAt = new Date(Date.now() + (token.expires_in ?? 3600) * 1000);
   await pool.query(
     `
@@ -474,7 +436,7 @@ export async function handleGoogleCalendarCallback(code: string, state: string) 
         encrypted_refresh_token, access_token_expires_at, sync_token, last_error,
         setup_completed, calendar_list_scope_granted, shared_calendar_scope_granted, sync_format_version, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, FALSE, TRUE, TRUE, $8, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, FALSE, FALSE, FALSE, $8, NOW())
       ON CONFLICT (user_id) DO UPDATE SET
         google_sub = EXCLUDED.google_sub,
         google_email = EXCLUDED.google_email,
@@ -485,8 +447,8 @@ export async function handleGoogleCalendarCallback(code: string, state: string) 
         sync_token = NULL,
         last_error = NULL,
         setup_completed = FALSE,
-        calendar_list_scope_granted = TRUE,
-        shared_calendar_scope_granted = TRUE,
+        calendar_list_scope_granted = FALSE,
+        shared_calendar_scope_granted = FALSE,
         updated_at = NOW()
     `,
     [
@@ -500,8 +462,9 @@ export async function handleGoogleCalendarCallback(code: string, state: string) 
       COMPACT_SYNC_FORMAT_VERSION,
     ]
   );
-  await storeOwnedCalendars(userId, calendars);
-  return { userId };
+  const savedConnection = await readConnection(userId);
+  if (savedConnection) await ensurePrimaryCalendarSelection(savedConnection);
+  return { userId, returnOrigin };
 }
 
 async function ensureAccessToken(connection: DbConnection): Promise<string> {
@@ -536,12 +499,8 @@ async function ensureAccessToken(connection: DbConnection): Promise<string> {
 export async function getOwnedGoogleCalendars(userId: string): Promise<GoogleOwnedCalendar[]> {
   const connection = await readConnection(userId);
   if (!connection?.encrypted_refresh_token) throw new ApiError('Google Calendar is not connected.', 400);
-  if (!connection.calendar_list_scope_granted || !connection.shared_calendar_scope_granted) {
-    throw new ApiError('Reconnect Google Calendar to choose calendars.', 409);
-  }
-  const token = await ensureAccessToken(connection);
-  await storeOwnedCalendars(userId, await listReadableCalendars(token));
-  return (await readCalendars(userId)).map((calendar) => ({
+  await ensurePrimaryCalendarSelection(connection);
+  return (await readCalendars(userId)).filter((calendar) => calendar.is_primary).map((calendar) => ({
     id: calendar.calendar_id,
     summary: calendar.summary,
     timeZone: calendar.time_zone,
@@ -555,16 +514,12 @@ export async function updateGoogleCalendarSettings(userId: string, calendarIds: 
   if (!HISTORY_PRESETS.has(historyMonths)) throw new ApiError('Choose a supported Google Calendar history range.', 400);
   const connection = await readConnection(userId);
   if (!connection?.encrypted_refresh_token) throw new ApiError('Google Calendar is not connected.', 400);
-  if (!connection.calendar_list_scope_granted || !connection.shared_calendar_scope_granted) {
-    throw new ApiError('Reconnect Google Calendar to choose calendars.', 409);
-  }
+  await ensurePrimaryCalendarSelection(connection);
   const calendars = await readCalendars(userId);
-  const available = new Set(calendars.map((calendar) => calendar.calendar_id));
-  const selected = [...new Set(calendarIds)];
-  if (selected.some((id) => !available.has(id))) throw new ApiError('One or more calendars are no longer available.', 400);
   const primary = calendars.find((calendar) => calendar.is_primary);
-  if (!primary || !selected.includes(primary.calendar_id)) {
-    throw new ApiError('The primary Google Calendar must remain selected.', 400);
+  const selected = [...new Set(calendarIds)];
+  if (!primary || selected.length !== 1 || selected[0] !== primary.calendar_id) {
+    throw new ApiError('Only the primary Google Calendar can be selected.', 400);
   }
 
   const client = await pool.connect();
@@ -999,10 +954,17 @@ async function listGoogleEvents(
   accessToken: string,
   historyMonths: number,
   fullSync: boolean
-): Promise<{ events: GoogleCalendarEvent[]; nextSyncToken: string | null }> {
+): Promise<{
+  events: GoogleCalendarEvent[];
+  nextSyncToken: string | null;
+  summary: string | null;
+  timeZone: string | null;
+}> {
   const events: GoogleCalendarEvent[] = [];
   let pageToken: string | null = null;
   let nextSyncToken: string | null = null;
+  let summary: string | null = null;
+  let timeZone: string | null = null;
   do {
     const params = new URLSearchParams({ singleEvents: 'false', showDeleted: 'true', maxResults: '2500' });
     if (pageToken) params.set('pageToken', pageToken);
@@ -1018,10 +980,12 @@ async function listGoogleEvents(
       accessToken
     );
     events.push(...(payload.items ?? []));
+    summary = payload.summary?.trim() || summary;
+    timeZone = payload.timeZone || timeZone;
     pageToken = payload.nextPageToken ?? null;
     nextSyncToken = payload.nextSyncToken ?? nextSyncToken;
   } while (pageToken);
-  return { events, nextSyncToken };
+  return { events, nextSyncToken, summary, timeZone };
 }
 
 export type GoogleCalendarPreviewItem = {
@@ -1043,33 +1007,36 @@ export async function previewGoogleCalendarImport(
   if (!HISTORY_PRESETS.has(historyMonths)) throw new ApiError('Choose a supported Google Calendar history range.', 400);
   const connection = await readConnection(userId);
   if (!connection?.encrypted_refresh_token) throw new ApiError('Google Calendar is not connected.', 400);
-  if (!connection.calendar_list_scope_granted || !connection.shared_calendar_scope_granted) {
-    throw new ApiError('Reconnect Google Calendar before previewing shared calendars.', 409);
-  }
+  await ensurePrimaryCalendarSelection(connection);
   const calendars = await readCalendars(userId);
   const requested = new Set(calendarIds);
-  const selected = calendars.filter((calendar) => requested.has(calendar.calendar_id));
+  const selected = calendars.filter((calendar) => calendar.is_primary && requested.has(calendar.calendar_id));
   if (selected.length !== requested.size || selected.length === 0) {
-    throw new ApiError('Choose at least one available calendar.', 400);
+    throw new ApiError('Choose the primary Google Calendar.', 400);
   }
   const token = await ensureAccessToken(connection);
   const items: GoogleCalendarPreviewItem[] = [];
   let reviewedCount = 0;
   for (const calendar of selected) {
     const listed = await listGoogleEvents({ ...calendar, sync_token: null }, token, historyMonths, true);
+    const calendarDetails = {
+      ...calendar,
+      summary: listed.summary ?? calendar.summary,
+      time_zone: listed.timeZone ?? calendar.time_zone,
+    };
     const visible = listed.events.filter((event) => event.status !== 'cancelled');
     reviewedCount += visible.length;
     for (const event of visible) {
-      const fields = googleEventToLocalFields(event, calendar.time_zone);
+      const fields = googleEventToLocalFields(event, calendarDetails.time_zone);
       if (!fields) continue;
       items.push({
         calendarId: calendar.calendar_id,
-        calendarSummary: calendar.summary,
+        calendarSummary: calendarDetails.summary,
         title: fields.title,
         date: fields.date,
         time: fields.time,
         recurring: Boolean(event.recurrence?.length || event.recurringEventId),
-        inferredCourseCode: calendar.summary.trim().toLowerCase() === 'ucd timetable'
+        inferredCourseCode: calendarDetails.summary.trim().toLowerCase() === 'ucd timetable'
           ? courseCodeFromCalendarTitle(fields.title)
           : null,
       });
@@ -1104,11 +1071,9 @@ export async function runGoogleCalendarSync(
   assertGoogleCalendarConfigured();
   const connection = await readConnection(userId);
   if (!connection?.encrypted_refresh_token) throw new ApiError('Google Calendar is not connected.', 400);
-  if (!connection.calendar_list_scope_granted || !connection.shared_calendar_scope_granted) {
-    throw new ApiError('Reconnect Google Calendar before syncing.', 409);
-  }
   if (!connection.setup_completed) throw new ApiError('Choose calendars and save import settings first.', 400);
-  const calendars = await readCalendars(userId, true);
+  await ensurePrimaryCalendarSelection(connection);
+  const calendars = (await readCalendars(userId, true)).filter((calendar) => calendar.is_primary);
   if (!calendars.some((calendar) => calendar.is_primary)) {
     throw new ApiError('The primary Google Calendar must remain selected.', 400);
   }
@@ -1148,7 +1113,15 @@ export async function runGoogleCalendarSync(
         full = true;
         result.fullSync = true;
       }
-      listedCalendars.push({ calendar, ...listed, full });
+      listedCalendars.push({
+        calendar: {
+          ...calendar,
+          summary: listed.summary ?? calendar.summary,
+          time_zone: listed.timeZone ?? calendar.time_zone,
+        },
+        ...listed,
+        full,
+      });
     }
 
     const pushLocalIds: Array<{ id: string; calendarId: string }> = [];
@@ -1181,10 +1154,17 @@ export async function runGoogleCalendarSync(
           `
             UPDATE google_calendar_selections
             SET sync_token = COALESCE($3, sync_token), last_synced_at = NOW(),
+                summary = $4, time_zone = $5,
                 last_error = NULL, updated_at = NOW()
             WHERE user_id = $1 AND calendar_id = $2
           `,
-          [userId, listed.calendar.calendar_id, listed.nextSyncToken]
+          [
+            userId,
+            listed.calendar.calendar_id,
+            listed.nextSyncToken,
+            listed.calendar.summary,
+            listed.calendar.time_zone,
+          ]
         );
       }
       await client.query(

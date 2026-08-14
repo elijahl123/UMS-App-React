@@ -26,8 +26,13 @@ import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { mapCourse } from '@/app/data/mappers';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
-import { requestNotificationPermission, syncAndScheduleNotifications } from '@/app/lib/notifications/scheduler';
-import { connectGoogleCalendar } from '@/app/lib/googleCalendar/client';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  syncAndScheduleNotifications,
+  type NotificationPermissionStatus,
+} from '@/app/lib/notifications/scheduler';
+import { connectGoogleCalendar, getGoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
 import { trackProductEvent } from '@/app/lib/launch/client';
 import {
   getOnboarding,
@@ -179,6 +184,10 @@ export default function OnboardingExperience() {
   const [classEnd, setClassEnd] = useState('10:00');
   const [classLocation, setClassLocation] = useState('');
   const [serviceMessage, setServiceMessage] = useState<string | null>(null);
+  const [serviceStatusLoading, setServiceStatusLoading] = useState(false);
+  const [remindersEnabled, setRemindersEnabled] = useState<boolean | null>(null);
+  const [reminderPermission, setReminderPermission] = useState<NotificationPermissionStatus | null>(null);
+  const [calendarConnection, setCalendarConnection] = useState<{ connected: boolean; email: string | null } | null>(null);
   const [mobileChecklistExpanded, setMobileChecklistExpanded] = useState(false);
   const [courseRows, , , reloadCourses] = useLoadAction<unknown[]>('loadCourses', [], { userId: user?.id });
   const [createCourse] = useMutateAction<Record<string, unknown>, unknown[]>('createCourse');
@@ -186,6 +195,26 @@ export default function OnboardingExperience() {
   const [createClassSession] = useMutateAction<Record<string, unknown>, unknown[]>('createClassSession');
   const courses = useMemo(() => courseRows.map((row) => mapCourse(row as never)), [courseRows]);
   const currentCourse = courses[0];
+
+  const refreshServiceConnections = useCallback(async () => {
+    setServiceStatusLoading(true);
+    const [remindersResult, permissionResult, calendarResult] = await Promise.allSettled([
+      getNotificationPreferences(),
+      getNotificationPermissionStatus(),
+      getGoogleCalendarStatus(),
+    ]);
+    setRemindersEnabled(remindersResult.status === 'fulfilled' ? remindersResult.value.enabled : false);
+    setReminderPermission(permissionResult.status === 'fulfilled' ? permissionResult.value : 'unsupported');
+    if (calendarResult.status === 'fulfilled') {
+      setCalendarConnection({
+        connected: calendarResult.value.connected,
+        email: calendarResult.value.googleEmail,
+      });
+    } else {
+      setCalendarConnection({ connected: false, email: null });
+    }
+    setServiceStatusLoading(false);
+  }, []);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -203,6 +232,12 @@ export default function OnboardingExperience() {
   }, [user]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (state?.status === 'active' && state.currentStep === 'services') {
+      void refreshServiceConnections();
+    }
+  }, [refreshServiceConnections, state?.currentStep, state?.status]);
 
   useEffect(() => {
     const refreshProgress = () => { if (state && state.status !== 'active') void load(); };
@@ -468,6 +503,8 @@ export default function OnboardingExperience() {
         timeZone: preferences.timeZone || getBrowserTimeZone(),
       });
       await syncAndScheduleNotifications();
+      setRemindersEnabled(true);
+      setReminderPermission(permission);
       setServiceMessage(permission === 'denied'
         ? 'In-app reminders are on. Device notifications remain blocked in system settings.'
         : 'Notifications are ready.');
@@ -594,6 +631,7 @@ export default function OnboardingExperience() {
 
   const stepIndex = ONBOARDING_STEPS.indexOf(activeStep);
   const progress = Math.max(0, Math.round(((stepIndex + 1) / ONBOARDING_STEPS.length) * 100));
+  const serviceStatusPending = serviceStatusLoading || remindersEnabled === null || calendarConnection === null;
 
   const shell = (title: string, description: string, icon: typeof Gauge, content: ReactNode) => {
     const Icon = icon;
@@ -691,11 +729,50 @@ export default function OnboardingExperience() {
       'These are optional. UMS still works fully with manual entry and in-app reminders.',
       BellRing,
       <div className="space-y-3">
-        <button type="button" className="flex w-full items-center gap-3 rounded-lg border p-4 text-left hover:bg-muted" onClick={() => void enableNotifications()} disabled={busy}>
-          <BellRing className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block font-bold">Enable reminders</span><span className="block text-xs text-muted-foreground">Assignment, event, and class alerts</span></span><ChevronRight className="h-4 w-4" />
+        <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm" role="status">
+          <span className="font-medium">Connection status</span>
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            {serviceStatusPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
+            {serviceStatusPending
+              ? 'Checking…'
+              : `${Number(remindersEnabled === true) + Number(calendarConnection?.connected === true)} of 2 connected`}
+          </span>
+        </div>
+        <button
+          type="button"
+          className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left ${remindersEnabled ? 'border-primary/35 bg-primary/5' : 'hover:bg-muted'}`}
+          onClick={() => void enableNotifications()}
+          disabled={busy || serviceStatusPending || remindersEnabled === true}
+        >
+          {remindersEnabled ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <BellRing className="h-5 w-5 text-primary" />}
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">{remindersEnabled ? 'Reminders connected' : 'Enable reminders'}</span>
+            <span className="block text-xs text-muted-foreground">
+              {remindersEnabled
+                ? reminderPermission === 'denied'
+                  ? 'In-app reminders enabled · device alerts blocked'
+                  : 'Assignment, event, and class alerts are enabled'
+                : 'Assignment, event, and class alerts'}
+            </span>
+          </span>
+          {remindersEnabled ? <span className="text-xs font-semibold text-primary">Connected</span> : <ChevronRight className="h-4 w-4" />}
         </button>
-        <button type="button" className="flex w-full items-center gap-3 rounded-lg border p-4 text-left hover:bg-muted" onClick={() => void startCalendarConnection()} disabled={busy}>
-          <CalendarDays className="h-5 w-5 text-primary" /><span className="min-w-0 flex-1"><span className="block font-bold">Connect Google Calendar</span><span className="block text-xs text-muted-foreground">You’ll return here after Google authorization</span></span><ChevronRight className="h-4 w-4" />
+        <button
+          type="button"
+          className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left ${calendarConnection?.connected ? 'border-primary/35 bg-primary/5' : 'hover:bg-muted'}`}
+          onClick={() => void startCalendarConnection()}
+          disabled={busy || serviceStatusPending || calendarConnection?.connected === true}
+        >
+          {calendarConnection?.connected ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <CalendarDays className="h-5 w-5 text-primary" />}
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">{calendarConnection?.connected ? 'Google Calendar connected' : 'Connect Google Calendar'}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {calendarConnection?.connected
+                ? calendarConnection.email ?? 'Primary calendar access is ready'
+                : 'You’ll return here after Google authorization'}
+            </span>
+          </span>
+          {calendarConnection?.connected ? <span className="text-xs font-semibold text-primary">Connected</span> : <ChevronRight className="h-4 w-4" />}
         </button>
         {serviceMessage && <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{serviceMessage}</p>}
         <Button className="w-full" onClick={() => void advance()} disabled={busy}>Continue to app tour</Button>

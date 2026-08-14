@@ -232,7 +232,7 @@ function AccountPage() {
       setGoogleCalendarStatus(status);
       setGoogleHistoryMonths(status.historyMonths);
       setGoogleSelectedCalendarIds(status.selectedCalendarIds);
-      if (status.connected && !status.reauthorizationRequired) {
+      if (status.connected) {
         const calendars = await getOwnedGoogleCalendars();
         setGoogleOwnedCalendars(calendars);
         setGoogleSelectedCalendarIds(
@@ -306,7 +306,7 @@ function AccountPage() {
   useEffect(() => {
     const result = searchParams.get('googleCalendar');
     if (result === 'connected') {
-      setGoogleCalendarSuccess('Google Calendar connected. Choose calendars, then save and import.');
+      setGoogleCalendarSuccess('Google Calendar connected. Review your primary-calendar import settings.');
       void trackProductEvent('google_calendar_connected');
       void loadGoogleCalendarConnection();
     } else if (result === 'error') {
@@ -547,14 +547,6 @@ function AccountPage() {
     }
   };
 
-  const handleGoogleCalendarSelectionChange = (calendar: GoogleOwnedCalendar, selected: boolean) => {
-    if (calendar.primary) return;
-    setGoogleCalendarPreview(null);
-    setGoogleSelectedCalendarIds((current) =>
-      selected ? [...new Set([...current, calendar.id])] : current.filter((id) => id !== calendar.id)
-    );
-  };
-
   const handleGoogleCalendarDisconnect = async () => {
     const confirmed = window.confirm(
       'Disconnect Google Calendar? Imported Google-only events will be removed, while UMS-created events will remain.'
@@ -732,7 +724,7 @@ function AccountPage() {
             <CalendarDays className="h-5 w-5 text-primary" />
             <CardTitle>Google Calendar</CardTitle>
           </div>
-          <CardDescription>Import compact events from owned calendars and sync UMS events with your primary calendar.</CardDescription>
+          <CardDescription>Import events and sync UMS events with your primary Google Calendar.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {googleCalendarLoading && !googleCalendarStatus ? (
@@ -760,7 +752,7 @@ function AccountPage() {
                 )}
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                {googleCalendarStatus?.connected && !googleCalendarStatus.reauthorizationRequired ? (
+                {googleCalendarStatus?.connected ? (
                   <>
                     <Button
                       type="button"
@@ -799,52 +791,35 @@ function AccountPage() {
                     onClick={handleGoogleCalendarConnect}
                   >
                     {googleCalendarSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FcGoogle className="h-4 w-4" />}
-                    {googleCalendarStatus?.reauthorizationRequired ? 'Reconnect Calendar' : 'Connect Calendar'}
+                    Connect Calendar
                   </Button>
                 )}
               </div>
             </div>
           )}
-          {googleCalendarStatus?.connected && !googleCalendarStatus.reauthorizationRequired && (
+          {googleCalendarStatus?.connected && (
             <div className="flex flex-col gap-4 rounded-md border p-4">
               <div>
-                <p className="text-sm font-medium text-foreground">Calendars to import</p>
+                <p className="text-sm font-medium text-foreground">Primary calendar import</p>
                 <p className="text-sm text-muted-foreground">
-                  The primary calendar is required because new UMS events are written there.
+                  To keep Google access limited to the verified permission, UMS reads and writes events only on your primary calendar.
                 </p>
               </div>
               {googleOwnedCalendars.length === 0 ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading owned calendars...
+                  Loading primary calendar...
                 </div>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {googleOwnedCalendars.map((calendar) => {
-                    const isUcdTimetable = calendar.summary.trim().toLowerCase() === 'ucd timetable';
-                    return <label key={calendar.id} className={`flex items-start gap-3 rounded-md border p-3 text-sm ${isUcdTimetable ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : ''}`}>
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4"
-                        checked={calendar.primary || googleSelectedCalendarIds.includes(calendar.id)}
-                        disabled={calendar.primary || googleCalendarSubmitting}
-                        onChange={(event) => handleGoogleCalendarSelectionChange(calendar, event.target.checked)}
-                      />
-                      <span className="min-w-0">
-                        <span className="flex items-center gap-2 font-medium text-foreground">
-                          <span
-                            className="h-3 w-3 shrink-0 rounded-full border"
-                            style={{ backgroundColor: calendar.backgroundColor ?? 'var(--course-blue)' }}
-                          />
-                          <span className="truncate">{calendar.summary}</span>
-                          {isUcdTimetable && <Badge variant="secondary">Recommended for classes</Badge>}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {calendar.primary ? 'Primary · required' : calendar.timeZone}
-                        </span>
-                      </span>
-                    </label>;
-                  })}
+                <div className="rounded-md border p-3 text-sm">
+                  <span className="flex items-center gap-2 font-medium text-foreground">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-full border"
+                      style={{ backgroundColor: googleOwnedCalendars[0]?.backgroundColor ?? 'var(--course-blue)' }}
+                    />
+                    <span className="truncate">{googleOwnedCalendars[0]?.summary ?? 'Primary calendar'}</span>
+                  </span>
+                  <span className="text-muted-foreground">Primary · required</span>
                 </div>
               )}
               {googleCalendarPreview && (
@@ -888,11 +863,6 @@ function AccountPage() {
                 </Button>
               </div>
             </div>
-          )}
-          {googleCalendarStatus?.reauthorizationRequired && (
-            <p className="text-sm text-muted-foreground">
-              Reconnect once to grant read-only access to your calendar list.
-            </p>
           )}
           {(googleCalendarError || googleCalendarStatus?.lastError) && (
             <p className="text-sm font-medium text-destructive">

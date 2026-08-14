@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
 import OnboardingExperience from '@/app/components/onboarding/OnboardingExperience';
 import { renderWithRouter } from '@/app/test/render';
-import { apiState, onboardingActions, onboardingState } from '@/app/test/mocks';
+import { apiState, googleCalendarState, onboardingActions, onboardingState } from '@/app/test/mocks';
 import type { OnboardingState } from '@/app/lib/onboarding/client';
+import { getNotificationPreferences } from '@/app/lib/notifications/client';
 
 function onboarding(overrides: Partial<OnboardingState> = {}): OnboardingState {
   return {
@@ -70,5 +71,33 @@ describe('guided onboarding', () => {
     expect(screen.getByText(/1 of 4 essentials ready/i)).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: /resume walkthrough/i })[0]);
     await waitFor(() => expect(onboardingActions.updateOnboarding).toHaveBeenCalledWith({ action: 'resume' }));
+  });
+
+  it('confirms connected reminders and Google Calendar in the services step', async () => {
+    onboardingState.value = onboarding({ currentStep: 'services' });
+    googleCalendarState.status = {
+      ...googleCalendarState.status,
+      connected: true,
+      googleEmail: 'jane@gmail.com',
+    };
+    vi.mocked(getNotificationPreferences).mockResolvedValueOnce({
+      userId: 'mock-user-id',
+      enabled: true,
+      assignment24hEnabled: true,
+      assignment1hEnabled: true,
+      event10mEnabled: true,
+      class10mEnabled: true,
+      quietHoursEnabled: false,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      timeZone: 'America/Los_Angeles',
+    });
+
+    renderWithRouter(<OnboardingExperience />);
+
+    expect(await screen.findByText('2 of 2 connected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reminders connected/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /google calendar connected/i })).toBeDisabled();
+    expect(screen.getByText('jane@gmail.com')).toBeInTheDocument();
   });
 });

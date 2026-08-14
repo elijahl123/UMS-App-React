@@ -17,7 +17,7 @@ describe('Google Calendar sync utilities', () => {
     expect(courseCodeFromCalendarTitle('Student society meeting')).toBeNull();
   });
 
-  it('requests owned-event writes plus read-only shared events and CalendarList scopes', async () => {
+  it('requests only the verified owned-event Calendar scope', async () => {
     const { pool } = await import('../db');
     vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [] } as never);
     const { buildGoogleCalendarAuthUrl } = await import('../googleCalendarSync');
@@ -27,12 +27,10 @@ describe('Google Calendar sync utilities', () => {
     const calendarScopes = scopes.filter((scope) => scope.startsWith('https://www.googleapis.com/auth/calendar'));
 
     expect(scopes).toContain('https://www.googleapis.com/auth/calendar.events.owned');
-    expect(calendarScopes).toEqual([
-      'https://www.googleapis.com/auth/calendar.events.owned',
-      'https://www.googleapis.com/auth/calendar.events.readonly',
-      'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
-    ]);
+    expect(calendarScopes).toEqual(['https://www.googleapis.com/auth/calendar.events.owned']);
     expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events');
+    expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.events.readonly');
+    expect(scopes).not.toContain('https://www.googleapis.com/auth/calendar.calendarlist.readonly');
     expect(authorizationUrl.searchParams.has('include_granted_scopes')).toBe(false);
   });
 
@@ -42,6 +40,7 @@ describe('Google Calendar sync utilities', () => {
       encryptGoogleToken,
       signGoogleCalendarState,
       verifyGoogleCalendarState,
+      verifyGoogleCalendarStateDetails,
     } = await import('../googleCalendarSync');
 
     const encrypted = encryptGoogleToken('refresh-token-123');
@@ -50,6 +49,11 @@ describe('Google Calendar sync utilities', () => {
 
     const state = signGoogleCalendarState('user-1', 1000);
     expect(verifyGoogleCalendarState(state, 2000)).toBe('user-1');
+    const originState = signGoogleCalendarState('user-1', 1000, 'http://127.0.0.1:5173');
+    expect(verifyGoogleCalendarStateDetails(originState, 2000)).toMatchObject({
+      userId: 'user-1',
+      returnOrigin: 'http://127.0.0.1:5173',
+    });
     expect(() => verifyGoogleCalendarState(`${state}x`, 2000)).toThrow(/Invalid Google Calendar connection state/i);
     expect(() => verifyGoogleCalendarState(state, 1000 + 11 * 60 * 1000)).toThrow(/Expired Google Calendar connection state/i);
   });
