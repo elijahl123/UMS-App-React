@@ -14,7 +14,7 @@ import { startTrial } from '@/app/lib/billing/client';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 import { reconcileAccess } from '@/app/lib/access/client';
-import { isExactUcdEmail, isUcdLaunchJourney } from '@/app/lib/launch/attribution';
+import { isKnownInstitutionEmail, isLaunchJourney } from '@/app/lib/launch/attribution';
 import { trackProductEvent } from '@/app/lib/launch/client';
 import { initializeOnboarding, ONBOARDING_INITIALIZE_PENDING_KEY } from '@/app/lib/onboarding/client';
 import { requestPasswordResetEmail, requestPrimaryEmailVerification } from '@/app/lib/email/client';
@@ -207,10 +207,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const startTrialAfterAuth = async (nextUser: AppUser): Promise<boolean> => {
     try {
       const access = await reconcileAccess().catch((err) => {
-        console.warn('[Auth] UCD entitlement check failed:', err);
+        console.warn('[Auth] student entitlement check failed:', err);
         return null;
       });
-      if (access?.entitlement || isExactUcdEmail(nextUser.email) || isUcdLaunchJourney()) {
+      if (access?.entitlement || isKnownInstitutionEmail(nextUser.email) || isLaunchJourney()) {
         return false;
       }
       const status = await startTrial({ userId: nextUser.id, email: nextUser.email });
@@ -532,7 +532,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setIsProcessingGoogleRedirect(true);
     try {
       console.log('[Auth] Calling startGoogleSignIn()...');
-      setGoogleAuthReturnTo(user ? '/account' : isUcdLaunchJourney() ? '/signup?ucd_google=1' : '/');
+      setGoogleAuthReturnTo(user ? '/account' : isLaunchJourney() ? '/signup?student_launch_google=1' : '/');
       const { idToken: googleIdToken } = await startGoogleSignIn();
       console.log('[Auth] ========== startGoogleSignIn() completed successfully ==========');
       console.log('[Auth] Received google idToken, exchanging for Firebase session');

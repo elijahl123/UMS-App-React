@@ -142,11 +142,15 @@ export function secondaryEmailVerificationTemplate(link: string): RenderedEmail 
 }
 
 export function waitlistConfirmationTemplate(params: {
-  list: 'ucd_incoming' | 'ios';
+  list: 'ucd_incoming' | 'palomar_incoming' | 'ios';
   confirmationUrl: string;
   unsubscribeUrl: string;
 }): RenderedEmail {
-  const listLabel = params.list === 'ios' ? 'iPhone app updates' : 'incoming UCD student waitlist';
+  const listLabel = params.list === 'ios'
+    ? 'iPhone app updates'
+    : params.list === 'palomar_incoming'
+      ? 'incoming Palomar student waitlist'
+      : 'incoming UCD student waitlist';
   const safeUnsubscribeUrl = escapeHtml(params.unsubscribeUrl);
   return {
     subject: `Confirm your ${listLabel} signup`,
@@ -210,7 +214,7 @@ export function sendSecondaryEmailVerification(email: string, link: string) {
 
 export function sendWaitlistConfirmationEmail(params: {
   email: string;
-  list: 'ucd_incoming' | 'ios';
+  list: 'ucd_incoming' | 'palomar_incoming' | 'ios';
   confirmationUrl: string;
   unsubscribeUrl: string;
 }) {

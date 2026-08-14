@@ -1,116 +1,75 @@
-# UCD autumn 2026 launch runbook
+# UCD + Palomar autumn 2026 launch runbook
 
-This runbook is the operational handoff for the UCD campaign. The canonical public URL is `https://untitledmanagementsoftware.com/ucd/`; `https://app.untitledmanagementsoftware.com` hosts signup and the authenticated product.
+This is the joint operational handoff for `https://untitledmanagementsoftware.com/ucd/` and `https://untitledmanagementsoftware.com/palomar/`. Both programs launch or fall back together.
 
-## Fixed schedule
+## Fixed schedule and access boundaries
 
-- Primary launch: **7 September 2026 at 09:00 Europe/Dublin** (`08:00Z`).
-- Go/no-go review: **4 September 2026 at 16:00 Europe/Dublin** (`15:00Z`).
-- Fallback launch: **14 September 2026 at 09:00 Europe/Dublin** (`08:00Z`).
-- UCD full-access boundary (exclusive): `2027-01-18T00:00:00Z`.
-- Read-only/export grace boundary (exclusive): `2027-02-01T00:00:00Z`.
+- Primary launch: **7 September 2026 at 08:00 UTC** — 09:00 Dublin and 01:00 California.
+- Joint go/no-go review: **4 September 2026 at 15:00 UTC**.
+- Joint fallback: **14 September 2026 at 08:00 UTC**.
+- Full-access boundary, exclusive: `2027-01-18T00:00:00Z` (free through January 17).
+- Read-only/export boundary, exclusive: `2027-02-01T00:00:00Z` (through January 31).
 - Waitlist retention deadline: delete by `2027-04-01T00:00:00Z`.
 
-The official dates supplied for the launch show orientation from 31 August through 4 September, teaching beginning 7 September, and the autumn trimester ending 17 January 2027.
+UCD uses `ucdconnect.ie`, `ucd_landing`, `ucd_incoming`, and `ucd_autumn_2026`. Palomar uses `student.palomar.edu`, `palomar_landing`, `palomar_incoming`, and `palomar_autumn_2026`. Eligibility always requires a verified primary or secondary email on the exact configured domain.
 
-## Required configuration
+## Required production configuration
 
-Set the equivalent values in the staging GitHub environment first, using `https://dev.untitledmanagementsoftware.com` for `APP_ORIGIN`, `APP_BASE_URL`, and the OAuth callback. Set the production values below before promotion, but leave `UCD_ACCESS_ENABLED=false` in production until the launch time.
+Use the staging URL equivalents for staging. Keep both production access flags disabled until the joint activation time.
 
 ```dotenv
 APP_ORIGINS=https://app.untitledmanagementsoftware.com,https://untitledmanagementsoftware.com,capacitor://localhost,http://localhost
 APP_BASE_URL=https://app.untitledmanagementsoftware.com
 MARKETING_ORIGIN=https://untitledmanagementsoftware.com
-UCD_ACCESS_ENABLED=true
+UCD_ACCESS_ENABLED=false
 UCD_ACCESS_DOMAIN=ucdconnect.ie
 UCD_ACCESS_END_AT=2027-01-18T00:00:00Z
 UCD_ACCESS_GRACE_END_AT=2027-02-01T00:00:00Z
-SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID=261009
+PALOMAR_ACCESS_ENABLED=false
+PALOMAR_ACCESS_DOMAIN=student.palomar.edu
+PALOMAR_ACCESS_END_AT=2027-01-18T00:00:00Z
+PALOMAR_ACCESS_GRACE_END_AT=2027-02-01T00:00:00Z
+SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID=<ucd-group-id>
+SENDGRID_PALOMAR_LAUNCH_UNSUBSCRIBE_GROUP_ID=<distinct-palomar-group-id>
 GOOGLE_CALENDAR_REDIRECT_URI=https://app.untitledmanagementsoftware.com/api/google-calendar/oauth/callback
 ```
 
-For staging, use its existing app URL and the exact redirect `https://dev.untitledmanagementsoftware.com/api/google-calendar/oauth/callback`. Keep secrets only in GitHub environments or the server environment; never put their values in the repository or launch notes.
-
-Confirm in both Firebase projects that Email/Password and Google authentication remain enabled. Confirm the three authorized domains already approved by the operator. In Google Cloud, confirm the Calendar client includes the owned-event write, shared-event read-only, and CalendarList read-only scopes used by the app.
+Never reuse the UCD or iPhone suppression group for Palomar. Keep keys, tokens, unredacted student data, and calendar files out of source control and launch notes.
 
 ## Deployment order
 
-1. Deploy the app/API build to staging. The deployment runs the additive SQL migration `1783900000_add_ucd_launch_foundations.sql` before replacing the API and web containers.
-2. Verify staging health and inspect migration logs. Do not continue if any table, constraint, or index statement fails.
-3. Complete the beta matrix below using test accounts and redacted fixtures only.
-4. Deploy the app/API to production first with `UCD_ACCESS_ENABLED=false`.
-5. Verify the production health endpoint, auth, ordinary trial, Stripe, account export, and launch API preflight.
-6. Deploy the `UMS Landing` repository. This activates the updated CTA attribution, session-only launch ID, waitlist double opt-in, and result messages.
-7. At the confirmed launch time, set production `UCD_ACCESS_ENABLED=true`, restart the API, and reconcile one controlled verified-UCD account.
+1. Deploy the additive database migration and app/API to staging. Verify migration `1783920000_generalize_student_launch.sql`, existing UCD data preservation, auth, billing, and exports.
+2. Enable both campus flags on staging and complete the matrix below with controlled accounts and redacted fixtures.
+3. Deploy the app/API to production with both campus flags disabled.
+4. Smoke-test health, auth, ordinary trials, Stripe, export, launch CORS, waitlist email, and the Canvas normalized-row endpoint.
+5. Deploy the landing repository and verify `/ucd/` and `/palomar/`, including offline reloads.
+6. Record the joint go/no-go decision. At 08:00 UTC, enable both flags in one configuration change and restart the API.
+7. Reconcile one controlled verified account for each institution and confirm the expected entitlement metadata in `/api/billing/status`.
 
-The migration is additive. If the application must be rolled back, set `UCD_ACCESS_ENABLED=false` first and restore the previous application image; leave the new tables and columns in place until a reviewed cleanup migration exists.
+Rollback is flag-first: disable both campus flags, then restore the previous app image if needed. Leave additive tables/columns in place until a reviewed cleanup migration exists. Preserve and reapply deletion tombstones if a database backup is restored.
 
-If a database backup is restored, keep the restored database off public traffic until deletion tombstones have been reapplied. Before starting the restore, export all unexpired rows from `deletion_tombstones` in the current production database to an encrypted operator-only file outside the repository. After restoring and running migrations, import those rows into the restored database and run `npm run reapply-deletion-tombstones:production`. Confirm the command reports the restored records it purged, then destroy the temporary export. Do not restore a backup older than the 30-day backup-retention boundary.
+## Required launch matrix
 
-## Preflight and smoke checks
+- Both landing CTAs preserve valid attribution through signup, and invalid or overlength fields are dropped.
+- Verified exact-domain primary and secondary emails grant the matching entitlement; unverified, subdomain, suffix-attack, and lookalike addresses do not.
+- Personal-email campus journeys and existing entitlements do not start an ordinary trial.
+- A paid eligible user keeps access, is set to cancel at period end, and receives no automatic refund. A simulated Stripe failure keeps paid access and shows a retryable warning.
+- At the full-access boundary, writes return `403 READ_ONLY_GRACE` while reads, billing, and ZIP export continue. At the grace boundary, billing is required unless a paid subscription is active.
+- UCD Brightspace PDF import remains local until reviewed normalized rows are saved.
+- Palomar Canvas import covers all-day, UTC, TZID, floating, folded, escaped, duplicate UID, malformed, recurrence, missing-course, and assignment-URL cases. Use a redacted real Canvas fixture before launch.
+- Browser network inspection proves the raw `.ics` bytes and Canvas credentials/feed tokens never leave the device; only selected normalized rows reach `POST /api/canvas-calendar/import`.
+- UCD and Palomar incoming lists each pass double opt-in, 48-hour expiry, one-time confirmation, separate suppression, source-aware return, unsubscribe, and retention tests. Optional general marketing remains unchecked.
+- Desktop and mobile navigation, focus order, form errors, contrast, hero cropping, reduced motion, service-worker cache, and offline reload pass for both campus pages.
+- End-to-end flows pass from landing CTA through signup, verification, entitlement, secondary email, personal-email waitlist, relevant import, grace mode, and export.
 
-The expected marketing-origin preflight must return a successful status and `Access-Control-Allow-Origin: https://untitledmanagementsoftware.com`.
+## Joint go/no-go gate
 
-```sh
-curl -i -X OPTIONS 'https://app.untitledmanagementsoftware.com/api/launch/events' \
-  -H 'Origin: https://untitledmanagementsoftware.com' \
-  -H 'Access-Control-Request-Method: POST' \
-  -H 'Access-Control-Request-Headers: content-type'
+Launch only if migrations, backups, auth, email, Stripe, CORS, read-only enforcement, export, both landing pages, and both campus journeys pass with no high-severity privacy, security, data-loss, or account-access defect. Written legal approval, the dedicated Palomar SendGrid suppression-group ID, and a redacted real Palomar Canvas `.ics` fixture are mandatory.
 
-curl -i -X POST 'https://app.untitledmanagementsoftware.com/api/launch/events' \
-  -H 'Origin: https://untitledmanagementsoftware.com' \
-  -H 'Content-Type: application/json' \
-  --data '{"event":"landing_cta_clicked","occurredAt":"REPLACE_WITH_CURRENT_ISO_TIME","page":"ucd","source":"ucd_landing","launchSession":"controlled-smoke-test"}'
-```
+If either campus fails, keep **both** `UCD_ACCESS_ENABLED` and `PALOMAR_ACCESS_ENABLED` false and move both programs to September 14. Landing pages may remain available only for waitlist collection if consent, confirmation, policy, and unsubscribe flows pass.
 
-Use a controlled inbox for the waitlist test. The POST must answer `202 pending_confirmation`; the page must say “Check your inbox to confirm your place.” The 48-hour confirmation link must work once, then redirect invalid on reuse. Test each list independently, confirm the optional general-marketing box is unchecked by default, and verify unsubscribe redirects to `/ucd/?waitlist=unsubscribed`.
-
-## Beta matrix
-
-Pass all of the following before the go/no-go review:
-
-- QR/campaign link on iPhone Safari, Android Chrome, and desktop preserves valid `campaign`, `ambassador`, `society`, `referral`, and `launch_session` values through signup. Invalid or overlength attribution is absent, not rewritten.
-- A verified primary `ucdconnect.ie` account receives `ucd_autumn_2026`; an unverified password account does not until verification.
-- A verified UCD secondary email grants the same entitlement to the existing account and does not start a trial.
-- Case variants qualify. Subdomains, lookalikes, and suffix attacks do not.
-- A personal email in the UCD journey can request only the incoming-student waitlist and receives neither UCD access nor an app trial.
-- A controlled existing paid account keeps full access, receives cancellation at current period end, and receives no refund. Simulate a failed Stripe update, confirm the warning is nonblocking, and confirm a later status request retries it.
-- At the exact entitlement end, writes return `403 READ_ONLY_GRACE`; reads, account management, billing, and ZIP export continue. At the grace end, ordinary billing is required. A current paid subscription overrides either phase.
-- “UCD Timetable” is highlighted but not selected automatically. Preview occurs before initial sync. Recognized course-code events become academic classes; unmatched entries remain ordinary events and can be associated manually.
-- The redacted Calendar fixture includes recurring, all-day, timed, cancelled, updated, recognized, and unmatched entries.
-- The Brightspace agenda fixture exercises Due, Availability Ends, Available, resources, solutions, projects, tests, exact duplicates, ambiguous duplicates, and availability windows. The PDF stays in the browser and every selected row is correctable before save.
-- Import success is emitted only when at least three reviewed items are saved. Calendar connection is measured separately.
-- Exam, assignment, and project plans schedule in 15-minute units on chosen weekdays, place rounding remainder on earlier days, show every unscheduled minute, and require acknowledgment for a partial plan. A due-today target and explicit recalculation both behave correctly.
-- Account export opens as a ZIP and contains readable courses, assignments, events, classes, plans, plan tasks, and sanitized notes without IDs, credentials, tokens, or telemetry.
-- Network inspection shows no third-party analytics or advertising requests and no Google Fonts request. Record any Cloudflare security cookie as strictly necessary.
-- Test campus Wi-Fi and mobile data separately. Test installed PWA launch as well as a normal browser tab.
-
-## Go/no-go gate
-
-At 16:00 Europe/Dublin on 4 September, record a named owner and evidence for each beta item. Launch on 7 September only if:
-
-- migrations, backups, auth, email, OAuth, Stripe, CORS, read-only enforcement, and export all pass;
-- reviewed import accuracy is at least 90%, using corrected and rejected rows in the denominator;
-- no high-severity privacy, security, data-loss, or account-access defect remains;
-- the privacy policy and terms have written Irish-counsel approval; and
-- launch-day support and rollback owners are confirmed.
-
-If any gate fails, keep `UCD_ACCESS_ENABLED=false`, publish no launch announcement, and move the launch to 14 September. The public landing page may remain available for waitlist collection only if its API, consent, policy, and unsubscribe checks pass.
-
-## Operator-owned items that code cannot supply
-
-Before production launch, Elijah Lopez must:
-
-- obtain and publish a professional service address;
-- obtain Irish legal review of the minimum age, privacy policy, terms, international processing, and unincorporated-operator wording;
-- provide the redacted UCD Timetable fixture and the final campaign-code roster;
-- provide final screenshots, the real demo video (if a video CTA is enabled), and signed testimonial releases;
-- provide the device/tester roster, campus-promotion permissions, and named launch-day support coverage;
-- take and verify an explicit production database backup immediately before promotion; and
-- keep secrets, unredacted student records, private calendars, and OAuth credentials out of chat and source control.
-
-The launch claims are fixed as:
+The public claims remain:
 
 > UMS does not send your schoolwork to generative-AI models or large-language-model services.
 
-> Independent student app. Not affiliated with or endorsed by UCD, D2L, or Brightspace.
+> Independent student app. Not affiliated with or endorsed by UCD, D2L, Brightspace, Palomar College, Instructure, or Canvas.

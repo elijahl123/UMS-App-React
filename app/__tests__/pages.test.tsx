@@ -53,14 +53,15 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /homework/i })).toBeInTheDocument();
     expect(screen.getByText(/derivative quiz/i)).toBeInTheDocument();
     expect(screen.getByText(/limits worksheet/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /import brightspace pdf/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /import school calendar/i })).toBeInTheDocument();
   });
 
   it('opens the Brightspace import guide from the homework page', async () => {
     const user = userEvent.setup();
     renderWithRouter(<HomeworkPage />);
 
-    await user.click(screen.getByRole('button', { name: /import brightspace pdf/i }));
+    await user.click(screen.getByRole('button', { name: /import school calendar/i }));
+    expect(screen.getByRole('heading', { name: /import canvas calendar/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /view walkthrough/i }));
 
     expect(screen.getByText(/how to download the brightspace calendar pdf/i)).toBeInTheDocument();

@@ -86,20 +86,20 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
     if (req.auth?.uid && req.params.name === 'createCourse' && result.rows.length > 0) {
       await pool.query(
         `
-          INSERT INTO ucd_onboarding (user_id, first_course_at)
+          INSERT INTO launch_onboarding (user_id, first_course_at)
           VALUES ($1, NOW())
           ON CONFLICT (user_id) DO UPDATE SET
-            first_course_at = COALESCE(ucd_onboarding.first_course_at, NOW()),
+            first_course_at = COALESCE(launch_onboarding.first_course_at, NOW()),
             updated_at = NOW();
         `,
         [req.auth.uid]
       );
       await pool.query(
         `
-          UPDATE ucd_onboarding
+          UPDATE launch_onboarding
           SET completed_at = COALESCE(completed_at, NOW()), updated_at = NOW()
           WHERE user_id = $1
-            AND ucd_verified_at IS NOT NULL
+            AND institution_verified_at IS NOT NULL
             AND first_course_at IS NOT NULL
             AND dashboard_opened_at IS NOT NULL;
         `,

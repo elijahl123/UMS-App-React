@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { verifyAccountEmailToken } from '@/app/lib/accountEmails/client';
 import { reconcileAccess } from '@/app/lib/access/client';
+import { getLaunchInstitution } from '@/app/lib/launch/attribution';
 
 function getVerificationParam(searchParams: URLSearchParams, name: string): string {
   return searchParams.get(name) ?? new URLSearchParams(window.location.search).get(name) ?? '';
@@ -27,6 +28,7 @@ function VerifyEmailPage() {
   const [isResending, setIsResending] = useState(false);
   const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'failed'>(initialSendFailed ? 'failed' : 'idle');
   const hasRun = useRef(false);
+  const launchInstitution = getLaunchInstitution();
 
   useEffect(() => {
     if (hasRun.current) return;
@@ -98,7 +100,7 @@ function VerifyEmailPage() {
                     ? 'We could not send the verification email. Try again below.'
                     : resendStatus === 'sent'
                       ? 'Verification email sent. Check your inbox and click the link.'
-                      : 'Check your inbox and click the verification link. Your UCD access is granted only after the address is verified.'}
+                      : `Check your inbox and click the verification link. Your ${launchInstitution?.name ?? 'student'} access is granted only after the address is verified.`}
                 </p>
                 <Button className="mt-2 w-full" disabled={isResending || resendStatus === 'sent'} onClick={() => void handleResend()}>
                   {isResending ? 'Sending…' : resendStatus === 'sent' ? 'Sent' : 'Resend verification email'}

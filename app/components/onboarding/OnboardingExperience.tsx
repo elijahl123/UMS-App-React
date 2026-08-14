@@ -68,7 +68,7 @@ const tourSteps: Partial<Record<OnboardingStep, {
   },
   homework: {
     title: 'Keep deadlines under control',
-    body: 'Homework separates late, due-today, and upcoming work. Add assignments manually or import a Brightspace calendar PDF.',
+    body: 'Homework separates late, due-today, and upcoming work. Add assignments manually or import a Brightspace PDF or Canvas calendar.',
     path: '/homework',
     selector: '[data-tour="homework"]',
     icon: BookOpen,
@@ -103,7 +103,7 @@ const tourSteps: Partial<Record<OnboardingStep, {
   },
   account: {
     title: 'Connections and preferences',
-    body: 'Account is where you manage Google Calendar, Brightspace imports, notification rules, profile details, billing, exports, and this walkthrough.',
+    body: 'Account is where you manage Google Calendar, school calendar imports, notification rules, profile details, billing, exports, and this walkthrough.',
     path: '/account',
     selector: '[data-tour="account"]',
     icon: Settings,
@@ -697,7 +697,7 @@ export default function OnboardingExperience() {
 
     if (activeStep === 'coursework') return shell(
       'Add an upcoming assignment',
-      'Add one deadline now. You can import many at once from a Brightspace calendar PDF later.',
+      'Add one deadline now. You can import many at once from a Brightspace PDF or Canvas calendar later.',
       BookOpen,
       <form className="space-y-4" onSubmit={submitAssignment}>
         <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">Course: <strong>{currentCourse?.code ?? 'Your first course'}</strong></div>

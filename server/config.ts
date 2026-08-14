@@ -83,4 +83,9 @@ export const config = {
   ucdAccessEndAt: isoDateEnv('UCD_ACCESS_END_AT', '2027-01-18T00:00:00Z'),
   ucdAccessGraceEndAt: isoDateEnv('UCD_ACCESS_GRACE_END_AT', '2027-02-01T00:00:00Z'),
   sendgridUcdLaunchUnsubscribeGroupId: numberEnv('SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID', 261009),
+  palomarAccessEnabled: booleanEnv('PALOMAR_ACCESS_ENABLED'),
+  palomarAccessDomain: (process.env.PALOMAR_ACCESS_DOMAIN ?? 'student.palomar.edu').trim().toLowerCase(),
+  palomarAccessEndAt: isoDateEnv('PALOMAR_ACCESS_END_AT', '2027-01-18T00:00:00Z'),
+  palomarAccessGraceEndAt: isoDateEnv('PALOMAR_ACCESS_GRACE_END_AT', '2027-02-01T00:00:00Z'),
+  sendgridPalomarLaunchUnsubscribeGroupId: numberEnv('SENDGRID_PALOMAR_LAUNCH_UNSUBSCRIBE_GROUP_ID', 0),
 };

@@ -66,7 +66,7 @@ function AppLayout() {
         {(accessStatus.accessMode === 'read_only' || accessStatus.billingWarning || accessNotice) && (
           <div role="status" className="mb-3 flex shrink-0 items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/55 dark:text-amber-100">
             {accessStatus.accessMode === 'read_only' ? <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
-            <span>{accessNotice ?? accessStatus.billingWarning ?? 'Your UCD access is in its 14-day read-only grace period. Viewing and exports remain available until 1 February 2027.'}</span>
+            <span>{accessNotice ?? accessStatus.billingWarning ?? `Your ${accessStatus.entitlement?.institutionName ?? 'student'} access is in its 14-day read-only grace period. Viewing and exports remain available until 1 February 2027.`}</span>
           </div>
         )}
         <div className="fixed right-8 top-[calc(2.25rem+env(safe-area-inset-top))] z-50 hidden md:bottom-4 md:right-4 md:top-auto md:block xl:bottom-6 xl:right-6">

@@ -10,6 +10,7 @@ const launchEventNames = new Set([
   'ai_free_explainer_viewed',
   'signup_completed',
   'ucd_verified',
+  'palomar_verified',
   'onboarding_started',
   'course_created',
   'onboarding_completed',
@@ -34,9 +35,9 @@ const launchEventNames = new Set([
 
 const countPropertyNames = new Set(['savedCount', 'rejectedCount', 'correctedCount', 'errorCount']);
 const propertyEnums: Record<string, Set<string>> = {
-  sourceType: new Set(['google_calendar', 'brightspace_pdf']),
+  sourceType: new Set(['google_calendar', 'brightspace_pdf', 'canvas_ics']),
   targetType: new Set(['exam', 'assignment', 'project']),
-  list: new Set(['ucd_incoming', 'ios']),
+  list: new Set(['ucd_incoming', 'palomar_incoming', 'ios']),
   step: new Set([
     'welcome', 'course', 'coursework', 'schedule', 'services', 'dashboard', 'calendar',
     'homework', 'class_schedule', 'notes', 'courses', 'navigation', 'account', 'complete',
@@ -46,7 +47,7 @@ const propertyEnums: Record<string, Set<string>> = {
 const attributionNames = ['source', 'campaign', 'ambassador', 'society', 'referral', 'launchSession'] as const;
 const attributionPattern = /^[A-Za-z0-9._-]{1,64}$/;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const emailRetentionDeadline = new Date('2027-04-01T00:00:00Z');
+export const waitlistRetentionDeadline = new Date('2027-04-01T00:00:00Z');
 const trustedLaunchOrigins = new Set([
   new URL(config.marketingOrigin).origin.toLowerCase(),
   new URL(config.appBaseUrl).origin.toLowerCase(),
@@ -73,8 +74,30 @@ function randomToken(): string {
   return crypto.randomBytes(32).toString('base64url');
 }
 
-function redirectToWaitlistResult(res: Response, result: 'confirmed' | 'unsubscribed' | 'invalid') {
-  return res.redirect(303, `${config.marketingOrigin}/ucd/?waitlist=${result}`);
+export type WaitlistKey = 'ucd_incoming' | 'palomar_incoming' | 'ios';
+
+export function landingPageFor(sourceOrPage: string | null | undefined): 'ucd' | 'palomar' {
+  return sourceOrPage === 'palomar_landing' || sourceOrPage === 'palomar' ? 'palomar' : 'ucd';
+}
+
+export function waitlistRequestIsValid(body: Record<string, unknown>): boolean {
+  const email = String(body.email ?? '').trim().toLowerCase();
+  const list = body.list as WaitlistKey;
+  return emailPattern.test(email) && ['ucd_incoming', 'palomar_incoming', 'ios'].includes(list) && body.consent === true;
+}
+
+export function waitlistIsOpen(now = Date.now()): boolean {
+  return now < waitlistRetentionDeadline.getTime();
+}
+
+export function suppressionGroupIdForWaitlist(list: WaitlistKey): number {
+  if (list === 'palomar_incoming') return config.sendgridPalomarLaunchUnsubscribeGroupId;
+  if (list === 'ucd_incoming') return config.sendgridUcdLaunchUnsubscribeGroupId;
+  return 0;
+}
+
+function redirectToWaitlistResult(res: Response, result: 'confirmed' | 'unsubscribed' | 'invalid', sourceOrPage?: string | null) {
+  return res.redirect(303, `${config.marketingOrigin}/${landingPageFor(sourceOrPage)}/?waitlist=${result}`);
 }
 
 export function safeProperties(value: unknown): Record<string, string | number | boolean> {
@@ -124,12 +147,14 @@ export async function recordProductEvent(body: Record<string, unknown>, userId: 
 
 async function sendWaitlistConfirmation(params: {
   email: string;
-  list: 'ucd_incoming' | 'ios';
+  list: WaitlistKey;
+  source: string | null;
   confirmationToken: string;
   unsubscribeToken: string;
 }) {
-  const confirmationUrl = `${config.appBaseUrl}/api/launch/waitlist/confirm?token=${encodeURIComponent(params.confirmationToken)}`;
-  const unsubscribeUrl = `${config.appBaseUrl}/api/launch/waitlist/unsubscribe?token=${encodeURIComponent(params.unsubscribeToken)}`;
+  const page = landingPageFor(params.source);
+  const confirmationUrl = `${config.appBaseUrl}/api/launch/waitlist/confirm?token=${encodeURIComponent(params.confirmationToken)}&page=${page}`;
+  const unsubscribeUrl = `${config.appBaseUrl}/api/launch/waitlist/unsubscribe?token=${encodeURIComponent(params.unsubscribeToken)}&page=${page}`;
   await sendWaitlistConfirmationEmail({
     email: params.email,
     list: params.list,
@@ -138,10 +163,11 @@ async function sendWaitlistConfirmation(params: {
   });
 }
 
-async function suppressUcdMarketing(email: string) {
-  if (!config.sendgridApiKey) return;
+async function suppressLaunchMarketing(email: string, list: WaitlistKey) {
+  const groupId = suppressionGroupIdForWaitlist(list);
+  if (!config.sendgridApiKey || !groupId) return;
   const response = await fetch(
-    `https://api.sendgrid.com/v3/asm/groups/${config.sendgridUcdLaunchUnsubscribeGroupId}/suppressions`,
+    `https://api.sendgrid.com/v3/asm/groups/${groupId}/suppressions`,
     {
       method: 'POST',
       headers: {
@@ -182,12 +208,11 @@ launchRouter.post('/events', limited(10 * 60 * 1000, 120, 'launch-events'), asyn
 
 launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10, 'launch-waitlist'), async (req, res) => {
   const email = String(req.body?.email ?? '').trim().toLowerCase();
-  const list = req.body?.list;
-  const consent = req.body?.consent === true;
-  if (!emailPattern.test(email) || !['ucd_incoming', 'ios'].includes(list) || !consent) {
+  const list = req.body?.list as WaitlistKey;
+  if (!waitlistRequestIsValid(req.body ?? {})) {
     return res.status(400).json({ error: { message: 'INVALID_WAITLIST_REQUEST' } });
   }
-  if (Date.now() >= emailRetentionDeadline.getTime()) {
+  if (!waitlistIsOpen()) {
     return res.status(410).json({ error: { message: 'WAITLIST_CLOSED' } });
   }
 
@@ -234,7 +259,7 @@ launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10, 'launch-waitlist'), a
         attribution.launchSession,
       ]
     );
-    await sendWaitlistConfirmation({ email, list, confirmationToken, unsubscribeToken });
+    await sendWaitlistConfirmation({ email, list, source: attribution.source, confirmationToken, unsubscribeToken });
     await recordProductEvent({ ...req.body, event: 'waitlist_requested', occurredAt: new Date().toISOString(), properties: { list } });
     return res.status(202).json({ status: 'pending_confirmation' });
   } catch (err) {
@@ -247,7 +272,8 @@ launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10, 'launch-waitlist'), a
 
 launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30, 'launch-waitlist-confirm'), async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : '';
-  if (!token) return redirectToWaitlistResult(res, 'invalid');
+  const page = typeof req.query.page === 'string' ? req.query.page : null;
+  if (!token) return redirectToWaitlistResult(res, 'invalid', page);
   try {
     const result = await pool.query<{ list_key: string; source: string | null; campaign: string | null; ambassador: string | null; society: string | null; referral: string | null; launch_session: string | null }>(
       `
@@ -264,7 +290,7 @@ launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30, 'launch-waitli
       [hashToken(token)]
     );
     const row = result.rows[0];
-    if (!row) return redirectToWaitlistResult(res, 'invalid');
+    if (!row) return redirectToWaitlistResult(res, 'invalid', page);
     await recordProductEvent({
       event: 'waitlist_confirmed',
       occurredAt: new Date().toISOString(),
@@ -276,18 +302,19 @@ launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30, 'launch-waitli
       launchSession: row.launch_session,
       properties: { list: row.list_key },
     });
-    return redirectToWaitlistResult(res, 'confirmed');
+    return redirectToWaitlistResult(res, 'confirmed', row.source);
   } catch (err) {
     console.error('[launch] waitlist confirmation failed', err);
-    return redirectToWaitlistResult(res, 'invalid');
+    return redirectToWaitlistResult(res, 'invalid', page);
   }
 });
 
 launchRouter.get('/waitlist/unsubscribe', limited(60 * 60 * 1000, 30, 'launch-waitlist-unsubscribe'), async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : '';
-  if (!token) return redirectToWaitlistResult(res, 'invalid');
+  const page = typeof req.query.page === 'string' ? req.query.page : null;
+  if (!token) return redirectToWaitlistResult(res, 'invalid', page);
   try {
-    const match = await pool.query<{ id: string; email: string }>(
+    const match = await pool.query<{ id: string; email: string; list_key: WaitlistKey; source: string | null }>(
       `
         UPDATE waitlist_subscriptions
         SET consent = FALSE,
@@ -297,21 +324,21 @@ launchRouter.get('/waitlist/unsubscribe', limited(60 * 60 * 1000, 30, 'launch-wa
             confirmation_expires_at = NULL,
             updated_at = NOW()
         WHERE unsubscribe_token_hash = $1
-        RETURNING id::text, email;
+        RETURNING id::text, email, list_key, source;
       `,
       [hashToken(token)]
     );
     const row = match.rows[0];
-    if (!row) return redirectToWaitlistResult(res, 'invalid');
+    if (!row) return redirectToWaitlistResult(res, 'invalid', page);
     try {
-      await suppressUcdMarketing(row.email);
+      await suppressLaunchMarketing(row.email, row.list_key);
     } catch (err) {
       console.error('[launch] SendGrid group suppression failed; local consent remains withdrawn', err);
     }
     await pool.query(`DELETE FROM waitlist_subscriptions WHERE id = $1::bigint`, [row.id]);
-    return redirectToWaitlistResult(res, 'unsubscribed');
+    return redirectToWaitlistResult(res, 'unsubscribed', row.source);
   } catch (err) {
     console.error('[launch] waitlist unsubscribe failed', err);
-    return redirectToWaitlistResult(res, 'invalid');
+    return redirectToWaitlistResult(res, 'invalid', page);
   }
 });

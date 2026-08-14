@@ -223,10 +223,10 @@ export async function importBrightspaceRows(
   if (response.createdCourses > 0) {
     await client.query(
       `
-        INSERT INTO ucd_onboarding (user_id, first_course_at)
+        INSERT INTO launch_onboarding (user_id, first_course_at)
         VALUES ($1, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
-          first_course_at = COALESCE(ucd_onboarding.first_course_at, NOW()), updated_at = NOW();
+          first_course_at = COALESCE(launch_onboarding.first_course_at, NOW()), updated_at = NOW();
       `,
       [userId]
     );

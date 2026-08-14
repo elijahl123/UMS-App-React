@@ -14,7 +14,9 @@ export type AccessStatus = {
   canExport: boolean;
   billingWarning: string | null;
   entitlement: null | {
-    key: string;
+          key: string;
+          institutionKey: 'ucd' | 'palomar' | null;
+          institutionName: string;
     qualifyingEmail: string;
     grantSource: 'primary_email' | 'secondary_email' | 'admin';
     startsAt: string;
@@ -47,20 +49,24 @@ export function reconcileAccess(attribution: LaunchAttribution | null = getLaunc
   });
 }
 
-export type UcdOnboarding = {
+export type LaunchOnboarding = {
   started_at: string;
-  ucd_verified_at: string | null;
+  institution_key: 'ucd' | 'palomar' | null;
+  institution_verified_at: string | null;
   first_course_at: string | null;
   dashboard_opened_at: string | null;
   completed_at: string | null;
 } | null;
 
-export function getUcdOnboarding() {
-  return accessRequest<UcdOnboarding>('/onboarding');
+export function getLaunchOnboarding() {
+  return accessRequest<LaunchOnboarding>('/onboarding');
 }
 
+export const getUcdOnboarding = getLaunchOnboarding;
+export type UcdOnboarding = LaunchOnboarding;
+
 export function recordOnboardingMilestone(milestone: 'course_created' | 'dashboard_opened') {
-  return accessRequest<{ ok: true; onboarding: UcdOnboarding; completedNow: boolean }>('/onboarding/milestones', {
+  return accessRequest<{ ok: true; onboarding: LaunchOnboarding; completedNow: boolean }>('/onboarding/milestones', {
     method: 'POST',
     body: JSON.stringify({ milestone }),
   });
