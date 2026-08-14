@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAccessStatus, reconcileUcdEntitlement } from '../access';
+import { getAccessStatus, reconcileInstitutionEntitlements } from '../access';
 import { pool } from '../db';
 import { sanitizeLaunchAttribution } from './launch';
 
@@ -17,7 +17,7 @@ accessRouter.get('/status', async (req, res) => {
 accessRouter.post('/reconcile', async (req, res) => {
   try {
     const userId = req.auth!.uid;
-    const result = await reconcileUcdEntitlement(userId);
+    const result = await reconcileInstitutionEntitlements(userId);
     const attribution = sanitizeLaunchAttribution(req.body?.attribution ?? {});
     await pool.query(
       `
@@ -57,9 +57,9 @@ accessRouter.post('/reconcile', async (req, res) => {
 accessRouter.get('/onboarding', async (req, res) => {
   const result = await pool.query(
     `
-      SELECT started_at::text, ucd_verified_at::text, first_course_at::text,
+      SELECT started_at::text, institution_key, institution_verified_at::text, first_course_at::text,
              dashboard_opened_at::text, completed_at::text
-      FROM ucd_onboarding WHERE user_id = $1;
+      FROM launch_onboarding WHERE user_id = $1;
     `,
     [req.auth!.uid]
   );
@@ -75,36 +75,37 @@ accessRouter.post('/onboarding/milestones', async (req, res) => {
   const column = columns[milestone];
   if (!column) return res.status(400).json({ error: { message: 'INVALID_MILESTONE' } });
   const before = await pool.query<{ completed_at: string | null }>(
-    `SELECT completed_at::text FROM ucd_onboarding WHERE user_id = $1`,
+    `SELECT completed_at::text FROM launch_onboarding WHERE user_id = $1`,
     [req.auth!.uid]
   );
   await pool.query(
     `
-      INSERT INTO ucd_onboarding (user_id, ${column})
+      INSERT INTO launch_onboarding (user_id, ${column})
       VALUES ($1, NOW())
-      ON CONFLICT (user_id) DO UPDATE SET ${column} = COALESCE(ucd_onboarding.${column}, NOW()), updated_at = NOW();
+      ON CONFLICT (user_id) DO UPDATE SET ${column} = COALESCE(launch_onboarding.${column}, NOW()), updated_at = NOW();
     `,
     [req.auth!.uid]
   );
   await pool.query(
     `
-      UPDATE ucd_onboarding
+      UPDATE launch_onboarding
       SET completed_at = COALESCE(completed_at, NOW()), updated_at = NOW()
-      WHERE user_id = $1 AND ucd_verified_at IS NOT NULL AND first_course_at IS NOT NULL AND dashboard_opened_at IS NOT NULL;
+      WHERE user_id = $1 AND institution_verified_at IS NOT NULL AND first_course_at IS NOT NULL AND dashboard_opened_at IS NOT NULL;
     `,
     [req.auth!.uid]
   );
   const after = await pool.query<{
     started_at: string;
-    ucd_verified_at: string | null;
+    institution_key: string | null;
+    institution_verified_at: string | null;
     first_course_at: string | null;
     dashboard_opened_at: string | null;
     completed_at: string | null;
   }>(
     `
-      SELECT started_at::text, ucd_verified_at::text, first_course_at::text,
+      SELECT started_at::text, institution_key, institution_verified_at::text, first_course_at::text,
              dashboard_opened_at::text, completed_at::text
-      FROM ucd_onboarding WHERE user_id = $1
+      FROM launch_onboarding WHERE user_id = $1
     `,
     [req.auth!.uid]
   );

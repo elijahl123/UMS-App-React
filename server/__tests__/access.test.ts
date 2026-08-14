@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://user:pass@localhost:5432/test';
 process.env.UCD_ACCESS_DOMAIN = 'ucdconnect.ie';
+process.env.PALOMAR_ACCESS_DOMAIN = 'student.palomar.edu';
 
-describe('UCD access rules', () => {
+describe('institution access rules', () => {
   it('matches only the exact ucdconnect.ie domain, case-insensitively', async () => {
     const { isUcdEmail } = await import('../access');
     expect(isUcdEmail('student@ucdconnect.ie')).toBe(true);
@@ -11,6 +12,37 @@ describe('UCD access rules', () => {
     expect(isUcdEmail('student@mail.ucdconnect.ie')).toBe(false);
     expect(isUcdEmail('student@ucdconnect.ie.example.com')).toBe(false);
     expect(isUcdEmail('student@notucdconnect.ie')).toBe(false);
+  });
+
+  it('matches only the exact student.palomar.edu domain, case-insensitively', async () => {
+    const { isInstitutionEmail, isPalomarEmail } = await import('../access');
+    expect(isPalomarEmail('student@student.palomar.edu')).toBe(true);
+    expect(isPalomarEmail('Student@STUDENT.PALOMAR.EDU')).toBe(true);
+    expect(isPalomarEmail('student@mail.student.palomar.edu')).toBe(false);
+    expect(isPalomarEmail('student@student.palomar.edu.evil.example')).toBe(false);
+    expect(isPalomarEmail('student@notstudent.palomar.edu')).toBe(false);
+    expect(isInstitutionEmail('student@student.palomar.edu')).toBe(true);
+    expect(isInstitutionEmail('student@ucdconnect.ie')).toBe(true);
+    expect(isInstitutionEmail('student@palomar.edu')).toBe(false);
+  });
+
+  it('maps campaign sources and entitlements to the configured institution', async () => {
+    const { institutionForEntitlement, institutionForSource } = await import('../access');
+    expect(institutionForSource('palomar_landing')).toMatchObject({
+      key: 'palomar',
+      emailDomain: 'student.palomar.edu',
+      entitlementKey: 'palomar_autumn_2026',
+    });
+    expect(institutionForEntitlement('ucd_autumn_2026')).toMatchObject({ key: 'ucd', name: 'UCD' });
+    expect(institutionForSource('unknown')).toBeNull();
+  });
+
+  it('suppresses trials for either campus email, attribution journey, or an existing entitlement', async () => {
+    const { shouldSuppressInstitutionTrial } = await import('../access');
+    expect(shouldSuppressInstitutionTrial({ hasEntitlement: false, email: 'student@student.palomar.edu', matchedJourney: false })).toBe(true);
+    expect(shouldSuppressInstitutionTrial({ hasEntitlement: false, email: 'personal@example.com', matchedJourney: true })).toBe(true);
+    expect(shouldSuppressInstitutionTrial({ hasEntitlement: true, email: 'personal@example.com', matchedJourney: false })).toBe(true);
+    expect(shouldSuppressInstitutionTrial({ hasEntitlement: false, email: 'personal@example.com', matchedJourney: false })).toBe(false);
   });
 
   it('uses exclusive entitlement and grace boundaries with paid access overriding them', async () => {

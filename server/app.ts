@@ -7,6 +7,7 @@ import { actionsRouter } from './routes/actions';
 import { authSessionRouter } from './routes/authSession';
 import { billingRouter, billingWebhookRouter, publicBillingRouter } from './routes/billing';
 import { brightspaceCalendarRouter } from './routes/brightspaceCalendar';
+import { canvasCalendarRouter } from './routes/canvasCalendar';
 import { emailRouter, publicEmailRouter } from './routes/email';
 import { googleCalendarOAuthRouter, googleCalendarRouter } from './routes/googleCalendar';
 import { stagingAccessRouter } from './routes/stagingAccess';
@@ -24,6 +25,9 @@ export function createApp() {
 
   app.use(cors(createCorsOptions(config.appOrigins)));
   app.use('/api/billing/webhook', express.raw({ type: 'application/json' }), billingWebhookRouter);
+  // The raw .ics file never reaches this route; the larger cap accommodates up to
+  // 2,000 reviewed normalized rows produced from a client-side 5 MiB calendar.
+  app.use('/api/canvas-calendar', express.json({ limit: '6mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -47,6 +51,7 @@ export function createApp() {
   app.use('/api/onboarding', onboardingRouter);
   app.use('/api/actions', actionsRouter);
   app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
+  app.use('/api/canvas-calendar', canvasCalendarRouter);
   app.use('/api/billing', billingRouter);
   app.use('/api/email', emailRouter);
   app.use('/api/google-calendar', googleCalendarRouter);

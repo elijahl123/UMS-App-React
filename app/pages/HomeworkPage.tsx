@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
 import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
+import CanvasIcsImportCard from '@/app/components/CanvasIcsImportCard';
 import { mapCourse, mapAssignment } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import { formatAssignmentDue, formatDueTime, formatTimeZoneLabel } from '@/app/data/assignmentDates';
@@ -358,7 +359,7 @@ function HomeworkPage() {
                 onClick={() => setShowImportPanel((current) => !current)}
               >
                 <FileUp className="h-4 w-4" />
-                {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+                {showImportPanel ? 'Hide Import' : 'Import school calendar'}
               </Button>
               <Button
                 onClick={openAddDialog}
@@ -407,7 +408,7 @@ function HomeworkPage() {
             onClick={() => setShowImportPanel((current) => !current)}
           >
             <FileUp className="h-4 w-4" />
-            {showImportPanel ? 'Hide Import' : 'Import Brightspace PDF'}
+            {showImportPanel ? 'Hide Import' : 'Import school calendar'}
           </Button>
 
           <Button
@@ -421,11 +422,12 @@ function HomeworkPage() {
 
         <section className="grid gap-5 md:min-h-0 md:flex-1 md:overflow-auto md:px-4 md:pb-4 xl:px-5 xl:pb-5">
           {showImportPanel && (
-            <div>
+            <div className="grid gap-4">
               <BrightspacePdfImportCard
                 title="Import Brightspace Assignments"
                 description="Download the Brightspace calendar as a PDF, preview the parsed rows, and import the items you want into Homework and Calendar."
               />
+              <CanvasIcsImportCard />
             </div>
           )}
           {filtered.length === 0 ? (

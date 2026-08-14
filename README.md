@@ -9,6 +9,7 @@ The frontend is intentionally cloned from `UMS-App/src` so the app looks and beh
 - `server/actions.ts` maps app actions to SQL.
 - `server/routes/actions.ts` serves `/api/actions/:name`.
 - `server/routes/email.ts` serves Firebase action-email and secondary-address email APIs.
+- `server/routes/canvasCalendar.ts` saves only reviewed, normalized Canvas calendar rows; `.ics` parsing remains in the browser.
 - `server/app.ts` wires middleware and routes.
 - `server/index.ts` starts the API.
 
@@ -36,6 +37,7 @@ The app uses:
 - Postgres for courses, assignments, events, class sessions, notes, links, users, and auth token tables.
 - Firebase Identity Toolkit REST APIs for email/password auth, email verification, password reset, and Google sign-in.
 - SendGrid for transactional email through the Express backend.
+- Configured UCD and Palomar launch programs for institution-aware signup, verified-email entitlements, and separate incoming-student consent lists.
 
 Firebase generates primary verification and password-reset action links; the
 Express API renders and delivers them through SendGrid. See

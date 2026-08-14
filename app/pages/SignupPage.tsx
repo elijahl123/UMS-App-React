@@ -10,7 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import GoogleSignInButton from '@/app/components/auth/GoogleSignInButton';
-import { captureLaunchAttribution, isExactUcdEmail } from '@/app/lib/launch/attribution';
+import {
+  captureLaunchAttribution,
+  getLaunchInstitution,
+  institutionForLaunchSource,
+  isExactInstitutionEmail,
+} from '@/app/lib/launch/attribution';
 import { joinLaunchWaitlist } from '@/app/lib/launch/client';
 
 const schema = z.object({
@@ -41,22 +46,22 @@ function SignupPage() {
     captureLaunchAttribution(searchParams);
   }, [searchParams]);
 
-  const isUcdJourney = searchParams.get('source') === 'ucd_landing'
-    || sessionStorage.getItem('ums_ucd_launch_attribution')?.includes('ucd_landing') === true;
+  const launchInstitution = institutionForLaunchSource(searchParams.get('source')) ?? getLaunchInstitution();
   const enteredEmail = form.watch('email');
-  const isPersonalJourneyEmail = isUcdJourney
+  const isPersonalJourneyEmail = Boolean(launchInstitution)
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enteredEmail)
-    && !isExactUcdEmail(enteredEmail);
+    && !isExactInstitutionEmail(enteredEmail, launchInstitution!);
 
   const requestWaitlist = async (email: string) => {
     if (!waitlistConsent) {
-      setFormError('Confirm that you want to join the incoming UCD student waitlist.');
+      setFormError(`Confirm that you want to join the incoming ${launchInstitution?.name ?? 'student'} student waitlist.`);
       return;
     }
     setFormError(null);
     setIsSubmitting(true);
     try {
-      await joinLaunchWaitlist({ email, list: 'ucd_incoming', consent: true, marketingConsent });
+      if (!launchInstitution) throw new Error('Launch institution is missing.');
+      await joinLaunchWaitlist({ email, list: launchInstitution.incomingList, consent: true, marketingConsent });
       setWaitlistPending(true);
     } catch (err) {
       const message = (err as { error?: { message?: string } })?.error?.message;
@@ -72,7 +77,7 @@ function SignupPage() {
     try {
       const result = await signup(values);
       if (result.success) {
-        const verificationPending = isUcdJourney && isExactUcdEmail(values.email);
+        const verificationPending = Boolean(launchInstitution && isExactInstitutionEmail(values.email, launchInstitution));
         const verificationFailed = result.verificationEmailSent === false;
         navigate(verificationPending || verificationFailed
           ? `/verify-email?pending=1${verificationFailed ? '&send=failed' : ''}`
@@ -98,7 +103,7 @@ function SignupPage() {
     <div className="grid gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
       <label className="flex items-start gap-2">
         <input type="checkbox" className="mt-0.5 h-4 w-4" checked={waitlistConsent} onChange={(event) => setWaitlistConsent(event.target.checked)} />
-        <span>I want to join the incoming UCD student waitlist and receive the confirmation email.</span>
+        <span>I want to join the incoming {launchInstitution?.name ?? 'student'} student waitlist and receive the confirmation email.</span>
       </label>
       <label className="flex items-start gap-2 text-muted-foreground">
         <input type="checkbox" className="mt-0.5 h-4 w-4" checked={marketingConsent} onChange={(event) => setMarketingConsent(event.target.checked)} />
@@ -107,14 +112,14 @@ function SignupPage() {
     </div>
   );
 
-  if (isUcdJourney && user && !isExactUcdEmail(user.email)) {
+  if (launchInstitution && user && !isExactInstitutionEmail(user.email, launchInstitution)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-secondary/40 p-4">
         <Card className="w-full max-w-sm shadow-lg">
           <CardHeader className="items-center text-center">
             <GraduationCap className="h-10 w-10 text-primary" />
-            <CardTitle>Verify a UCD address for free access</CardTitle>
-            <CardDescription>{user.email} is not a ucdconnect.ie address. You can join the incoming-student waitlist now or add a verified UCD secondary email in Account.</CardDescription>
+            <CardTitle>Verify a {launchInstitution.name} address for free access</CardTitle>
+            <CardDescription>{user.email} is not a {launchInstitution.emailDomain} address. You can join the incoming-student waitlist now or add a verified {launchInstitution.name} secondary email in Account.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             {waitlistPending ? (
@@ -123,7 +128,7 @@ function SignupPage() {
               <>{waitlistFields}<Button disabled={isSubmitting} onClick={() => void requestWaitlist(user.email)}>{isSubmitting ? 'Sending…' : 'Join waitlist'}</Button></>
             )}
             {formError && <p className="text-sm font-medium text-destructive">{formError}</p>}
-            <Button variant="outline" onClick={() => navigate('/account')}>Add a UCD email</Button>
+            <Button variant="outline" onClick={() => navigate('/account')}>Add a {launchInstitution.name} email</Button>
           </CardContent>
         </Card>
       </div>
@@ -137,8 +142,8 @@ function SignupPage() {
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
             <GraduationCap className="h-6 w-6" />
           </div>
-          <CardTitle className="text-xl">{isUcdJourney ? 'Get UCD student access' : 'Create your account'}</CardTitle>
-          <CardDescription>{isUcdJourney ? 'Use a verified ucdconnect.ie address. Personal emails can join the incoming-student waitlist.' : 'Start managing your schoolwork today'}</CardDescription>
+          <CardTitle className="text-xl">{launchInstitution ? `Get ${launchInstitution.name} student access` : 'Create your account'}</CardTitle>
+          <CardDescription>{launchInstitution ? `Use a verified ${launchInstitution.emailDomain} address. Personal emails can join the incoming-student waitlist.` : 'Start managing your schoolwork today'}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -148,9 +153,9 @@ function SignupPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{isUcdJourney ? 'UCD email' : 'Email'}</FormLabel>
+                    <FormLabel>{launchInstitution ? `${launchInstitution.name} email` : 'Email'}</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder={isUcdJourney ? 'you@ucdconnect.ie' : 'you@example.com'} autoComplete="email" {...field} />
+                      <Input type="email" placeholder={launchInstitution ? `you@${launchInstitution.emailDomain}` : 'you@example.com'} autoComplete="email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -218,7 +223,7 @@ function SignupPage() {
             </Link>
           </p>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            By creating an account, you agree to our{' '}
+            You must be at least 16. By creating an account, you agree to our{' '}
             <a href="https://untitledmanagementsoftware.com/terms/" className="font-semibold text-primary hover:underline">
               Terms of Service
             </a>{' '}

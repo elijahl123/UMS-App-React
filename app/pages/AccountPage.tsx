@@ -40,6 +40,7 @@ import {
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
 import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
+import CanvasIcsImportCard from '@/app/components/CanvasIcsImportCard';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 import type { NotificationPreferences } from '@/app/data/types';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
@@ -742,6 +743,7 @@ function AccountPage() {
       </Card>
 
       <BrightspacePdfImportCard />
+      <CanvasIcsImportCard />
 
       <Card>
         <CardHeader>

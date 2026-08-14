@@ -21,6 +21,8 @@ export interface BillingStatus {
   billingWarning?: string | null;
   entitlement?: {
     key: string;
+    institutionKey: 'ucd' | 'palomar' | null;
+    institutionName: string;
     qualifyingEmail: string;
     endsAt: string;
     graceEndsAt: string;

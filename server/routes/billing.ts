@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
 import { requestUserId } from '../auth';
-import { getAccessStatus, isUcdEmail } from '../access';
+import { getAccessStatus, shouldSuppressInstitutionTrial } from '../access';
 import { config } from '../config';
 import { pool } from '../db';
 import { ApiError, required } from '../errors';
@@ -80,16 +80,21 @@ billingRouter.post('/trial/start', async (req, res) => {
     const userId = requestUserId(req, req.body);
     const email = req.auth?.email ?? (required(req.body, 'email') as string);
     const access = await getAccessStatus(userId);
-    const ucdJourney = await pool.query<{ matched: boolean }>(
+    const institutionJourney = await pool.query<{ matched: boolean }>(
       `
         SELECT EXISTS (
           SELECT 1 FROM campaign_attributions
-          WHERE user_id = $1 AND (first_source = 'ucd_landing' OR last_source = 'ucd_landing')
+          WHERE user_id = $1
+            AND (first_source IN ('ucd_landing', 'palomar_landing') OR last_source IN ('ucd_landing', 'palomar_landing'))
         ) AS matched;
       `,
       [userId]
     );
-    if (access.entitlement || isUcdEmail(email) || ucdJourney.rows[0]?.matched) {
+    if (shouldSuppressInstitutionTrial({
+      hasEntitlement: Boolean(access.entitlement),
+      email,
+      matchedJourney: Boolean(institutionJourney.rows[0]?.matched),
+    })) {
       return res.json({ ...access, trialStartedNow: false });
     }
     return res.json(await startTrialForUser({ userId, email }));

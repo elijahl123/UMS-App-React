@@ -57,6 +57,18 @@ describe('application email templates', () => {
     expect(waitlist.html).toContain('Cancel this request');
   });
 
+  it('keeps Palomar waitlist consent distinct in the confirmation copy', () => {
+    const waitlist = mail.waitlistConfirmationTemplate({
+      list: 'palomar_incoming',
+      confirmationUrl: 'https://app.example/confirm?token=confirmation-secret&page=palomar',
+      unsubscribeUrl: 'https://app.example/unsubscribe?token=unsubscribe-secret&page=palomar',
+    });
+
+    expect(waitlist.subject).toContain('incoming Palomar student waitlist');
+    expect(waitlist.text).toContain('page=palomar');
+    expect(waitlist.text).not.toContain('incoming UCD student waitlist');
+  });
+
   it('sends with the shared sender, category, and sanitized structured log', async () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const recipient = 'student@example.com';

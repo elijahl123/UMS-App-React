@@ -68,7 +68,7 @@ class FakeImportClient {
       return { rows: [{ id: this.events.size }], rowCount: 1 };
     }
 
-    if (text.includes('INSERT INTO ucd_onboarding')) {
+    if (text.includes('INSERT INTO launch_onboarding')) {
       return { rows: [], rowCount: 1 };
     }
 

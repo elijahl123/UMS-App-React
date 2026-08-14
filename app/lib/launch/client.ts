@@ -3,11 +3,11 @@ import { getLaunchAttribution } from './attribution';
 
 export async function joinLaunchWaitlist(params: {
   email: string;
-  list: 'ucd_incoming' | 'ios';
+  list: 'ucd_incoming' | 'palomar_incoming' | 'ios';
   consent: boolean;
   marketingConsent: boolean;
 }) {
-  const attribution = getLaunchAttribution() ?? { source: 'ucd_landing' };
+  const attribution = getLaunchAttribution() ?? {};
   const response = await apiFetch('/launch/waitlist', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
