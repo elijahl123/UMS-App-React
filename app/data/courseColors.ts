@@ -6,17 +6,17 @@ export interface CourseColor {
 }
 
 const colorMap: Record<string, CourseColor> = {
-  'course-green': { bg: 'var(--course-green)', text: '#24553D', border: '#9ecbb0' },
-  'course-blue': { bg: 'var(--course-blue)', text: '#1F3A66', border: '#9fb6e6' },
-  'course-yellow': { bg: 'var(--course-yellow)', text: '#6B5A1E', border: '#e0c874' },
-  'course-gray': { bg: 'var(--course-gray)', text: '#3A3A3E', border: '#b9b9c0' },
-  'course-teal': { bg: 'var(--course-teal)', text: '#1F5753', border: '#7fc5bd' },
-  'course-purple': { bg: 'var(--course-purple)', text: '#46316E', border: '#b8a2df' },
-  'course-pink': { bg: 'var(--course-pink)', text: '#71324D', border: '#dc9ab8' },
-  'course-red': { bg: 'var(--course-red)', text: '#7A2F2F', border: '#df8d8d' },
+  'course-green': { bg: 'var(--course-green)', text: 'var(--course-green-text)', border: 'var(--course-green-border)' },
+  'course-blue': { bg: 'var(--course-blue)', text: 'var(--course-blue-text)', border: 'var(--course-blue-border)' },
+  'course-yellow': { bg: 'var(--course-yellow)', text: 'var(--course-yellow-text)', border: 'var(--course-yellow-border)' },
+  'course-gray': { bg: 'var(--course-gray)', text: 'var(--course-gray-text)', border: 'var(--course-gray-border)' },
+  'course-teal': { bg: 'var(--course-teal)', text: 'var(--course-teal-text)', border: 'var(--course-teal-border)' },
+  'course-purple': { bg: 'var(--course-purple)', text: 'var(--course-purple-text)', border: 'var(--course-purple-border)' },
+  'course-pink': { bg: 'var(--course-pink)', text: 'var(--course-pink-text)', border: 'var(--course-pink-border)' },
+  'course-red': { bg: 'var(--course-red)', text: 'var(--course-red-text)', border: 'var(--course-red-border)' },
 };
 
-const fallback = { bg: 'var(--course-gray)', text: '#3A3A3E', border: '#b9b9c0' };
+const fallback = { bg: 'var(--course-gray)', text: 'var(--course-gray-text)', border: 'var(--course-gray-border)' };
 
 export const courseColorOptions = [
   { key: 'course-green', label: 'Green' },

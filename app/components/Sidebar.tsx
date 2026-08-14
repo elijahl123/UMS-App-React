@@ -25,6 +25,7 @@ import { getCourseColor } from '@/app/data/courseColors';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay, getTodayClassFocus } from '@/app/data/classSchedule';
 import type { Course } from '@/app/data/types';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 interface CreatedNoteRow {
   id: number | string;
@@ -300,7 +301,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         >
           <div className="mb-2 flex items-center gap-2">
             <div
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/50"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[color-mix(in_srgb,var(--card)_50%,transparent)]"
               style={{ color: classFocus ? classFocusColors.text : undefined }}
             >
               <Clock className="h-4 w-4" />
@@ -375,6 +376,13 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
           </NavLink>
         )}
         <div className="flex flex-col gap-2">
+          <ThemeToggle
+            showLabel={!collapsed}
+            className={cn(
+              'w-full justify-start gap-2 border-[var(--border-light)] text-[var(--text-secondary)]',
+              collapsed && 'md:justify-center md:px-2'
+            )}
+          />
           <Button
             size="sm"
             className={cn('w-full justify-start gap-2', collapsed && 'md:justify-center md:px-2')}

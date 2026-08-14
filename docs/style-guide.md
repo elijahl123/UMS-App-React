@@ -21,6 +21,17 @@ Neutral colors:
 - `--text-secondary: #5a5a5a` - body copy, labels, helper text, and muted UI.
 - `--border-light: #e8e8e8` - neutral borders and dividers.
 
+## Light And Dark Themes
+
+UMS follows the device color scheme until the user chooses an explicit theme. Theme choices are stored on the current device and applied through the root `.dark` class.
+
+- Build surfaces and text from semantic tokens such as `background`, `card`, `foreground`, `muted`, `border`, and their CSS-variable equivalents.
+- Use `--surface` instead of a fixed white background and `--border-light` instead of a fixed light-gray border.
+- In `color-mix()`, mix toward `var(--surface)` rather than `white` so tinted UI adapts in both themes.
+- Course colors have theme-aware background, text, and border tokens. Always use all three values returned by `getCourseColor()`.
+- Do not add fixed light-neutral colors to app UI. Hard-coded colors are reserved for intentional brand marks, scrims, and status colors with explicit dark variants.
+- Embedded or iframe-based controls must receive the current resolved theme separately because root CSS variables cannot style their contents.
+
 Course colors:
 
 - `--course-green: #cfe8da`

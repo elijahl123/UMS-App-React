@@ -26,6 +26,7 @@ import AccountPage from '@/app/pages/AccountPage';
 import StagingAccessPage from '@/app/pages/StagingAccessPage';
 import StudyPlanPage from '@/app/pages/StudyPlanPage';
 import StudyPlanSetupPage from '@/app/pages/StudyPlanSetupPage';
+import { ThemeProvider } from '@/app/lib/theme/ThemeContext';
 
 function FallbackRoute() {
   const location = useLocation();
@@ -97,8 +98,9 @@ function StagingAdminRoute({ children }: { children: ReactNode }) {
 
 function App() {
   return (
-    <HashRouter>
-      <AuthProvider>
+    <ThemeProvider>
+      <HashRouter>
+        <AuthProvider>
         <AuthActionRedirect />
         <TrialStartedRedirect />
         <NotificationService />
@@ -138,8 +140,9 @@ function App() {
           </Route>
           <Route path="*" element={<FallbackRoute />} />
         </Routes>
-      </AuthProvider>
-    </HashRouter>
+        </AuthProvider>
+      </HashRouter>
+    </ThemeProvider>
   );
 }
 

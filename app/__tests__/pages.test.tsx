@@ -230,9 +230,22 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^appearance$/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByRole('button', { name: /view walkthrough/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
+  });
+
+  it('toggles dark mode from the account appearance setting', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<AccountPage />);
+
+    await user.click(screen.getByRole('switch', { name: /dark mode/i }));
+
+    expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'true');
+    expect(document.documentElement).toHaveClass('dark');
+    expect(window.localStorage.getItem('ums.theme')).toBe('dark');
   });
 
   it('connects Google from the account page', async () => {

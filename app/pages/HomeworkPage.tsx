@@ -42,22 +42,22 @@ type GroupKey = 'late' | 'today' | 'upcoming' | 'completed';
 const groupPresentation: Record<GroupKey, Pick<Group, 'iconClass' | 'iconBgClass' | 'textClass'>> = {
   late: {
     iconClass: 'text-[var(--main-accent)]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-accent)_14%,white)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-accent)_14%,var(--surface))]',
     textClass: 'text-[var(--main-accent)]',
   },
   today: {
     iconClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))]',
     textClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
   },
   upcoming: {
     iconClass: 'text-[var(--main-accent)]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--main-color)_18%,var(--surface))]',
     textClass: 'text-[var(--main-accent)]',
   },
   completed: {
     iconClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-green)_48%,white)]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))]',
     textClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
   },
 };
@@ -275,31 +275,31 @@ function HomeworkPage() {
             </span>
           </p>
         </div>
-        <div className="mobile-action-tray flex w-fit shrink-0 overflow-hidden md:bg-white/60">
+        <div className="mobile-action-tray flex w-fit shrink-0 overflow-hidden md:bg-[color-mix(in_srgb,var(--card)_60%,transparent)]">
           {a.status === 'completed' ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
+              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
               title="Mark incomplete"
               onClick={() => handleMarkIncomplete(a)}
             >
               <RotateCcw className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
             </Button>
           ) : (
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Mark complete" onClick={() => handleMarkComplete(a)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Mark complete" onClick={() => handleMarkComplete(a)}>
               <CheckCircle2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
             </Button>
           )}
           <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--secondary-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Edit" onClick={() => openEditDialog(a)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-[var(--secondary-accent)] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4" title="Edit" onClick={() => openEditDialog(a)}>
             <Pencil className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
           </Button>
           <span className="my-1.5 w-px bg-[var(--border-light)] xl:my-2" aria-hidden="true" />
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-white/70 sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
+            className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
             title="Delete"
             onClick={() => {
               if (confirm('Are you sure you want to delete this assignment?')) {
@@ -327,7 +327,7 @@ function HomeworkPage() {
           {isDesktopLayout && (
             <div className="hidden min-w-0 grid-cols-2 items-center gap-2 md:grid xl:grid-cols-[auto_auto_auto_auto] xl:justify-end">
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[200px] xl:px-4 xl:text-sm">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[200px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by course" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,7 +340,7 @@ function HomeworkPage() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-white px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>

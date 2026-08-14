@@ -128,7 +128,7 @@ function DayDetailsDialog({ open, onOpenChange, date, items, onEventClick, onIte
                           <button
                             key={task.id}
                             type="button"
-                            className="flex w-full items-center gap-2 rounded-md bg-white/45 px-2 py-2 text-left"
+                            className="flex w-full items-center gap-2 rounded-md bg-[color-mix(in_srgb,var(--card)_45%,transparent)] px-2 py-2 text-left"
                             onClick={(event) => {
                               event.stopPropagation();
                               onStudyTaskToggle?.(task.planId, task.id, !task.completedAt);

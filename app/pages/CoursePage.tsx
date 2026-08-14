@@ -50,10 +50,10 @@ function formatTimeDisplay(time: string): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  late: 'bg-[color-mix(in_srgb,var(--main-accent)_18%,white)] text-[var(--main-accent)]',
-  completed: 'bg-[color-mix(in_srgb,var(--course-green)_48%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
-  due_today: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
-  upcoming: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+  late: 'bg-[color-mix(in_srgb,var(--main-accent)_18%,var(--surface))] text-[var(--main-accent)]',
+  completed: 'bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+  due_today: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+  upcoming: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
 };
 
 function CoursePage() {
@@ -239,7 +239,7 @@ function CoursePage() {
       {/* Quick stats */}
       <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="mobile-list-item flex items-center gap-3" style={courseItemStyle}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--card)_45%,transparent)]">
             <ClipboardList className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -248,7 +248,7 @@ function CoursePage() {
           </div>
         </div>
         <div className="mobile-list-item flex items-center gap-3" style={courseItemStyle}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--card)_45%,transparent)]">
             <AlertTriangle className={`h-5 w-5 ${lateCount > 0 ? 'text-[var(--main-accent)]' : ''}`} />
           </div>
           <div className="min-w-0">
@@ -257,7 +257,7 @@ function CoursePage() {
           </div>
         </div>
         <div className="mobile-list-item col-span-2 flex items-center gap-3 sm:col-span-1" style={courseItemStyle}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/45">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--card)_45%,transparent)]">
             <CalendarDays className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -382,7 +382,7 @@ function CoursePage() {
                         {plan.archived ? 'Archived' : behind ? 'Refresh' : `${progress.percent}%`}
                       </Badge>
                     </div>
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/60">
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--card)_60%,transparent)]">
                       <div className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: colors.border }} />
                     </div>
                     <p className="mt-2 truncate text-xs opacity-80">

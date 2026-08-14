@@ -15,10 +15,34 @@ import {
   studyPlanState,
 } from '@/app/test/mocks';
 
+const testStorage = new Map<string, string>();
+
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: {
+    clear: vi.fn(() => testStorage.clear()),
+    getItem: vi.fn((key: string) => testStorage.get(key) ?? null),
+    key: vi.fn((index: number) => [...testStorage.keys()][index] ?? null),
+    removeItem: vi.fn((key: string) => testStorage.delete(key)),
+    setItem: vi.fn((key: string, value: string) => testStorage.set(key, String(value))),
+    get length() {
+      return testStorage.size;
+    },
+  },
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   resetMockState();
+  try {
+    window.localStorage.removeItem('ums.theme');
+  } catch {
+    // Individual storage tests may replace localStorage with a constrained mock.
+  }
+  document.documentElement.classList.remove('dark');
+  document.documentElement.removeAttribute('data-theme');
+  document.documentElement.style.colorScheme = '';
 });
 
 Object.defineProperty(window, 'matchMedia', {

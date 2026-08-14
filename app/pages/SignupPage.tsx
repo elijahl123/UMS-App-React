@@ -116,7 +116,7 @@ function SignupPage() {
           </CardHeader>
           <CardContent className="grid gap-4">
             {waitlistPending ? (
-              <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">Check your inbox to confirm your place.</p>
+              <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/55 dark:text-emerald-100">Check your inbox to confirm your place.</p>
             ) : (
               <>{waitlistFields}<Button disabled={isSubmitting} onClick={() => void requestWaitlist(user.email)}>{isSubmitting ? 'Sending…' : 'Join waitlist'}</Button></>
             )}
@@ -196,7 +196,7 @@ function SignupPage() {
                 )}
               />}
               {isPersonalJourneyEmail && waitlistFields}
-              {waitlistPending && <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">Check your inbox to confirm your place.</p>}
+              {waitlistPending && <p role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/55 dark:text-emerald-100">Check your inbox to confirm your place.</p>}
               {(formError || googleSignInError) && (
                 <p className="text-sm font-medium text-destructive">{formError ?? googleSignInError}</p>
               )}

@@ -258,7 +258,7 @@ function NotesPage() {
                 className={cn(
                   'flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color-shade)] sm:h-11 sm:gap-3 sm:px-4 sm:text-sm',
                   activeTab === tab
-                    ? 'bg-[color-mix(in_srgb,var(--main-color)_16%,white)] text-[var(--main-color-shade)]'
+                    ? 'bg-[color-mix(in_srgb,var(--main-color)_16%,var(--surface))] text-[var(--main-color-shade)]'
                     : 'bg-transparent text-[var(--secondary-accent)] hover:bg-[var(--secondary-accent-soft)]'
                 )}
                 onClick={() => setActiveTab(tab)}
@@ -268,7 +268,7 @@ function NotesPage() {
                   className={cn(
                     'min-w-6 rounded-full px-2 py-0.5 text-center text-[11px] sm:min-w-7 sm:py-1 sm:text-xs',
                     activeTab === tab
-                      ? 'bg-white/70 text-[var(--secondary-accent)]'
+                      ? 'bg-[color-mix(in_srgb,var(--card)_70%,transparent)] text-[var(--secondary-accent)]'
                       : 'bg-[var(--secondary-accent-soft)] text-[var(--secondary-accent)]'
                   )}
                 >
@@ -286,7 +286,7 @@ function NotesPage() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-8 gap-1 px-1 text-xs font-bold text-[var(--main-color-shade)] hover:bg-[color-mix(in_srgb,var(--main-color)_14%,white)] hover:text-[var(--main-color-shade)] sm:h-9 sm:text-sm"
+                className="h-8 gap-1 px-1 text-xs font-bold text-[var(--main-color-shade)] hover:bg-[color-mix(in_srgb,var(--main-color)_14%,var(--surface))] hover:text-[var(--main-color-shade)] sm:h-9 sm:text-sm"
                 onClick={() => {
                   setSearchQuery('');
                   setCourseFilter('all');
@@ -356,7 +356,7 @@ function NotesPage() {
                         aria-label={isFavorite ? 'Remove favorite' : 'Favorite note'}
                         aria-pressed={isFavorite}
                         className={cn(
-                          'h-8 w-8 shrink-0 hover:bg-white/45',
+                          'h-8 w-8 shrink-0 hover:bg-[color-mix(in_srgb,var(--card)_45%,transparent)]',
                           isFavorite ? 'text-[var(--main-color-shade)]' : 'opacity-80 hover:text-[var(--main-color-shade)]'
                         )}
                         onClick={(event) => {
@@ -373,7 +373,7 @@ function NotesPage() {
                             variant="ghost"
                             size="icon"
                             title="Note actions"
-                            className="h-8 w-8 opacity-80 hover:bg-white/45"
+                            className="h-8 w-8 opacity-80 hover:bg-[color-mix(in_srgb,var(--card)_45%,transparent)]"
                             onClick={(event) => event.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />
@@ -383,7 +383,7 @@ function NotesPage() {
                           <DropdownMenuItem onClick={() => navigate(`/notes/${note.id}`)}>Open note</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-[var(--main-accent)] focus:bg-[color-mix(in_srgb,var(--main-color)_16%,white)] focus:text-[var(--main-accent)]"
+                            className="text-[var(--main-accent)] focus:bg-[color-mix(in_srgb,var(--main-color)_16%,var(--surface))] focus:text-[var(--main-accent)]"
                             onClick={() => handleDelete(note.id)}
                           >
                             <Trash2 className="h-4 w-4" />
