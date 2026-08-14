@@ -214,7 +214,7 @@ function StudyPlanPage() {
   const windowLastDate = windowEnd ? addIsoDays(windowEnd, -1) : windowStart;
 
   const topicList = (
-    <div className="divide-y divide-[color-mix(in_srgb,var(--study-course-border)_42%,white)]">
+    <div className="divide-y divide-[color-mix(in_srgb,var(--study-course-border)_42%,var(--surface))]">
       {activeTopics.map((topic) => {
         const total = topic.totalTasks ?? 0;
         const completed = topic.completedTasks ?? 0;
@@ -259,14 +259,14 @@ function StudyPlanPage() {
         <ArrowLeft className="h-4 w-4" /> Back to {plan.courseCode}
       </button>
 
-      <Card className="mobile-surface h-auto shrink-0 overflow-hidden border border-[var(--border-light)] border-l-4 border-l-[var(--study-course-border)] bg-white">
+      <Card className="mobile-surface h-auto shrink-0 overflow-hidden border border-[var(--border-light)] border-l-4 border-l-[var(--study-course-border)] bg-card">
         <CardContent className="flex-none overflow-visible p-4 sm:p-5 lg:flex lg:items-center lg:justify-between lg:gap-6">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[color-mix(in_srgb,var(--study-course-bg)_48%,white)] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--study-course-text)]">
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--study-course-text)]">
                 {plan.courseCode}
               </span>
-              <Badge className="border-0 bg-[var(--study-course-text)] text-white">
+              <Badge className="border-0 bg-[var(--study-course-border)] text-[var(--study-course-text)]">
                 {plan.targetType === 'exam' ? (plan.examType === 'final' ? 'Final exam' : 'Midterm') : plan.targetType}
               </Badge>
               {plan.archived && <Badge variant="secondary">Archived</Badge>}
@@ -317,7 +317,7 @@ function StudyPlanPage() {
       )}
 
       {plan.unscheduledMinutes > 0 && (
-        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-amber-300 bg-amber-50 p-3 text-amber-950">
+        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-700 dark:bg-amber-950/55 dark:text-amber-100">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div><p className="font-bold">Partial plan saved</p><p className="mt-1 text-sm">{formatStudyMinutes(plan.unscheduledMinutes)} remains unscheduled because the selected days do not have enough capacity.</p></div>
         </div>
@@ -334,7 +334,7 @@ function StudyPlanPage() {
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="bg-white p-3 sm:p-4">
+            <div key={stat.label} className="bg-card p-3 sm:p-4">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-2xl font-bold leading-none text-[var(--secondary-accent)] sm:text-3xl">{stat.value}</p>
                 <Icon className="h-4 w-4 text-[var(--study-course-text)]" />
@@ -346,8 +346,8 @@ function StudyPlanPage() {
       </section>
 
       <div className="shrink-0 space-y-2.5 lg:hidden">
-        <details className="group rounded-lg border border-[var(--study-course-border)] bg-white">
-          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_48%,white)] px-4 py-3 marker:content-none">
+        <details className="group rounded-lg border border-[var(--study-course-border)] bg-card">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] px-4 py-3 marker:content-none">
             <span>
               <span className="block text-sm font-bold text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</span>
               <span className="block text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</span>
@@ -358,7 +358,7 @@ function StudyPlanPage() {
           <div className="max-h-80 overflow-y-auto p-4">{topicList}</div>
         </details>
 
-        <details className="group rounded-lg border border-[var(--border-light)] bg-white">
+        <details className="group rounded-lg border border-[var(--border-light)] bg-card">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none">
             <span className="flex items-center gap-2 text-sm font-bold text-[var(--secondary-accent)]">
               <CalendarDays className="h-4 w-4 text-[var(--study-course-text)]" /> Weekly capacity
@@ -428,7 +428,7 @@ function StudyPlanPage() {
                 >
                   <header className={`flex items-center justify-between gap-3 border-l-4 px-4 py-3 ${
                     day.date === today
-                      ? 'border-l-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_42%,white)]'
+                      ? 'border-l-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_42%,var(--surface))]'
                       : 'border-l-transparent bg-[var(--secondary-color)]/45'
                   }`}>
                     <div>
@@ -438,13 +438,13 @@ function StudyPlanPage() {
                       {day.date === today && <p className="mt-0.5 text-xs font-bold text-[var(--study-course-text)]">Today</p>}
                       {day.date < today && day.tasks.some((task) => !task.completedAt) && <p className="text-xs font-semibold text-destructive">Overdue</p>}
                     </div>
-                    <Badge variant="outline" className="shrink-0 bg-white text-[var(--secondary-accent)]">{formatStudyMinutes(day.estimatedMinutes)}</Badge>
+                    <Badge variant="outline" className="shrink-0 bg-card text-[var(--secondary-accent)]">{formatStudyMinutes(day.estimatedMinutes)}</Badge>
                   </header>
                   <div className="divide-y divide-[var(--border-light)]">
                 {day.tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex min-h-16 w-full items-center gap-2 bg-white px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--study-course-bg)_22%,white)] sm:gap-3 sm:px-4 sm:py-3"
+                    className="flex min-h-16 w-full items-center gap-2 bg-card px-3 py-2.5 transition-colors hover:bg-[color-mix(in_srgb,var(--study-course-bg)_22%,var(--surface))] sm:gap-3 sm:px-4 sm:py-3"
                   >
                     <button
                       type="button"
@@ -454,8 +454,8 @@ function StudyPlanPage() {
                       onClick={() => toggleTask(task.id, !task.completedAt)}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] focus-visible:ring-offset-2 disabled:opacity-60 sm:h-9 sm:w-9 ${
                         task.completedAt
-                          ? 'border-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-green)_48%,white)] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]'
-                          : 'border-[var(--study-course-border)] bg-white text-[var(--study-course-text)]'
+                          ? 'border-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]'
+                          : 'border-[var(--study-course-border)] bg-card text-[var(--study-course-text)]'
                       }`}
                     >
                       {task.completedAt && <Check className="h-4 w-4" />}
@@ -471,7 +471,7 @@ function StudyPlanPage() {
                         aria-label={`Edit ${task.title}`}
                         disabled={Boolean(task.completedAt) || busyTask === task.id || plan.archived}
                         onClick={() => void handleEditTask(task.id)}
-                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] disabled:opacity-50 sm:h-9 sm:w-9"
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] disabled:opacity-50 sm:h-9 sm:w-9"
                       ><Pencil className="h-4 w-4" /></button>
                       <button
                         type="button"
@@ -479,7 +479,7 @@ function StudyPlanPage() {
                         aria-label={`Open notes for ${task.title}`}
                         disabled={busyNoteTask === task.id}
                         onClick={() => handleOpenTaskNote(task.id)}
-                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 sm:h-9 sm:w-9"
+                        className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 sm:h-9 sm:w-9"
                       >
                         {busyNoteTask === task.id
                           ? <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -491,7 +491,7 @@ function StudyPlanPage() {
                           title={`Open ${plan.courseCode} homepage`}
                           aria-label={`Open ${plan.courseCode} homepage`}
                           onClick={() => void openExternalUrl(plan.courseHomepageUrl!)}
-                          className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] sm:h-9 sm:w-9"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--study-course-text)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[var(--study-course-bg)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] sm:h-9 sm:w-9"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </button>
@@ -508,12 +508,12 @@ function StudyPlanPage() {
 
         <aside className="min-w-0 space-y-3 lg:sticky lg:top-0">
           <Card className="hidden h-auto overflow-hidden rounded-lg border border-[var(--study-course-border)] lg:block">
-            <CardHeader className="flex flex-row items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--study-course-bg)_48%,white)] p-4">
+            <CardHeader className="flex flex-row items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] p-4">
               <div>
                 <CardTitle className="text-base text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</CardTitle>
                 <p className="mt-1 text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</p>
               </div>
-              <Button asChild variant="outline" size="sm" className="h-9 rounded-lg bg-white/80">
+              <Button asChild variant="outline" size="sm" className="h-9 rounded-lg bg-[color-mix(in_srgb,var(--card)_80%,transparent)]">
                 <Link to={editPath}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Link>
               </Button>
             </CardHeader>

@@ -214,6 +214,20 @@ describe('widgets and calendar components', () => {
     expect(screen.getByRole('heading', { name: /add assignment/i })).toBeInTheDocument();
   });
 
+  it('toggles the theme from desktop and mobile navigation', async () => {
+    const user = userEvent.setup();
+    const sidebar = renderWithRouter(<Sidebar />);
+
+    await user.click(screen.getByRole('switch', { name: /switch to dark mode/i }));
+    expect(document.documentElement).toHaveClass('dark');
+
+    sidebar.unmount();
+    renderWithRouter(<MobileBottomNavigation />);
+    await user.click(screen.getByRole('button', { name: /^more$/i }));
+    await user.click(screen.getByRole('switch', { name: /switch to light mode/i }));
+    expect(document.documentElement).not.toHaveClass('dark');
+  });
+
   it('navigates from the mobile more sheet and logs out', async () => {
     const user = userEvent.setup();
     renderWithRouter(

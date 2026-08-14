@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { appEnv } from '@/app/lib/env';
+import { useTheme, type ResolvedTheme } from '@/app/lib/theme/ThemeContext';
 import { getApiBaseUrl } from '@/app/lib/api/client';
 import {
   cancelSubscription,
@@ -147,14 +148,16 @@ function PaymentMethodForm({
   );
 }
 
-function stripeElementsOptions(clientSecret: string | null): StripeElementsOptions | undefined {
+function stripeElementsOptions(clientSecret: string | null, theme: ResolvedTheme): StripeElementsOptions | undefined {
   return clientSecret
     ? {
         clientSecret,
         appearance: {
-          theme: 'stripe',
+          theme: theme === 'dark' ? 'night' : 'stripe',
           variables: {
             colorPrimary: '#f08080',
+            colorBackground: theme === 'dark' ? '#171717' : '#ffffff',
+            colorText: theme === 'dark' ? '#fafafa' : '#2f2f2f',
             borderRadius: '8px',
             fontFamily: 'Poppins, sans-serif',
           },
@@ -201,6 +204,7 @@ function paymentMethodDescription(paymentMethod: BillingPaymentMethod | null) {
 
 function BillingPage() {
   const { user, logout } = useAuth();
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [config, setConfig] = useState<BillingConfig | null>(null);
@@ -220,8 +224,11 @@ function BillingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const stripePromise = useMemo(() => (config?.publishableKey ? loadStripe(config.publishableKey) : null), [config?.publishableKey]);
-  const elementsOptions = useMemo(() => stripeElementsOptions(clientSecret), [clientSecret]);
-  const paymentMethodElementsOptions = useMemo(() => stripeElementsOptions(paymentMethodClientSecret), [paymentMethodClientSecret]);
+  const elementsOptions = useMemo(() => stripeElementsOptions(clientSecret, resolvedTheme), [clientSecret, resolvedTheme]);
+  const paymentMethodElementsOptions = useMemo(
+    () => stripeElementsOptions(paymentMethodClientSecret, resolvedTheme),
+    [paymentMethodClientSecret, resolvedTheme]
+  );
 
   const refreshStatus = async () => {
     if (!user) return;
@@ -421,7 +428,7 @@ function BillingPage() {
             {trialStartedNotice && isTrialOnlyAccess && (
               <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/10 p-4 text-sm text-foreground">
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-full bg-white p-1 text-primary">
+                  <div className="mt-0.5 rounded-full bg-card p-1 text-primary">
                     <Check className="h-4 w-4" />
                   </div>
                   <div>
@@ -436,7 +443,7 @@ function BillingPage() {
             )}
 
             {isTrialOnlyAccess && !trialStartedNotice && (
-              <div className="rounded-lg border border-[var(--border-light)] bg-white p-4 text-sm">
+              <div className="rounded-lg border border-[var(--border-light)] bg-card p-4 text-sm">
                 <p className="font-bold text-primary">Free trial active</p>
                 <p className="mt-1 text-muted-foreground">
                   {trialDaysRemaining > 0
@@ -513,7 +520,7 @@ function BillingPage() {
                           onClick={() => void handleUpdatePlan(interval)}
                           disabled={current || updatingPlan !== null || missingSetup}
                           className={`rounded-lg border-2 p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-                            current ? 'border-primary bg-primary/10' : 'border-[var(--border-light)] bg-white hover:border-primary/50'
+                            current ? 'border-primary bg-primary/10' : 'border-[var(--border-light)] bg-card hover:border-primary/50'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -537,7 +544,7 @@ function BillingPage() {
 
                 <div>
                   <p className="mb-3 text-sm font-bold text-foreground">Payment method</p>
-                  <div className="rounded-lg border border-[var(--border-light)] bg-white p-4">
+                  <div className="rounded-lg border border-[var(--border-light)] bg-card p-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="flex items-start gap-3">
                         <div className="rounded-full bg-secondary p-2 text-primary">
@@ -581,7 +588,7 @@ function BillingPage() {
             ) : (
               <>
                 {isTrialOnlyAccess && (
-                  <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-light)] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-light)] bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-bold text-foreground">You do not have to upgrade today.</p>
                       <p className="mt-1 text-sm text-muted-foreground">Your trial includes full app access.</p>
@@ -603,7 +610,7 @@ function BillingPage() {
                           setClientSecret(null);
                         }}
                         className={`rounded-lg border-2 p-5 text-left transition-colors ${
-                          selected ? 'border-primary bg-primary/10' : 'border-[var(--border-light)] bg-white hover:border-primary/50'
+                          selected ? 'border-primary bg-primary/10' : 'border-[var(--border-light)] bg-card hover:border-primary/50'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -629,7 +636,7 @@ function BillingPage() {
                 )}
 
                 {clientSecret && stripePromise && elementsOptions && (
-                  <div className="rounded-lg border border-[var(--border-light)] bg-white p-5">
+                  <div className="rounded-lg border border-[var(--border-light)] bg-card p-5">
                     <Elements stripe={stripePromise} options={elementsOptions}>
                       <CheckoutForm onComplete={refreshStatus} />
                     </Elements>

@@ -31,7 +31,7 @@ type SectionHeadingProps = {
 function SectionHeading({ step, title, description, icon: Icon }: SectionHeadingProps) {
   return (
     <div className="flex items-start gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_72%,white)] text-[var(--study-course-text)]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_72%,var(--surface))] text-[var(--study-course-text)]">
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
@@ -218,7 +218,7 @@ function StudyPlanSetupPage() {
         </button>
         <div>
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-[color-mix(in_srgb,var(--study-course-bg)_72%,white)] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--study-course-text)]">
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--study-course-bg)_72%,var(--surface))] px-2.5 py-1 text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--study-course-text)]">
                 {course.code}
               </span>
               <span className="text-xs font-semibold text-muted-foreground">{course.name}</span>
@@ -248,7 +248,7 @@ function StudyPlanSetupPage() {
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-[var(--secondary-accent)]">Target type</Label>
                 <Select value={targetType} onValueChange={(value) => { setTargetType(value as StudyTargetType); setPartialPlanAcknowledged(false); }}>
-                  <SelectTrigger className="h-12 rounded-lg bg-white"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-12 rounded-lg bg-card"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="exam">Exam</SelectItem>
                     <SelectItem value="assignment">Assignment</SelectItem>
@@ -259,28 +259,28 @@ function StudyPlanSetupPage() {
               {targetType === 'exam' ? <div className="space-y-2">
                 <Label className="text-xs font-bold text-[var(--secondary-accent)]">Exam type</Label>
                 <Select value={examType} onValueChange={(value) => setExamType(value as ExamType)}>
-                  <SelectTrigger className="h-12 rounded-lg bg-white"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-12 rounded-lg bg-card"><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="midterm">Midterm</SelectItem><SelectItem value="final">Final</SelectItem></SelectContent>
                 </Select>
               </div> : <div className="space-y-2">
                 <Label htmlFor="target-title" className="text-xs font-bold text-[var(--secondary-accent)]">Title</Label>
-                <Input id="target-title" className="h-12 rounded-lg bg-white" maxLength={200} placeholder={targetType === 'assignment' ? 'Research essay' : 'Group project'} value={targetTitle} onChange={(event) => setTargetTitle(event.target.value)} />
+                <Input id="target-title" className="h-12 rounded-lg bg-card" maxLength={200} placeholder={targetType === 'assignment' ? 'Research essay' : 'Group project'} value={targetTitle} onChange={(event) => setTargetTitle(event.target.value)} />
               </div>}
               <div className="space-y-2">
                 <Label htmlFor="exam-date" className="text-xs font-bold text-[var(--secondary-accent)]">{targetType === 'exam' ? 'Exam date' : 'Due date'}</Label>
-                <Input className="h-12 rounded-lg bg-white" id="exam-date" type="date" min={targetType === 'exam' ? addDays(today, 1) : today} value={examDate} onChange={(e) => { setExamDate(e.target.value); setPartialPlanAcknowledged(false); }} />
+                <Input className="h-12 rounded-lg bg-card" id="exam-date" type="date" min={targetType === 'exam' ? addDays(today, 1) : today} value={examDate} onChange={(e) => { setExamDate(e.target.value); setPartialPlanAcknowledged(false); }} />
               </div>
               {targetType !== 'exam' && <div className="space-y-2">
                 <Label htmlFor="target-time" className="text-xs font-bold text-[var(--secondary-accent)]">Due time (optional)</Label>
-                <Input className="h-12 rounded-lg bg-white" id="target-time" type="time" value={targetTime} onChange={(event) => setTargetTime(event.target.value)} />
+                <Input className="h-12 rounded-lg bg-card" id="target-time" type="time" value={targetTime} onChange={(event) => setTargetTime(event.target.value)} />
               </div>}
               <div className="space-y-2">
                 <Label htmlFor="start-date" className="text-xs font-bold text-[var(--secondary-accent)]">Start date</Label>
-                <Input className="h-12 rounded-lg bg-white" id="start-date" type="date" min={today} max={targetType === 'exam' ? addDays(examDate, -1) : examDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Input className="h-12 rounded-lg bg-card" id="start-date" type="date" min={today} max={targetType === 'exam' ? addDays(examDate, -1) : examDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone" className="text-xs font-bold text-[var(--secondary-accent)]">Timezone</Label>
-                <Input className="h-12 rounded-lg bg-white" id="timezone" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+                <Input className="h-12 rounded-lg bg-card" id="timezone" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
               </div>
             </div>
           </section>
@@ -301,7 +301,7 @@ function StudyPlanSetupPage() {
                   id="topic-list"
                   aria-label="Paste modules or topics, one per line"
                   rows={4}
-                  className="min-h-28 resize-y rounded-lg bg-white"
+                  className="min-h-28 resize-y rounded-lg bg-card"
                   placeholder={'Week 1: Asymptotic Analysis\nWeek 2: Breadth-First Search\nSample exam paper'}
                   value={topicText}
                   onChange={(e) => setTopicText(e.target.value)}
@@ -311,7 +311,7 @@ function StudyPlanSetupPage() {
                 </Button>
               </div>
               {topics.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_20%,white)] px-4 py-5 text-center">
+                <div className="rounded-lg border border-dashed border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_20%,var(--surface))] px-4 py-5 text-center">
                   <BookOpenCheck className="mx-auto h-5 w-5 text-[var(--study-course-text)] opacity-70" />
                   <p className="mt-2 text-sm font-semibold text-[var(--secondary-accent)]">No topics added yet</p>
                   <p className="mt-1 text-xs text-muted-foreground">Paste your course outline above, then add it to the plan.</p>
@@ -319,9 +319,9 @@ function StudyPlanSetupPage() {
               ) : (
                 <div className="space-y-2">
                   {topics.map((topic, index) => (
-                    <div key={topic.id ?? index} className="mobile-list-item rounded-lg border-l-4 border-l-[var(--study-course-border)] bg-white p-2.5 sm:grid sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center sm:gap-2">
+                    <div key={topic.id ?? index} className="mobile-list-item rounded-lg border-l-4 border-l-[var(--study-course-border)] bg-card p-2.5 sm:grid sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-center sm:gap-2">
                       <Input
-                        className="h-10 rounded-lg bg-white"
+                        className="h-10 rounded-lg bg-card"
                         aria-label={`Topic ${index + 1}`}
                         maxLength={200}
                         value={topic.title}
@@ -332,7 +332,7 @@ function StudyPlanSetupPage() {
                           value={topic.difficulty}
                           onValueChange={(value) => setTopics((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, difficulty: value as StudyDifficulty } : item))}
                         >
-                          <SelectTrigger className="h-10 flex-1 rounded-lg bg-white" aria-label={`Difficulty for ${topic.title}`}><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-10 flex-1 rounded-lg bg-card" aria-label={`Difficulty for ${topic.title}`}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="light">Light</SelectItem>
                             <SelectItem value="medium">Medium</SelectItem>
@@ -363,19 +363,19 @@ function StudyPlanSetupPage() {
               {targetType !== 'exam' && (
                 <div className="mb-4 grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Estimated total work
-                    <span className="flex items-center gap-2"><Input type="number" min={15} max={10080} step={15} className="h-10 bg-white" value={estimatedMinutes} onChange={(event) => { setEstimatedMinutes(Math.max(15, Math.round(Number(event.target.value || 15) / 15) * 15)); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
+                    <span className="flex items-center gap-2"><Input type="number" min={15} max={10080} step={15} className="h-10 bg-card" value={estimatedMinutes} onChange={(event) => { setEstimatedMinutes(Math.max(15, Math.round(Number(event.target.value || 15) / 15) * 15)); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
                   </label>
                   <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Maximum per day
-                    <span className="flex items-center gap-2"><Input type="number" min={15} max={720} step={15} className="h-10 bg-white" value={dailyCapMinutes} onChange={(event) => { setDailyCapMinutes(Math.max(15, Math.min(720, Math.round(Number(event.target.value || 15) / 15) * 15))); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
+                    <span className="flex items-center gap-2"><Input type="number" min={15} max={720} step={15} className="h-10 bg-card" value={dailyCapMinutes} onChange={(event) => { setDailyCapMinutes(Math.max(15, Math.min(720, Math.round(Number(event.target.value || 15) / 15) * 15))); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
                   </label>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-7">
                 {availability.map((entry) => (
-                  <div key={entry.weekday} className={`rounded-lg border p-3 ${entry.minutes > 0 ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,white)]' : 'border-[var(--border-light)] bg-white'}`}>
+                  <div key={entry.weekday} className={`rounded-lg border p-3 ${entry.minutes > 0 ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}>
                     <Label className="text-xs font-bold text-[var(--study-course-text)]" htmlFor={`availability-${entry.weekday}`}>{DAYS[entry.weekday]}</Label>
                     {targetType === 'exam' ? <Input
-                      className="mt-2 h-10 rounded-lg bg-white text-center font-bold"
+                      className="mt-2 h-10 rounded-lg bg-card text-center font-bold"
                       id={`availability-${entry.weekday}`}
                       type="number"
                       min={0}
@@ -397,10 +397,10 @@ function StudyPlanSetupPage() {
         </Card>
 
         <aside className="lg:sticky lg:top-0">
-          <Card className="mobile-surface h-auto overflow-hidden border border-[var(--border-light)] border-t-4 border-t-[var(--study-course-border)] bg-white">
+          <Card className="mobile-surface h-auto overflow-hidden border border-[var(--border-light)] border-t-4 border-t-[var(--study-course-border)] bg-card">
             <CardHeader className="p-4 pb-3 sm:p-5 sm:pb-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_42%,white)] text-[var(--study-course-text)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_42%,var(--surface))] text-[var(--study-course-text)]">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
@@ -420,7 +420,7 @@ function StudyPlanSetupPage() {
                   <p className="mt-1 text-lg font-bold text-[var(--secondary-accent)]">{formatStudyMinutes(availableMinutes)}</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between rounded-lg border border-[var(--border-light)] bg-white px-3 py-2.5 text-sm">
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border-light)] bg-card px-3 py-2.5 text-sm">
                 <span className="text-muted-foreground">{targetType === 'exam' ? 'Topics' : 'Target'}</span>
                 <span className="max-w-40 truncate font-bold text-[var(--secondary-accent)]">{targetType === 'exam' ? topics.length : targetTitle || 'Untitled'}</span>
               </div>
@@ -432,7 +432,7 @@ function StudyPlanSetupPage() {
                     : 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'}
               </p>
               {targetType !== 'exam' && missingMinutes > 0 && (
-                <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-700 dark:bg-amber-950/55 dark:text-amber-100">
                   <input type="checkbox" className="mt-0.5" checked={partialPlanAcknowledged} onChange={(event) => setPartialPlanAcknowledged(event.target.checked)} />
                   <span>Save a partial plan and leave {formatStudyMinutes(missingMinutes)} visibly unscheduled. No work will be silently discarded.</span>
                 </label>

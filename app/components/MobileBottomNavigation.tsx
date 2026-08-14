@@ -25,6 +25,7 @@ import { useAuth } from '@/app/lib/auth/AuthContext';
 import { mapCourse } from '@/app/data/mappers';
 import { cn } from '@/lib/utils';
 import type { Assignment, CalendarEvent, ClassSession, Course } from '@/app/data/types';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 type AddTarget = 'assignment' | 'event' | 'course' | 'class' | null;
 
@@ -146,13 +147,13 @@ function MobileBottomNavigation() {
       className="mobile-list-item flex w-full items-center gap-3 px-3.5 py-3.5"
       onClick={() => handleMoreNavigate('/account')}
       style={{
-        '--mobile-item-bg': 'color-mix(in srgb, var(--main-color) 18%, white)',
-        '--mobile-item-border': 'color-mix(in srgb, var(--main-color) 58%, white)',
+        '--mobile-item-bg': 'color-mix(in srgb, var(--main-color) 18%, var(--surface))',
+        '--mobile-item-border': 'color-mix(in srgb, var(--main-color) 58%, var(--surface))',
         '--mobile-item-text': 'var(--secondary-accent)',
       } as React.CSSProperties}
       aria-label="Open account settings"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--main-color)_28%,white)] text-sm font-bold uppercase text-[var(--main-accent)]">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--main-color)_28%,var(--surface))] text-sm font-bold uppercase text-[var(--main-accent)]">
         {initials}
       </span>
       <span className="min-w-0 flex-1 text-left">
@@ -172,11 +173,11 @@ function MobileBottomNavigation() {
           aria-label="Mobile primary navigation"
         >
           <div className="mx-auto grid max-w-md grid-cols-5 items-end gap-1">
-            <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+            <NavLink to="/" end className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,var(--surface))] text-primary')}>
               <Gauge className="h-5 w-5" />
               <span>Home</span>
             </NavLink>
-            <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+            <NavLink to="/calendar" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,var(--surface))] text-primary')}>
               <Calendar className="h-5 w-5" />
               <span>Calendar</span>
             </NavLink>
@@ -191,11 +192,11 @@ function MobileBottomNavigation() {
                 <Plus className="h-8 w-8" />
               </Button>
             </div>
-            <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')}>
+            <NavLink to="/homework" className={({ isActive }) => cn(baseNavClass, isActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,var(--surface))] text-primary')}>
               <BookOpen className="h-5 w-5" />
               <span>Homework</span>
             </NavLink>
-            <button type="button" className={cn(baseNavClass, isMoreActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,white)] text-primary')} onClick={() => setMoreOpen(true)}>
+            <button type="button" className={cn(baseNavClass, isMoreActive && 'bg-[color-mix(in_srgb,var(--main-color)_14%,var(--surface))] text-primary')} onClick={() => setMoreOpen(true)}>
               <Menu className="h-5 w-5" />
               <span>More</span>
             </button>
@@ -247,10 +248,11 @@ function MobileBottomNavigation() {
               stagingAccess?.role === 'admin' &&
               renderMoreButton('Staging Access', <Shield className="h-4 w-4" />, () => handleMoreNavigate('/admin/staging-access'))}
             {renderMoreButton('Feedback', <MessageSquare className="h-4 w-4" />, () => setMoreOpen(false), 'secondary')}
+            <ThemeToggle className="mobile-control justify-start gap-3 px-4" />
             {accountCard}
             <Button
               type="button"
-              className="h-12 justify-start gap-3 rounded-lg border border-[var(--secondary-accent)] bg-[var(--secondary-accent)] px-4 text-sm font-bold text-white shadow-[0_8px_20px_rgb(86_73_76/0.12)] hover:border-[var(--secondary-accent-hover)] hover:bg-[var(--secondary-accent-hover)] hover:text-white"
+              className="h-12 justify-start gap-3 rounded-lg border border-secondary bg-secondary px-4 text-sm font-bold text-secondary-foreground shadow-[0_8px_20px_rgb(86_73_76/0.12)] hover:border-secondary/80 hover:bg-secondary/90 hover:text-secondary-foreground"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4" />

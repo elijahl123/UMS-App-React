@@ -526,7 +526,7 @@ function CalendarPage() {
                         <span className="block truncate text-sm text-[var(--text-secondary)]">{formatItemSchedule(item)}</span>
                       </span>
                       <span
-                        className="rounded-lg border bg-white/35 px-3 py-1 text-xs font-semibold"
+                        className="rounded-lg border bg-[color-mix(in_srgb,var(--card)_35%,transparent)] px-3 py-1 text-xs font-semibold"
                         style={{ borderColor: item.borderColor, color: item.textColor }}
                       >
                         {itemTypeLabel(item.type)}

@@ -178,7 +178,7 @@ function DashboardPage() {
       value: upcoming.length,
       icon: NotebookPen,
       to: '/homework?status=upcoming',
-      className: 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)] text-[var(--main-accent)]',
+      className: 'bg-[color-mix(in_srgb,var(--main-color)_18%,var(--surface))] text-[var(--main-accent)]',
     },
     {
       label: 'Class Today',
@@ -186,7 +186,7 @@ function DashboardPage() {
       value: todaysSessions.length,
       icon: GraduationCap,
       to: '/class-schedule',
-      className: 'bg-[color-mix(in_srgb,var(--course-yellow)_44%,white)] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-yellow)_44%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
     },
     {
       label: 'Late Assignments',
@@ -194,7 +194,7 @@ function DashboardPage() {
       value: late.length,
       icon: CheckCircle2,
       to: '/homework?status=late',
-      className: 'bg-[color-mix(in_srgb,var(--course-green)_42%,white)] text-[color-mix(in_srgb,var(--course-green)_66%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-green)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_66%,var(--secondary-accent))]',
     },
     {
       label: 'Upcoming Events',
@@ -202,7 +202,7 @@ function DashboardPage() {
       value: upcomingEvents.length,
       icon: CalendarDays,
       to: '/calendar',
-      className: 'bg-[color-mix(in_srgb,var(--course-blue)_42%,white)] text-[color-mix(in_srgb,var(--course-blue)_58%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-blue)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-blue)_58%,var(--secondary-accent))]',
     },
   ];
 
@@ -227,7 +227,7 @@ function DashboardPage() {
               key={stat.label}
               to={stat.to}
               aria-label={`Open ${stat.label}`}
-              className={`min-h-[5.9rem] rounded-lg border border-white/70 px-2.5 py-3 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring ${stat.className}`}
+              className={`min-h-[5.9rem] rounded-lg border border-card/70 px-2.5 py-3 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-ring ${stat.className}`}
             >
               <div className="mb-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface)]/70">
                 <Icon className="h-3.5 w-3.5" />
@@ -293,7 +293,7 @@ function DashboardPage() {
                   </div>
                 </div>
                 {studyDashboard.tasks.length === 0 ? (
-                  <div className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] px-4 py-5 text-center">
+                  <div className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] px-4 py-5 text-center">
                     <CheckCircle2 className="mx-auto h-6 w-6 text-[color-mix(in_srgb,var(--course-green)_72%,var(--secondary-accent))]" />
                     <p className="mt-2 text-sm font-bold text-[var(--secondary-accent)]">Today is clear</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -326,7 +326,7 @@ function DashboardPage() {
                           key={group.courseId}
                           style={theme}
                           aria-labelledby={`study-course-${group.courseId}`}
-                          className="overflow-hidden rounded-lg border border-[var(--focus-course-border)] bg-white"
+                          className="overflow-hidden rounded-lg border border-[var(--focus-course-border)] bg-card"
                         >
                           <div className="flex min-h-12 items-center justify-between gap-3 bg-[var(--focus-course-bg)] px-3 py-2">
                             <div className="min-w-0">
@@ -348,7 +348,7 @@ function DashboardPage() {
                                   aria-label={`Complete ${task.title} for ${task.courseCode}`}
                                   disabled={busyStudyTask === task.id}
                                   onClick={() => completeStudyTask(task.planId, task.id)}
-                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_38%,white)] text-[var(--focus-course-text)] transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
+                                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_38%,var(--surface))] text-[var(--focus-course-text)] transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
                                 >
                                   <Check className="h-4 w-4 opacity-35" />
                                 </button>
@@ -365,7 +365,7 @@ function DashboardPage() {
                                     aria-label={`Open notes for ${task.title}`}
                                     disabled={busyStudyNote === task.id}
                                     onClick={() => void openTopicNote(task.planId, task.id)}
-                                    className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
+                                    className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
                                   >
                                     <StickyNote className="h-4 w-4" />
                                   </button>
@@ -375,7 +375,7 @@ function DashboardPage() {
                                       title={`Open ${task.courseCode} homepage`}
                                       aria-label={`Open ${task.courseCode} homepage`}
                                       onClick={() => void openExternalUrl(task.courseHomepageUrl!)}
-                                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-white text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9"
+                                      className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9"
                                     >
                                       <ExternalLink className="h-4 w-4" />
                                     </button>
@@ -390,7 +390,7 @@ function DashboardPage() {
                               aria-expanded={isExpanded}
                               aria-controls={`study-course-tasks-${group.courseId}`}
                               onClick={() => toggleStudyCourse(group.courseId)}
-                              className="flex min-h-11 w-full items-center justify-center border-t border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_48%,white)] px-3 py-2 text-xs font-bold text-[var(--focus-course-text)] transition-colors hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--main-color)]"
+                              className="flex min-h-11 w-full items-center justify-center border-t border-[var(--focus-course-border)] bg-[color-mix(in_srgb,var(--focus-course-bg)_48%,var(--surface))] px-3 py-2 text-xs font-bold text-[var(--focus-course-text)] transition-colors hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--main-color)]"
                             >
                               {isExpanded
                                 ? `Show fewer tasks for ${group.courseCode}`
@@ -462,7 +462,7 @@ function DashboardPage() {
                             <span className="text-sm font-bold text-[var(--focus-course-text)]">{progress.percent}%</span>
                           </span>
                         </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white">
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-card">
                           <div className="h-full rounded-full bg-[var(--focus-course-border)]" style={{ width: `${progress.percent}%` }} />
                         </div>
                       </div>

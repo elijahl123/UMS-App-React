@@ -420,8 +420,8 @@ function ClassSchedulePage() {
                 type="button"
                 className="relative flex h-12 flex-col items-center justify-center rounded-lg border bg-card text-xs font-semibold shadow-[0_8px_18px_rgb(86_73_76/0.045)] transition-colors"
                 style={{
-                  borderColor: isSelected ? 'color-mix(in srgb, var(--main-color) 60%, white)' : 'var(--border-light)',
-                  backgroundColor: isSelected ? 'color-mix(in srgb, var(--main-color) 16%, white)' : 'var(--surface)',
+                  borderColor: isSelected ? 'color-mix(in srgb, var(--main-color) 60%, var(--surface))' : 'var(--border-light)',
+                  backgroundColor: isSelected ? 'color-mix(in srgb, var(--main-color) 16%, var(--surface))' : 'var(--surface)',
                   color: isSelected ? 'var(--main-accent)' : 'var(--text-primary)',
                 }}
                 onClick={() => setSelectedDay(day)}

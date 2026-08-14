@@ -19,13 +19,29 @@
   --border-light: #e8e8e8;
 
   --course-green: #cfe8da;
+  --course-green-text: #24553d;
+  --course-green-border: #9ecbb0;
   --course-blue: #c9d8f3;
+  --course-blue-text: #1f3a66;
+  --course-blue-border: #9fb6e6;
   --course-yellow: #f8e7af;
+  --course-yellow-text: #6b5a1e;
+  --course-yellow-border: #e0c874;
   --course-gray: #d8d8dd;
+  --course-gray-text: #3a3a3e;
+  --course-gray-border: #b9b9c0;
   --course-teal: #bfe6e1;
+  --course-teal-text: #1f5753;
+  --course-teal-border: #7fc5bd;
   --course-purple: #ded2f4;
+  --course-purple-text: #46316e;
+  --course-purple-border: #b8a2df;
   --course-pink: #f5cddd;
+  --course-pink-text: #71324d;
+  --course-pink-border: #dc9ab8;
   --course-red: #f7c7c7;
+  --course-red-text: #7a2f2f;
+  --course-red-border: #df8d8d;
 
   --calendar-event-bg: var(--main-color);
   --calendar-event-text: #633a3a;
@@ -106,21 +122,57 @@
 }
 
 .dark {
+  --secondary-color: #0f0f10;
+  --secondary-accent: #f2e9eb;
+  --secondary-accent-hover: #fff7f9;
+  --secondary-accent-soft: #30272a;
+  --main-accent: #ff9295;
+  --main-color-shade: #f4978e;
+  --surface: #171717;
+  --text-primary: #fafafa;
+  --text-secondary: #b5adb0;
+  --border-light: #3a3436;
+
+  --course-green: #1f3a2d;
+  --course-green-text: #c8f3d8;
+  --course-green-border: #4e8f69;
+  --course-blue: #1d2f4f;
+  --course-blue-text: #d5e2ff;
+  --course-blue-border: #587db8;
+  --course-yellow: #3c331c;
+  --course-yellow-text: #f8e4a3;
+  --course-yellow-border: #9c8240;
+  --course-gray: #303035;
+  --course-gray-text: #ececf0;
+  --course-gray-border: #66666f;
+  --course-teal: #173b38;
+  --course-teal-text: #c8f4ef;
+  --course-teal-border: #3d8a83;
+  --course-purple: #302446;
+  --course-purple-text: #eadcff;
+  --course-purple-border: #7557a3;
+  --course-pink: #432636;
+  --course-pink-text: #ffdceb;
+  --course-pink-border: #9b5875;
+  --course-red: #442526;
+  --course-red-text: #ffd9d9;
+  --course-red-border: #a75c5c;
+
   --background: rgb(10 10 10);
   --foreground: rgb(250 250 250);
   --card: rgb(23 23 23);
   --card-foreground: rgb(250 250 250);
   --popover: rgb(23 23 23);
   --popover-foreground: rgb(250 250 250);
-  --primary: rgb(229 229 229);
-  --primary-foreground: rgb(23 23 23);
+  --primary: var(--main-color);
+  --primary-foreground: #3b2227;
   --secondary: #56494c;
   --secondary-foreground: rgb(250 250 250);
   --muted: rgb(38 38 38);
   --muted-foreground: rgb(161 161 161);
   --accent: rgb(38 38 38);
   --accent-foreground: rgb(250 250 250);
-  --destructive: rgb(255 100 103);
+  --destructive: var(--main-accent);
   --destructive-foreground: rgb(251 245 246);
   --border: rgb(255 255 255 / 0.1);
   --input: rgb(255 255 255 / 0.15);
@@ -216,6 +268,14 @@ body {
   --layout-text-font-family: 'Poppins', sans-serif;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+
 * {
   font-family: inherit;
 }
@@ -289,8 +349,8 @@ body {
 
   .mobile-list-item {
     @apply rounded-lg border p-3 text-left shadow-[0_8px_22px_rgb(86_73_76/0.045)] transition-all;
-    background: color-mix(in srgb, var(--mobile-item-bg, var(--surface)) 52%, white);
-    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 76%, white);
+    background: color-mix(in srgb, var(--mobile-item-bg, var(--surface)) 52%, var(--surface));
+    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 76%, var(--surface));
     color: var(--mobile-item-text, var(--secondary-accent));
   }
 
@@ -304,13 +364,15 @@ body {
   }
 
   .mobile-list-icon {
-    @apply flex shrink-0 items-center justify-center rounded-lg border bg-white/45;
-    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 58%, white);
+    @apply flex shrink-0 items-center justify-center rounded-lg border;
+    background: color-mix(in srgb, var(--card) 45%, transparent);
+    border-color: color-mix(in srgb, var(--mobile-item-border, var(--border-light)) 58%, var(--surface));
     color: var(--mobile-item-text, var(--secondary-accent));
   }
 
   .mobile-action-tray {
-    @apply rounded-lg border border-[var(--border-light)] bg-white/70 shadow-[0_6px_14px_rgb(86_73_76/0.045)];
+    @apply rounded-lg border border-[var(--border-light)] shadow-[0_6px_14px_rgb(86_73_76/0.045)];
+    background: color-mix(in srgb, var(--card) 70%, transparent);
   }
 
   .mobile-more-row {

@@ -228,7 +228,7 @@ export default function BrightspacePdfImportCard({
         )}
 
         {result && (
-          <div className="flex flex-col gap-2 rounded-md border border-[color-mix(in_srgb,var(--course-green)_64%,white)] bg-[color-mix(in_srgb,var(--course-green)_34%,white)] p-3 text-sm text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+          <div className="flex flex-col gap-2 rounded-md border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
             <p className="flex items-center gap-2 font-semibold">
               <CheckCircle2 className="h-4 w-4" />
               Brightspace import complete

@@ -158,7 +158,7 @@ function CoursesPage() {
               onClick={() => setCourseFilter(tab.value)}
               className={`min-h-11 flex-1 whitespace-nowrap rounded-md px-2 text-xs font-bold leading-none transition-colors sm:px-3 sm:text-sm ${
                 isActive
-                  ? 'bg-[color-mix(in_srgb,var(--main-color)_18%,white)] text-[var(--main-accent)]'
+                  ? 'bg-[color-mix(in_srgb,var(--main-color)_18%,var(--surface))] text-[var(--main-accent)]'
                   : 'text-[var(--text-secondary)] hover:bg-[var(--secondary-color)]'
               }`}
             >
@@ -215,7 +215,7 @@ function CoursesPage() {
                   <div className="flex min-w-0 pl-8 pr-24 sm:pr-28 md:contents">
                     <div className="min-w-0 flex-1 pt-0.5">
                       <span
-                        className="inline-flex max-w-full items-center rounded-full bg-[color-mix(in_srgb,var(--course-bg)_62%,white)] px-2.5 py-1 text-xs font-bold leading-none text-[var(--course-text)] md:bg-white/45"
+                        className="inline-flex max-w-full items-center rounded-full bg-[color-mix(in_srgb,var(--course-bg)_62%,var(--surface))] px-2.5 py-1 text-xs font-bold leading-none text-[var(--course-text)] md:bg-[color-mix(in_srgb,var(--card)_45%,transparent)]"
                       >
                         <span className="truncate">{course.code}</span>
                       </span>
@@ -249,7 +249,7 @@ function CoursesPage() {
 
                   <div className="mt-5 grid grid-cols-[auto_minmax(4rem,1fr)_auto] items-center gap-3 pl-8 pr-12 text-[11px] font-bold text-[var(--course-text)] sm:pr-14 sm:text-xs md:hidden">
                     <span className="shrink-0 whitespace-nowrap">{progressLabel}</span>
-                    <div className="h-2 min-w-0 overflow-hidden rounded-full bg-white/55">
+                    <div className="h-2 min-w-0 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--card)_55%,transparent)]">
                       <div className="h-full rounded-full" style={{ width: `${percent}%`, backgroundColor: colors.border }} />
                     </div>
                     {stats.total > 0 && (

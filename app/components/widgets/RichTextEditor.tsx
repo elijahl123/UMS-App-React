@@ -179,7 +179,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
   };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-[var(--border-light)] bg-white">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-[var(--border-light)] bg-card">
       <div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--border-light)] bg-secondary/40 px-2 py-1.5">
         <ToolbarButton title="Heading 1" active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
           <Heading1 className="h-4 w-4" />

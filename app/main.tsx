@@ -28,11 +28,15 @@ function renderFatalError(error: unknown) {
   }
 
   const message = escapeHtml(error instanceof Error ? error.message : 'The app could not start.');
+  const isDark = document.documentElement.classList.contains('dark');
+  const colors = isDark
+    ? { background: '#0a0a0a', surface: '#171717', border: '#3a3436', text: '#fafafa', muted: '#b5adb0' }
+    : { background: '#f7f7f7', surface: '#ffffff', border: '#e8e8e8', text: '#2f2f2f', muted: '#5a5a5a' };
   rootElement.innerHTML = `
-    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#2f2f2f;background:#f7f7f7;">
-      <div style="max-width:420px;width:100%;border:1px solid #e8e8e8;border-radius:8px;background:#fff;padding:24px;box-shadow:0 4px 18px rgba(0,0,0,.08);">
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${colors.text};background:${colors.background};">
+      <div style="max-width:420px;width:100%;border:1px solid ${colors.border};border-radius:8px;background:${colors.surface};padding:24px;box-shadow:0 4px 18px rgba(0,0,0,.18);">
         <h1 style="margin:0 0 8px;font-size:20px;line-height:1.3;">Unable to start app</h1>
-        <p style="margin:0;color:#5a5a5a;font-size:14px;line-height:1.5;">${message}</p>
+        <p style="margin:0;color:${colors.muted};font-size:14px;line-height:1.5;">${message}</p>
       </div>
     </div>
   `;
@@ -94,7 +98,8 @@ async function bootstrap() {
     throw new Error('Missing #root element.');
   }
 
-  rootElement.innerHTML = '<div style="min-height:100vh;background:#f7f7f7;"></div>';
+  const startupBackground = document.documentElement.classList.contains('dark') ? '#0a0a0a' : '#f7f7f7';
+  rootElement.innerHTML = `<div style="min-height:100vh;background:${startupBackground};"></div>`;
   registerServiceWorker();
   const { default: App } = await import('@/app/app');
 

@@ -25,6 +25,7 @@ import {
   Eye,
   Download,
   RotateCcw,
+  Palette,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -64,6 +65,8 @@ import {
 } from '@/app/lib/googleCalendar/client';
 import { trackProductEvent } from '@/app/lib/launch/client';
 import { downloadAccountExport } from '@/app/lib/account/client';
+import ThemeToggle from '@/app/components/ThemeToggle';
+import { useTheme } from '@/app/lib/theme/ThemeContext';
 
 const profileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -121,6 +124,7 @@ function AccountPage() {
   } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { resolvedTheme } = useTheme();
 
   const [resendSubmitting, setResendSubmitting] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
@@ -649,13 +653,13 @@ function AccountPage() {
       </div>
 
       {!user.emailVerified && (
-        <Card className="border-amber-300 bg-amber-50">
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/55">
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
               <div>
-                <p className="text-sm font-semibold text-amber-800">Your email address is not verified</p>
-                <p className="text-sm text-amber-700">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">Your email address is not verified</p>
+                <p className="text-sm text-amber-700 dark:text-amber-200">
                   {resendSuccess
                     ? "We've sent a new verification link. Please check your inbox."
                     : 'Please verify your email to secure your account.'}
@@ -666,7 +670,7 @@ function AccountPage() {
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 gap-2 border-amber-400 text-amber-800 hover:bg-amber-100"
+              className="shrink-0 gap-2 border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900"
               onClick={handleResendVerification}
               disabled={resendSubmitting || resendSuccess}
             >
@@ -713,6 +717,27 @@ function AccountPage() {
             <RotateCcw className="h-4 w-4" />
             Restart walkthrough
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Palette className="h-5 w-5 text-primary" />
+            <CardTitle>Appearance</CardTitle>
+          </div>
+          <CardDescription>Choose how UMS looks on this device.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Dark mode</p>
+              <p className="text-sm text-muted-foreground">
+                {resolvedTheme === 'dark' ? 'Dark appearance is on.' : 'Light appearance is on.'}
+              </p>
+            </div>
+            <ThemeToggle variant="switch" />
+          </div>
         </CardContent>
       </Card>
 
