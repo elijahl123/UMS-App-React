@@ -39,8 +39,7 @@ import {
   resendAccountEmailVerification,
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
-import BrightspacePdfImportCard from '@/app/components/BrightspacePdfImportCard';
-import CanvasIcsImportCard from '@/app/components/CanvasIcsImportCard';
+import SchoolCalendarImportPanel from '@/app/components/SchoolCalendarImportPanel';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 import type { NotificationPreferences } from '@/app/data/types';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
@@ -742,8 +741,7 @@ function AccountPage() {
         </CardContent>
       </Card>
 
-      <BrightspacePdfImportCard />
-      <CanvasIcsImportCard />
+      <SchoolCalendarImportPanel />
 
       <Card>
         <CardHeader>

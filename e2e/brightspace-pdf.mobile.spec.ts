@@ -61,6 +61,7 @@ test('parses a Brightspace PDF upload in the mobile browser', async ({ page }, t
 
   await page.goto('/#/homework');
   await page.getByRole('button', { name: 'Import school calendar' }).click();
+  await page.getByRole('radio', { name: /Brightspace/ }).click();
   await page.getByLabel('Brightspace calendar PDF').setInputFiles(pdfPath);
 
   await expect(page.getByText('Mid-Term Assignment (50%)')).toBeVisible();
@@ -76,6 +77,7 @@ test('parses the operator-supplied Brightspace agenda fixture without copying it
 
   await page.goto('/#/homework');
   await page.getByRole('button', { name: 'Import school calendar' }).click();
+  await page.getByRole('radio', { name: /Brightspace/ }).click();
   await page.getByLabel('Brightspace calendar PDF').setInputFiles(fixturePath!);
 
   await expect(page.getByRole('table')).toBeVisible();

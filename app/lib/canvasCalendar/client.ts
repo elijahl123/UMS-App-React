@@ -1,4 +1,4 @@
-import { apiFetch } from '@/app/lib/api/client';
+import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 import type { CanvasCalendarPreviewRow } from './parser';
 
 export type CanvasImportResponse = {
@@ -29,7 +29,7 @@ export function rowsForCanvasImport(rows: CanvasCalendarPreviewRow[]) {
 export async function importCanvasCalendarRows(rows: CanvasCalendarPreviewRow[]): Promise<CanvasImportResponse> {
   const response = await apiFetch('/canvas-calendar/import', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
     body: JSON.stringify({ rows: rowsForCanvasImport(rows) }),
   });
   const payload = await response.json().catch(() => null);

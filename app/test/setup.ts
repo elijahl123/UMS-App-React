@@ -37,6 +37,7 @@ afterEach(() => {
   resetMockState();
   try {
     window.localStorage.removeItem('ums.theme');
+    window.localStorage.removeItem('ums_school_calendar_provider');
   } catch {
     // Individual storage tests may replace localStorage with a constrained mock.
   }
