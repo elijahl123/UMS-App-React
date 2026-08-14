@@ -61,7 +61,11 @@ describe('page rendering', () => {
     renderWithRouter(<HomeworkPage />);
 
     await user.click(screen.getByRole('button', { name: /import school calendar/i }));
-    expect(screen.getByRole('heading', { name: /import canvas calendar/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^import school calendar$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /import canvas calendar/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: /brightspace/i }));
+    expect(screen.getByRole('heading', { name: /import brightspace assignments/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /import canvas calendar/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /view walkthrough/i }));
 
     expect(screen.getByText(/how to download the brightspace calendar pdf/i)).toBeInTheDocument();
@@ -233,7 +237,8 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^appearance$/i })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('button', { name: /view walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: /school calendar software/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /view walkthrough/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
   });

@@ -18,8 +18,11 @@ test('keeps the homework importer usable on mobile viewports', async ({ page }) 
   await page.getByRole('button', { name: 'Import school calendar' }).click();
 
   await expect(page.getByRole('button', { name: 'Hide Import' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import school calendar' })).toBeVisible();
+  await page.getByRole('radio', { name: /Brightspace/ }).click();
   await expect(page.getByRole('button', { name: 'View walkthrough' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Choose PDF' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import Canvas calendar' })).toBeHidden();
   await expectNoHorizontalPageOverflow(page);
 
   const upcomingGroup = page.getByRole('button', { name: /Upcoming/ });
