@@ -15,8 +15,14 @@ import {
   rebuildStudyPlan,
   refreshStudyPlan,
 } from '../studyPlans';
+import { requireContentReadAccess, requireFullWriteAccess } from '../access';
 
 export const studyPlansRouter = Router();
+
+studyPlansRouter.use((req, res, next) => {
+  if (req.method === 'GET' || req.method === 'HEAD') return requireContentReadAccess(req, res, next);
+  return requireFullWriteAccess(req, res, next);
+});
 
 function errorResponse(err: unknown, res: Response) {
   let message = err instanceof Error ? err.message : 'SERVER_ERROR';
@@ -155,25 +161,44 @@ studyPlansRouter.patch(
   async (req: Request<{ planId: string; taskId: string }>, res: Response) => {
     try {
       const userId = requestUserId(req, req.body ?? {});
-      const completed = Boolean(req.body?.completed);
+      const completed = typeof req.body?.completed === 'boolean' ? req.body.completed : null;
+      const title = typeof req.body?.title === 'string' ? req.body.title.trim().replace(/\s+/g, ' ') : null;
+      const scheduledDate = typeof req.body?.scheduledDate === 'string' ? req.body.scheduledDate : null;
+      const estimatedMinutes = req.body?.estimatedMinutes == null ? null : Number(req.body.estimatedMinutes);
+      const manualEdit = title !== null || scheduledDate !== null || estimatedMinutes !== null;
+      if (title !== null && (!title || title.length > 200)) throw new ApiError('Task title must be between 1 and 200 characters', 400);
+      if (scheduledDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) throw new ApiError('Task date must be a valid date', 400);
+      if (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes < 15 || estimatedMinutes > 720 || estimatedMinutes % 15 !== 0)) {
+        throw new ApiError('Task minutes must be a multiple of 15 between 15 and 720', 400);
+      }
       const result = await pool.query(
         `
           UPDATE study_tasks task
-          SET completed_at = CASE WHEN $1 THEN COALESCE(task.completed_at, NOW()) ELSE NULL END
+          SET completed_at = CASE WHEN $1::boolean IS NULL THEN task.completed_at WHEN $1 THEN COALESCE(task.completed_at, NOW()) ELSE NULL END,
+              title_override = CASE WHEN $2::text IS NULL THEN task.title_override ELSE $2 END,
+              scheduled_date = COALESCE($3::date, task.scheduled_date),
+              estimated_minutes = COALESCE($4::smallint, task.estimated_minutes),
+              manually_edited_at = CASE WHEN $5 THEN NOW() ELSE task.manually_edited_at END
           FROM study_plans plan
           JOIN courses course ON course.id = plan.course_id
-          WHERE task.id = $2::bigint
-            AND task.plan_id = $3::bigint
+          WHERE task.id = $6::bigint
+            AND task.plan_id = $7::bigint
             AND task.plan_id = plan.id
-            AND course.user_id = $4
-          RETURNING task.id, task.completed_at;
+            AND course.user_id = $8
+            AND ($3::date IS NULL OR $3::date < COALESCE(plan.target_date, plan.exam_date))
+          RETURNING task.id, task.completed_at, task.title_override,
+                    task.scheduled_date::text, task.estimated_minutes, task.manually_edited_at;
         `,
-        [completed, req.params.taskId, req.params.planId, userId]
+        [completed, title, scheduledDate, estimatedMinutes, manualEdit, req.params.taskId, req.params.planId, userId]
       );
       if (!result.rows[0]) throw new ApiError('Study task not found', 404);
       return res.json({
         id: String(result.rows[0].id),
         completedAt: result.rows[0].completed_at ? String(result.rows[0].completed_at) : null,
+        title: result.rows[0].title_override ? String(result.rows[0].title_override) : null,
+        scheduledDate: String(result.rows[0].scheduled_date),
+        estimatedMinutes: Number(result.rows[0].estimated_minutes),
+        manuallyEditedAt: result.rows[0].manually_edited_at ? String(result.rows[0].manually_edited_at) : null,
       });
     } catch (err) {
       return errorResponse(err, res);

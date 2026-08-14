@@ -21,6 +21,17 @@ const plan: StudyPlan = {
   courseHomepageUrl: 'https://courses.example.edu/math-101',
   examType: 'final',
   examDate: '2026-07-31',
+  targetType: 'exam',
+  targetTitle: 'Final exam',
+  targetDate: '2026-07-31',
+  targetTime: null,
+  targetAssignmentId: null,
+  estimatedMinutes: null,
+  dailyCapMinutes: null,
+  schedulerVersion: 1,
+  schedulerExplanation: null,
+  unscheduledMinutes: 0,
+  partialPlanAcknowledged: false,
   startDate: '2026-07-01',
   timeZone: 'America/Los_Angeles',
   archived: false,
@@ -76,7 +87,7 @@ describe('study plans', () => {
     renderRoute('/courses/:courseId', <CoursePage />, '/courses/1');
 
     expect(screen.getByRole('heading', { name: /study plans/i })).toBeInTheDocument();
-    expect(screen.getByText(/final study plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/^final exam$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create plan/i })).toBeInTheDocument();
   });
 
@@ -108,7 +119,7 @@ describe('study plans', () => {
 
   it('offers explicit refresh for overdue incomplete work', async () => {
     const user = userEvent.setup();
-    studyPlanState.plans = [{ ...plan, examDate: '2099-07-31' }];
+    studyPlanState.plans = [{ ...plan, examDate: '2099-07-31', targetDate: '2099-07-31' }];
     renderRoute(
       '/courses/:courseId/study-plans/:planId',
       <StudyPlanPage />,
@@ -188,6 +199,7 @@ describe('study plans', () => {
     studyPlanState.plans = [{
       ...plan,
       examDate: '2026-10-01',
+      targetDate: '2026-10-01',
       overdueTasks: 0,
       totalTasks: 2,
       studyDaysLeft: 2,

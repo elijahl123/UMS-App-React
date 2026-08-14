@@ -13,6 +13,10 @@ import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
 import { startTrial } from '@/app/lib/billing/client';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
+import { reconcileAccess } from '@/app/lib/access/client';
+import { isExactUcdEmail, isUcdLaunchJourney } from '@/app/lib/launch/attribution';
+import { trackProductEvent } from '@/app/lib/launch/client';
+import { initializeOnboarding, ONBOARDING_INITIALIZE_PENDING_KEY } from '@/app/lib/onboarding/client';
 
 const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
 const TRIAL_REDIRECT_STORAGE_KEY = 'schoolwork_trial_started_redirect';
@@ -39,6 +43,7 @@ interface FirebaseIdpResult {
   displayName?: string;
   emailVerified?: boolean;
   providerId?: string;
+  isNewUser?: boolean;
 }
 
 interface FirebaseLookupResult {
@@ -192,6 +197,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const startTrialAfterAuth = async (nextUser: AppUser): Promise<boolean> => {
     try {
+      const access = await reconcileAccess().catch((err) => {
+        console.warn('[Auth] UCD entitlement check failed:', err);
+        return null;
+      });
+      if (access?.entitlement || isExactUcdEmail(nextUser.email) || isUcdLaunchJourney()) {
+        return false;
+      }
       const status = await startTrial({ userId: nextUser.id, email: nextUser.email });
       if (status.trialStartedNow) {
         markTrialStartedRedirect();
@@ -226,6 +238,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       };
       persistSession(result.idToken, nextUser);
       const trialStartedNow = await startTrialAfterAuth(nextUser);
+      if (result.isNewUser) {
+        initializeFirstRun(nextUser);
+        void trackProductEvent('signup_completed');
+      }
       await refreshStagingAccess(result.idToken, accessControlEnabled);
       console.log('[Auth] Google id_token exchanged for Firebase session');
       return { success: true, trialStartedNow };
@@ -340,6 +356,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
   };
 
+  const initializeFirstRun = (nextUser: AppUser) => {
+    localStorage.setItem(ONBOARDING_INITIALIZE_PENDING_KEY, nextUser.id);
+    void initializeOnboarding().then(() => {
+      if (localStorage.getItem(ONBOARDING_INITIALIZE_PENDING_KEY) === nextUser.id) {
+        localStorage.removeItem(ONBOARDING_INITIALIZE_PENDING_KEY);
+      }
+    }).catch(() => undefined);
+  };
+
   const login = async (email: string, password: string) => {
     try {
       const result: FirebaseAuthResult = await firebaseAuth.signIn({ email, password });
@@ -373,6 +398,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
         connectedProviders: ['password'],
       };
       persistSession(result.idToken, nextUser);
+      initializeFirstRun(nextUser);
+      void trackProductEvent('signup_completed');
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       await refreshStagingAccess(result.idToken);
       await firebaseAuth.sendOobCode({
@@ -465,7 +492,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
         const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken });
         const freshUser = lookup?.users?.[0];
         if (freshUser) {
-          persistSession(idToken, mapFirebaseUser(freshUser));
+          const nextUser = mapFirebaseUser(freshUser);
+          persistSession(idToken, nextUser);
+          await reconcileAccess();
         }
       }
       return { success: true };
@@ -505,7 +534,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setIsProcessingGoogleRedirect(true);
     try {
       console.log('[Auth] Calling startGoogleSignIn()...');
-      setGoogleAuthReturnTo(user ? '/account' : '/');
+      setGoogleAuthReturnTo(user ? '/account' : isUcdLaunchJourney() ? '/signup?ucd_google=1' : '/');
       const { idToken: googleIdToken } = await startGoogleSignIn();
       console.log('[Auth] ========== startGoogleSignIn() completed successfully ==========');
       console.log('[Auth] Received google idToken, exchanging for Firebase session');

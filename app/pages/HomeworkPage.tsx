@@ -315,7 +315,7 @@ function HomeworkPage() {
   };
 
   return (
-    <div className="min-h-0 md:h-full md:overflow-hidden">
+    <div data-tour="homework" className="min-h-0 md:h-full md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pb-2 md:h-full md:max-w-none md:gap-0 md:overflow-hidden md:rounded-lg md:border-2 md:border-primary md:bg-card">
         <section className="mobile-page-header !pr-1 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
           <div className="max-w-none">

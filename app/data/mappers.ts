@@ -53,6 +53,8 @@ interface DbEvent {
   google_calendar_id?: string | null;
   recurring_series_id?: string | null;
   recurrence_original_start?: string | null;
+  course_id?: number | string | null;
+  academic_kind?: string | null;
 }
 
 interface DbNote {
@@ -129,6 +131,8 @@ export function mapEvent(row: DbEvent): CalendarEvent {
     ...(googleCalendarId ? { googleCalendarId } : {}),
     ...(recurringSeriesId ? { recurringSeriesId } : {}),
     ...(recurrenceOriginalStart ? { recurrenceOriginalStart } : {}),
+    ...(row.course_id ? { courseId: String(row.course_id) } : {}),
+    ...(row.academic_kind === 'class' ? { academicKind: 'class' as const } : {}),
   };
 }
 

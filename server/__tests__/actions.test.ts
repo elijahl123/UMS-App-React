@@ -22,6 +22,8 @@ describe('event action ranges', () => {
       'America/Los_Angeles',
       null,
       'user-1',
+      null,
+      null,
     ]);
   });
 

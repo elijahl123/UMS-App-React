@@ -183,7 +183,7 @@ function NotesPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden text-[var(--secondary-accent)]">
+    <div data-tour="notes" className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden text-[var(--secondary-accent)]">
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         <div className="mobile-page-stack px-1 pb-1 md:gap-5 md:px-0">
           <header className="mobile-page-header md:pr-0 md:pt-2">

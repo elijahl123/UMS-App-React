@@ -14,6 +14,19 @@ export interface BillingStatus {
   trialActive: boolean;
   trialDaysRemaining: number;
   hasAccess: boolean;
+  accessMode?: 'full' | 'read_only' | 'billing_required';
+  canRead?: boolean;
+  canWrite?: boolean;
+  canExport?: boolean;
+  billingWarning?: string | null;
+  entitlement?: {
+    key: string;
+    qualifyingEmail: string;
+    endsAt: string;
+    graceEndsAt: string;
+    active: boolean;
+    inGrace: boolean;
+  } | null;
 }
 
 export interface BillingPaymentMethod {

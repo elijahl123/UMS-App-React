@@ -4,8 +4,11 @@ import { pool } from '../db';
 import { ApiError } from '../errors';
 import { requestUserId } from '../auth';
 import { syncNotificationInstancesForUser } from '../notifications';
+import { requireFullWriteAccess } from '../access';
 
 export const brightspaceCalendarRouter = Router();
+
+brightspaceCalendarRouter.use(requireFullWriteAccess);
 
 brightspaceCalendarRouter.post('/import', async (req: Request, res: Response) => {
   const client = await pool.connect();

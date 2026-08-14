@@ -151,7 +151,7 @@ test('shares one topic note across study phases and launches the course homepage
   await page.getByRole('button', { name: 'Create study plan' }).click();
 
   await expect(page).toHaveURL(/#\/courses\/1\/study-plans\/1$/);
-  await expect(page.getByRole('heading', { name: /Final study plan/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Final exam/i })).toBeVisible();
   const task = page.getByRole('button', { name: 'Complete Learn & review: Architecture patterns' });
   await expect(task).toBeVisible();
   await task.click();

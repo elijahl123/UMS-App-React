@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseBrightspaceCalendarPages, parseBrightspaceCalendarText, parseBrightspaceCourseLine } from '@/app/lib/brightspaceCalendar/parser';
+import { rowsForBrightspaceImport } from '@/app/lib/brightspaceCalendar/client';
 
 describe('Brightspace calendar parser', () => {
   it('parses course lines', () => {
@@ -8,6 +9,17 @@ describe('Brightspace calendar parser', () => {
       name: 'Graph Algorithms',
       raw: 'COMP30870-Graph Algorithms-2025/26 Spring',
     });
+  });
+
+  it('removes internal raw PDF text before an import request is serialized', () => {
+    const [row] = parseBrightspaceCalendarText(`
+      COMP30870-Graph Algorithms-2025/26 Spring
+      Mid-Term Assignment - Due 01 March 2026 11:59 PM
+    `);
+
+    const [upload] = rowsForBrightspaceImport([row]);
+    expect(upload).toMatchObject({ title: 'Mid-Term Assignment', courseCode: 'COMP30870' });
+    expect(upload).not.toHaveProperty('rawText');
   });
 
   it('parses Due entries and coursework availability rows as homework', () => {
@@ -20,7 +32,7 @@ describe('Brightspace calendar parser', () => {
       Office Hours - Available 04 February 2026 2:00 PM
     `);
 
-    expect(rows).toEqual([
+    expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({
         title: 'Mid-Term Assignment (50%)',
         courseCode: 'COMP30870',
@@ -46,7 +58,8 @@ describe('Brightspace calendar parser', () => {
         time: '14:00',
         sourceLabel: 'Available',
       }),
-    ]);
+    ]));
+    expect(rows.find((row) => row.title === 'Practical 2')?.defaultSelected).toBe(false);
   });
 
   it('associates entry-first agenda rows with the following course line', () => {
@@ -145,5 +158,30 @@ describe('Brightspace calendar parser', () => {
         time: '23:30',
       }),
     ]);
+    expect(rows.find((row) => row.title === 'Homework 2 solutions')?.defaultSelected).toBe(false);
+  });
+
+  it('pairs availability windows, defaults due/end rows, and flags ambiguous duplicates for review', () => {
+    const rows = parseBrightspaceCalendarText(`
+      COMP10000-Redacted Course-2026/27 Autumn
+      Group Project - Available 07 September 2026 9:00 AM
+      Group Project - Availability Ends 01 December 2026 11:59 PM
+      Lab Test - Due 02 October 2026 3:00 PM
+      Lab Test - Availability Ends 02 October 2026 4:00 PM
+      Lab Test - Availability Ends 03 October 2026 4:00 PM
+      Worked solutions - Availability Ends 04 October 2026 5:00 PM
+    `);
+
+    expect(rows.find((row) => row.title === 'Group Project')).toMatchObject({
+      sourceLabel: 'Available → Availability Ends',
+      date: '2026-09-07',
+      time: '09:00',
+      endDate: '2026-12-01',
+      endTime: '23:59',
+      defaultSelected: true,
+    });
+    expect(rows.find((row) => row.title === 'Lab Test' && row.sourceLabel === 'Due')?.defaultSelected).toBe(true);
+    expect(rows.filter((row) => row.title === 'Lab Test').every((row) => row.ambiguousDuplicate)).toBe(true);
+    expect(rows.find((row) => row.title === 'Worked solutions')?.defaultSelected).toBe(false);
   });
 });

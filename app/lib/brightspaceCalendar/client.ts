@@ -9,6 +9,20 @@ export type BrightspaceImportResponse = {
   errors: string[];
 };
 
+export function rowsForBrightspaceImport(rows: BrightspaceCalendarPreviewRow[]) {
+  return rows.map((row) => ({
+    title: row.title,
+    courseCode: row.courseCode,
+    courseName: row.courseName,
+    entryKind: row.entryKind,
+    date: row.date,
+    time: row.time,
+    endDate: row.endDate,
+    endTime: row.endTime,
+    sourceLabel: row.sourceLabel,
+  }));
+}
+
 export async function importBrightspaceCalendarRows(
   rows: BrightspaceCalendarPreviewRow[],
   userId?: string
@@ -16,7 +30,7 @@ export async function importBrightspaceCalendarRows(
   const response = await apiFetch('/brightspace-calendar/import', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
-    body: JSON.stringify({ rows, userId }),
+    body: JSON.stringify({ rows: rowsForBrightspaceImport(rows), userId }),
   });
 
   const payload = await response.json().catch(() => null);

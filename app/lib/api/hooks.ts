@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { callAction } from '@/app/lib/api/client';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 const MUTATION_EVENT = 'ums-api-action-mutated';
 const invalidatesByMutation: Record<string, string[]> = {
@@ -95,6 +96,7 @@ export function useMutateAction<TParams extends Record<string, unknown> = Record
       setError(null);
       try {
         const result = await callAction<TResult>(name, params);
+        if (name === 'createCourse') void trackProductEvent('course_created');
         window.dispatchEvent(new CustomEvent(MUTATION_EVENT, { detail: { name } }));
         if (notificationMutationActions.has(name)) {
           window.dispatchEvent(new CustomEvent('ums-notifications-changed'));

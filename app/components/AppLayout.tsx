@@ -1,11 +1,17 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useOutletContext } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/app/components/Sidebar';
 import MobileBottomNavigation from '@/app/components/MobileBottomNavigation';
 import MobileSwipeNavigation from '@/app/components/MobileSwipeNavigation';
 import NotificationCenter from '@/app/components/NotificationCenter';
+import type { SubscriptionOutletContext } from '@/app/components/SubscriptionRoute';
+import { AlertTriangle, LockKeyhole } from 'lucide-react';
+import { trackProductEvent } from '@/app/lib/launch/client';
+import OnboardingExperience from '@/app/components/onboarding/OnboardingExperience';
 
 function AppLayout() {
+  const { accessStatus } = useOutletContext<SubscriptionOutletContext>();
+  const [accessNotice, setAccessNotice] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
     return window.matchMedia('(min-width: 768px) and (max-width: 1279px)').matches;
@@ -20,6 +26,23 @@ function AppLayout() {
     setSidebarCollapsed(compactDesktop.matches);
     compactDesktop.addEventListener('change', handleBreakpointChange);
     return () => compactDesktop.removeEventListener('change', handleBreakpointChange);
+  }, []);
+
+  useEffect(() => {
+    const handleInstalled = () => void trackProductEvent('pwa_installed');
+    window.addEventListener('appinstalled', handleInstalled);
+    return () => window.removeEventListener('appinstalled', handleInstalled);
+  }, []);
+
+  useEffect(() => {
+    const handleDenied = (event: Event) => {
+      const code = (event as CustomEvent<{ code?: string }>).detail?.code;
+      setAccessNotice(code === 'READ_ONLY_GRACE'
+        ? 'This action is unavailable during your read-only grace period. You can still view and export your work.'
+        : 'A subscription is required to make changes. Your account and exports remain available.');
+    };
+    window.addEventListener('ums-access-denied', handleDenied);
+    return () => window.removeEventListener('ums-access-denied', handleDenied);
   }, []);
 
   return (
@@ -40,14 +63,21 @@ function AppLayout() {
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >
+        {(accessStatus.accessMode === 'read_only' || accessStatus.billingWarning || accessNotice) && (
+          <div role="status" className="mb-3 flex shrink-0 items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+            {accessStatus.accessMode === 'read_only' ? <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span>{accessNotice ?? accessStatus.billingWarning ?? 'Your UCD access is in its 14-day read-only grace period. Viewing and exports remain available until 1 February 2027.'}</span>
+          </div>
+        )}
         <div className="fixed right-8 top-[calc(2.25rem+env(safe-area-inset-top))] z-50 hidden md:bottom-4 md:right-4 md:top-auto md:block xl:bottom-6 xl:right-6">
           <NotificationCenter />
         </div>
         <MobileSwipeNavigation>
-          <Outlet />
+          <Outlet context={{ accessStatus }} />
         </MobileSwipeNavigation>
       </main>
       <MobileBottomNavigation />
+      <OnboardingExperience />
     </div>
   );
 }

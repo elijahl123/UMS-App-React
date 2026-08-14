@@ -41,6 +41,15 @@ function listEnv(name: string): string[] {
     .filter(Boolean);
 }
 
+function isoDateEnv(name: string, fallback: string): string {
+  const raw = process.env[name] ?? fallback;
+  const value = new Date(raw);
+  if (Number.isNaN(value.getTime())) {
+    throw new Error(`${name} must be an ISO-8601 timestamp`);
+  }
+  return value.toISOString();
+}
+
 const appOrigin = process.env.APP_ORIGIN ?? process.env.VITE_DEV_ORIGIN ?? 'http://localhost:5173';
 
 export const config = {
@@ -68,4 +77,10 @@ export const config = {
   googleCalendarRedirectUri: process.env.GOOGLE_CALENDAR_REDIRECT_URI
     ?? `${(process.env.APP_BASE_URL ?? appOrigin).replace(/\/+$/, '')}/api/google-calendar/oauth/callback`,
   googleTokenEncryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+  marketingOrigin: (process.env.MARKETING_ORIGIN ?? 'https://untitledmanagementsoftware.com').replace(/\/+$/, ''),
+  ucdAccessEnabled: booleanEnv('UCD_ACCESS_ENABLED'),
+  ucdAccessDomain: (process.env.UCD_ACCESS_DOMAIN ?? 'ucdconnect.ie').trim().toLowerCase(),
+  ucdAccessEndAt: isoDateEnv('UCD_ACCESS_END_AT', '2027-01-18T00:00:00Z'),
+  ucdAccessGraceEndAt: isoDateEnv('UCD_ACCESS_GRACE_END_AT', '2027-02-01T00:00:00Z'),
+  sendgridUcdLaunchUnsubscribeGroupId: numberEnv('SENDGRID_UCD_LAUNCH_UNSUBSCRIBE_GROUP_ID', 261009),
 };

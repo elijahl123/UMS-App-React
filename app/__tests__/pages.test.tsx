@@ -287,8 +287,11 @@ describe('page rendering', () => {
     renderWithRouter(<AccountPage />);
 
     await user.selectOptions(await screen.findByLabelText(/import history/i), '12');
-    await user.click(screen.getByRole('button', { name: /save & import/i }));
+    await user.click(screen.getByRole('button', { name: /preview import/i }));
+    expect(await screen.findByText(/nothing is saved until you confirm/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /confirm & import/i }));
 
+    expect(googleCalendarActions.previewGoogleCalendarImport).toHaveBeenCalledWith(['primary'], 12);
     expect(googleCalendarActions.updateGoogleCalendarSettings).toHaveBeenCalledWith(['primary'], 12);
     expect(googleCalendarActions.syncGoogleCalendar).toHaveBeenCalledWith(true);
   });

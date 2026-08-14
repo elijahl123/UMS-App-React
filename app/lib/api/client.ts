@@ -24,14 +24,25 @@ export function apiUrl(path = ''): string {
 }
 
 export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const notifyAccessFailure = async (response: Response) => {
+    if (response.status !== 403 || typeof window === 'undefined') return response;
+    const payload = await response.clone().json().catch(() => null) as { error?: { message?: string } } | null;
+    const code = payload?.error?.message;
+    if (code === 'READ_ONLY_GRACE' || code === 'BILLING_REQUIRED') {
+      window.dispatchEvent(new CustomEvent('ums-access-denied', { detail: { code } }));
+    }
+    return response;
+  };
   if (init?.signal) {
-    return fetch(apiUrl(path), init);
+    return fetch(apiUrl(path), init).then(notifyAccessFailure);
   }
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  return fetch(apiUrl(path), { ...init, signal: controller.signal }).finally(() => window.clearTimeout(timeoutId));
+  return fetch(apiUrl(path), { ...init, signal: controller.signal })
+    .then(notifyAccessFailure)
+    .finally(() => window.clearTimeout(timeoutId));
 }
 
 export function setApiAuthToken(token: string | null) {

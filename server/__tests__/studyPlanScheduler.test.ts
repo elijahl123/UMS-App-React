@@ -5,6 +5,7 @@ import {
   enumerateStudyDates,
   PHASE_MINUTES,
   scheduleStudyJobs,
+  scheduleEvenWork,
   StudyPlanCapacityError,
   todayInTimeZone,
 } from '../studyPlanScheduler';
@@ -74,6 +75,38 @@ describe('study plan scheduling', () => {
     const now = new Date('2026-07-25T01:00:00.000Z');
     expect(todayInTimeZone('America/Los_Angeles', now)).toBe('2026-07-24');
     expect(todayInTimeZone('Europe/Dublin', now)).toBe('2026-07-25');
+  });
+
+  it('spreads assignment work evenly and gives 15-minute rounding remainder to earlier days', () => {
+    const result = scheduleEvenWork({
+      startDate: '2026-09-01',
+      dueDate: '2026-09-05',
+      estimatedMinutes: 150,
+      availableWeekdays: [2, 3, 4, 5],
+      maximumMinutesPerDay: 60,
+    });
+    expect(result.tasks.map((task) => task.minutes)).toEqual([45, 45, 30, 30]);
+    expect(result.tasks.every((task) => task.scheduledDate < '2026-09-05')).toBe(true);
+    expect(result.unscheduledMinutes).toBe(0);
+    expect(scheduleEvenWork({
+      startDate: '2026-09-01', dueDate: '2026-09-05', estimatedMinutes: 150,
+      availableWeekdays: [2, 3, 4, 5], maximumMinutesPerDay: 60,
+    })).toEqual(result);
+  });
+
+  it('reports unscheduled minutes instead of discarding work, including due-today targets', () => {
+    const short = scheduleEvenWork({
+      startDate: '2026-09-01', dueDate: '2026-09-03', estimatedMinutes: 180,
+      availableWeekdays: [2, 3], maximumMinutesPerDay: 45,
+    });
+    expect(short.scheduledMinutes).toBe(90);
+    expect(short.unscheduledMinutes).toBe(90);
+    const dueToday = scheduleEvenWork({
+      startDate: '2026-09-01', dueDate: '2026-09-01', estimatedMinutes: 60,
+      availableWeekdays: [2], maximumMinutesPerDay: 60,
+    });
+    expect(dueToday.tasks).toEqual([]);
+    expect(dueToday.unscheduledMinutes).toBe(60);
   });
 
   it('normalizes valid inputs and rejects invalid plan definitions', () => {
@@ -301,7 +334,7 @@ describe('study plan scheduling', () => {
     expect(calls[1].sql).toContain('course.user_id = $1');
     expect(calls[1].sql).toContain('plan.archived = FALSE');
     expect(calls[1].sql).toContain('course.homepage_url AS course_homepage_url');
-    expect(calls[2].sql).toContain('plan.exam_date >= $2::date');
+    expect(calls[2].sql).toContain('COALESCE(plan.target_date, plan.exam_date) >= $2::date');
     expect(calls[2].params).toEqual(['owner-1', '2026-07-19', '2026-08-30']);
     expect(calls[3].sql).toContain('task.scheduled_date >= $2::date');
     expect(calls[3].sql).toContain('task.scheduled_date < $3::date');

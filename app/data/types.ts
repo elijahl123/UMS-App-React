@@ -59,9 +59,12 @@ export interface CalendarEvent {
   googleCalendarId?: string;
   recurringSeriesId?: string;
   recurrenceOriginalStart?: string;
+  courseId?: string;
+  academicKind?: 'class';
 }
 
 export type ExamType = 'midterm' | 'final';
+export type StudyTargetType = 'exam' | 'assignment' | 'project';
 export type StudyDifficulty = 'light' | 'medium' | 'heavy';
 export type StudyPhase = 'learn' | 'practice' | 'recall';
 
@@ -102,6 +105,17 @@ export interface StudyPlanSummary {
   courseHomepageUrl: string | null;
   examType: ExamType;
   examDate: string;
+  targetType: StudyTargetType;
+  targetTitle: string;
+  targetDate: string;
+  targetTime: string | null;
+  targetAssignmentId: string | null;
+  estimatedMinutes: number | null;
+  dailyCapMinutes: number | null;
+  schedulerVersion: number;
+  schedulerExplanation: string | null;
+  unscheduledMinutes: number;
+  partialPlanAcknowledged: boolean;
   startDate: string;
   timeZone: string;
   archived: boolean;

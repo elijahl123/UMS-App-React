@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import type { CalendarEvent } from '@/app/data/types';
+import type { CalendarEvent, Course } from '@/app/data/types';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 
 const schema = z.object({
@@ -17,6 +17,8 @@ const schema = z.object({
   time: z.string().optional(),
   endTime: z.string().optional(),
   description: z.string().optional(),
+  courseId: z.string().optional(),
+  academicClass: z.boolean(),
 }).superRefine((values, context) => {
   if (values.endDate && values.endDate < values.date) {
     context.addIssue({ code: 'custom', path: ['endDate'], message: 'End date cannot be before the start date' });
@@ -41,12 +43,13 @@ interface Props {
   event: (CalendarEvent & { id: string }) | null;
   onSubmit: (event: CalendarEvent & { id: string }) => void;
   onDelete?: (eventId: string) => void;
+  courses?: Course[];
 }
 
-function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Props) {
+function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete, courses = [] }: Props) {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', date: '', endDate: '', time: '', endTime: '', description: '' },
+    defaultValues: { title: '', date: '', endDate: '', time: '', endTime: '', description: '', courseId: '', academicClass: false },
   });
 
   useEffect(() => {
@@ -58,6 +61,8 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         time: event.time ?? '',
         endTime: event.endTime ?? '',
         description: event.description ?? '',
+        courseId: event.courseId ?? '',
+        academicClass: event.academicKind === 'class',
       });
     }
   }, [event, form]);
@@ -77,6 +82,8 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
         googleCalendarId: event.googleCalendarId,
         recurringSeriesId: event.recurringSeriesId,
         recurrenceOriginalStart: event.recurrenceOriginalStart,
+        courseId: values.courseId || undefined,
+        academicKind: values.courseId && values.academicClass ? 'class' : undefined,
       });
       form.reset();
       onOpenChange(false);
@@ -112,6 +119,34 @@ function EditEventDialog({ open, onOpenChange, event, onSubmit, onDelete }: Prop
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="courseId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course association (optional)</FormLabel>
+                  <FormControl>
+                    <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" {...field}>
+                      <option value="">No course</option>
+                      {courses.map((course) => <option key={course.id} value={course.id}>{course.code} — {course.name}</option>)}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {form.watch('courseId') && <FormField
+              control={form.control}
+              name="academicClass"
+              render={({ field }) => (
+                <FormItem>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={field.value} onChange={field.onChange} />
+                    Treat this event as an academic class
+                  </label>
+                </FormItem>
+              )}
+            />}
             <FormField
               control={form.control}
               name="date"

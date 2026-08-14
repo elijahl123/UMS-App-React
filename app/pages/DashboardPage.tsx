@@ -21,13 +21,15 @@ import {
   NotebookPen,
   StickyNote,
 } from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatStudyDate, formatStudyMinutes, studyPlanProgress } from '@/app/data/studyPlans';
 import { openStudyTaskNote, setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
 import { openExternalUrl } from '@/app/lib/externalLinks';
+import { getAccessStatus, recordOnboardingMilestone } from '@/app/lib/access/client';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 function DashboardPage() {
   const { user } = useAuth();
@@ -51,6 +53,16 @@ function DashboardPage() {
   const [busyStudyNote, setBusyStudyNote] = useState<string | null>(null);
   const [studyError, setStudyError] = useState<string | null>(null);
   const [expandedStudyCourses, setExpandedStudyCourses] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAccessStatus().then(async (status) => {
+      if (cancelled || !status.entitlement) return;
+      await recordOnboardingMilestone('dashboard_opened');
+      void trackProductEvent('dashboard_opened');
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const [addAssignment] = useMutateAction('createAssignment');
   const [addEvent] = useMutateAction('createEvent');
@@ -199,7 +211,7 @@ function DashboardPage() {
   }
 
   return (
-    <div className="mobile-page-stack md:flex md:h-full md:flex-col md:gap-5 md:overflow-y-auto xl:gap-6">
+    <div data-tour="dashboard" className="mobile-page-stack md:flex md:h-full md:flex-col md:gap-5 md:overflow-y-auto xl:gap-6">
       <div className="mobile-page-header !pr-1 md:hidden">
         <h1 className="mobile-page-title whitespace-nowrap text-[1.65rem] sm:text-[2rem]">Welcome to UMS</h1>
         <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem]">

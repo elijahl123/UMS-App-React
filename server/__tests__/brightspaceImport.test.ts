@@ -16,7 +16,6 @@ function row(overrides: Partial<BrightspaceImportRow> = {}): BrightspaceImportRo
     date: '2026-03-01',
     time: '23:59',
     sourceLabel: 'Due',
-    rawText: 'COMP30870-Graph Algorithms-2025/26 Spring\nMid-Term Assignment (50%) - Due 01 March 2026 11:59 PM',
     ...overrides,
   };
 }
@@ -56,9 +55,9 @@ class FakeImportClient {
     }
 
     if (text.includes('INSERT INTO events')) {
-      const userId = String(values?.[5]);
-      const sourceProvider = String(values?.[6]);
-      const sourceKey = String(values?.[7]);
+      const userId = String(values?.[7]);
+      const sourceProvider = String(values?.[8]);
+      const sourceKey = String(values?.[9]);
       expect(sourceProvider).toBe(BRIGHTSPACE_SOURCE_PROVIDER);
       const key = `${userId}:${sourceProvider}:${sourceKey}`;
       if (this.events.has(key)) {
@@ -67,6 +66,10 @@ class FakeImportClient {
 
       this.events.add(key);
       return { rows: [{ id: this.events.size }], rowCount: 1 };
+    }
+
+    if (text.includes('INSERT INTO ucd_onboarding')) {
+      return { rows: [], rowCount: 1 };
     }
 
     throw new Error(`Unexpected query: ${text}`);
@@ -96,7 +99,6 @@ describe('Brightspace PDF importer', () => {
         date: '2026-02-03',
         time: '16:00',
         sourceLabel: 'Available',
-        rawText: 'COMP30870-Graph Algorithms-2025/26 Spring\nPractical 2 - Available 03 February 2026 4:00 PM',
       }),
     ]);
 

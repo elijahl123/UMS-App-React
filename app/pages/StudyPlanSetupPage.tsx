@@ -10,11 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLoadAction } from '@/app/lib/api/hooks';
 import { getCourseColor } from '@/app/data/courseColors';
 import { mapCourse } from '@/app/data/mappers';
-import type { ExamType, StudyAvailability, StudyDifficulty } from '@/app/data/types';
+import type { ExamType, StudyAvailability, StudyDifficulty, StudyTargetType } from '@/app/data/types';
 import { availableStudyMinutes, formatStudyMinutes, STUDY_PHASE_MINUTES, todayForTimeZone } from '@/app/data/studyPlans';
 import { parseStudyTopics, saveStudyPlan, studyPlanErrorMessage } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDefinition } from '@/app/lib/studyPlans/useStudyPlans';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -63,6 +64,12 @@ function StudyPlanSetupPage() {
   const today = todayForTimeZone(browserTimeZone);
 
   const [examType, setExamType] = useState<ExamType>('final');
+  const [targetType, setTargetType] = useState<StudyTargetType>('exam');
+  const [targetTitle, setTargetTitle] = useState('');
+  const [targetTime, setTargetTime] = useState('');
+  const [estimatedMinutes, setEstimatedMinutes] = useState(180);
+  const [dailyCapMinutes, setDailyCapMinutes] = useState(60);
+  const [partialPlanAcknowledged, setPartialPlanAcknowledged] = useState(false);
   const [startDate, setStartDate] = useState(today);
   const [examDate, setExamDate] = useState(addDays(today, 30));
   const [timeZone, setTimeZone] = useState(browserTimeZone);
@@ -78,6 +85,12 @@ function StudyPlanSetupPage() {
   useEffect(() => {
     if (!existing || hydratedPlanId === existing.id) return;
     setExamType(existing.examType);
+    setTargetType(existing.targetType);
+    setTargetTitle(existing.targetTitle);
+    setTargetTime(existing.targetTime ?? '');
+    setEstimatedMinutes(existing.estimatedMinutes ?? 180);
+    setDailyCapMinutes(existing.dailyCapMinutes ?? 60);
+    setPartialPlanAcknowledged(existing.partialPlanAcknowledged);
     setStartDate(existing.startDate);
     setExamDate(existing.examDate);
     setTimeZone(existing.timeZone);
@@ -94,16 +107,23 @@ function StudyPlanSetupPage() {
   }, [existing, hydratedPlanId]);
 
   const requiredMinutes = useMemo(
-    () =>
-      topics.reduce((total, topic) => {
+    () => targetType === 'exam'
+      ? topics.reduce((total, topic) => {
         const phases = STUDY_PHASE_MINUTES[topic.difficulty];
         return total + phases.learn + phases.practice + phases.recall;
-      }, 0),
-    [topics]
+      }, 0)
+      : estimatedMinutes,
+    [estimatedMinutes, targetType, topics]
   );
   const availableMinutes = useMemo(
-    () => (startDate < examDate ? availableStudyMinutes(startDate, examDate, availability) : 0),
-    [availability, examDate, startDate]
+    () => (startDate < examDate
+      ? availableStudyMinutes(
+          startDate,
+          examDate,
+          targetType === 'exam' ? availability : availability.map((entry) => ({ ...entry, minutes: entry.minutes > 0 ? dailyCapMinutes : 0 }))
+        )
+      : 0),
+    [availability, dailyCapMinutes, examDate, startDate, targetType]
   );
   const missingMinutes = Math.max(0, requiredMinutes - availableMinutes);
 
@@ -122,15 +142,19 @@ function StudyPlanSetupPage() {
 
   const handleSave = async () => {
     setError(null);
-    if (!topics.length) {
+    if (targetType === 'exam' && !topics.length) {
       setError('Add at least one topic.');
       return;
     }
-    if (startDate >= examDate) {
-      setError('The study plan must start before the exam.');
+    if ((targetType === 'exam' && startDate >= examDate) || (targetType !== 'exam' && startDate > examDate)) {
+      setError(targetType === 'exam' ? 'The study plan must start before the exam.' : 'The plan cannot start after its due date.');
       return;
     }
-    if (missingMinutes > 0) {
+    if (targetType !== 'exam' && !targetTitle.trim()) {
+      setError('Add a title for this assignment or project.');
+      return;
+    }
+    if (missingMinutes > 0 && (targetType === 'exam' || !partialPlanAcknowledged)) {
       setError(`Add at least ${formatStudyMinutes(missingMinutes)} of availability or reduce the workload.`);
       return;
     }
@@ -138,10 +162,24 @@ function StudyPlanSetupPage() {
     setSaving(true);
     try {
       const result = await saveStudyPlan(
-        { courseId, examType, examDate, startDate, timeZone, availability, topics },
+        {
+          courseId,
+          targetType,
+          targetTitle: targetType === 'exam' ? (examType === 'midterm' ? 'Midterm exam' : 'Final exam') : targetTitle.trim(),
+          targetDate: examDate,
+          targetTime: targetTime || null,
+          estimatedMinutes: targetType === 'exam' ? null : estimatedMinutes,
+          dailyCapMinutes: targetType === 'exam' ? null : dailyCapMinutes,
+          availableWeekdays: availability.filter((entry) => entry.minutes > 0).map((entry) => entry.weekday),
+          partialPlanAcknowledged,
+          examType, examDate, startDate, timeZone,
+          availability: targetType === 'exam' ? availability : availability.map((entry) => ({ ...entry, minutes: entry.minutes > 0 ? dailyCapMinutes : 0 })),
+          topics: targetType === 'exam' ? topics : [{ title: targetTitle.trim(), difficulty: 'light' }],
+        },
         planId,
         user?.id
       );
+      void trackProductEvent('study_plan_created', { targetType });
       navigate(`/courses/${courseId}/study-plans/${result.planId}`);
     } catch (err) {
       setError(studyPlanErrorMessage(err));
@@ -189,7 +227,7 @@ function StudyPlanSetupPage() {
               {planId ? 'Edit study plan' : 'Create study plan'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Turn your course topics and weekly availability into a focused day-by-day path to exam day.
+              Turn an exam, assignment, or project into a focused day-by-day plan.
             </p>
         </div>
       </header>
@@ -201,29 +239,44 @@ function StudyPlanSetupPage() {
             <div className="p-4 pb-3 sm:p-5 sm:pb-3">
               <SectionHeading
                 step={1}
-                title="Exam details"
-                description="Choose the deadline and when you want the plan to begin."
+                title="Target details"
+                description="Choose what you are planning, its deadline, and when work should begin."
                 icon={CalendarDays}
               />
             </div>
             <div className="grid gap-4 p-4 pt-1 sm:grid-cols-2 sm:p-5 sm:pt-2">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-[var(--secondary-accent)]">Exam type</Label>
-                <Select value={examType} onValueChange={(value) => setExamType(value as ExamType)}>
+                <Label className="text-xs font-bold text-[var(--secondary-accent)]">Target type</Label>
+                <Select value={targetType} onValueChange={(value) => { setTargetType(value as StudyTargetType); setPartialPlanAcknowledged(false); }}>
                   <SelectTrigger className="h-12 rounded-lg bg-white"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="midterm">Midterm</SelectItem>
-                    <SelectItem value="final">Final</SelectItem>
+                    <SelectItem value="exam">Exam</SelectItem>
+                    <SelectItem value="assignment">Assignment</SelectItem>
+                    <SelectItem value="project">Project</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {targetType === 'exam' ? <div className="space-y-2">
+                <Label className="text-xs font-bold text-[var(--secondary-accent)]">Exam type</Label>
+                <Select value={examType} onValueChange={(value) => setExamType(value as ExamType)}>
+                  <SelectTrigger className="h-12 rounded-lg bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="midterm">Midterm</SelectItem><SelectItem value="final">Final</SelectItem></SelectContent>
+                </Select>
+              </div> : <div className="space-y-2">
+                <Label htmlFor="target-title" className="text-xs font-bold text-[var(--secondary-accent)]">Title</Label>
+                <Input id="target-title" className="h-12 rounded-lg bg-white" maxLength={200} placeholder={targetType === 'assignment' ? 'Research essay' : 'Group project'} value={targetTitle} onChange={(event) => setTargetTitle(event.target.value)} />
+              </div>}
               <div className="space-y-2">
-                <Label htmlFor="exam-date" className="text-xs font-bold text-[var(--secondary-accent)]">Exam date</Label>
-                <Input className="h-12 rounded-lg bg-white" id="exam-date" type="date" min={addDays(today, 1)} value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+                <Label htmlFor="exam-date" className="text-xs font-bold text-[var(--secondary-accent)]">{targetType === 'exam' ? 'Exam date' : 'Due date'}</Label>
+                <Input className="h-12 rounded-lg bg-white" id="exam-date" type="date" min={targetType === 'exam' ? addDays(today, 1) : today} value={examDate} onChange={(e) => { setExamDate(e.target.value); setPartialPlanAcknowledged(false); }} />
               </div>
+              {targetType !== 'exam' && <div className="space-y-2">
+                <Label htmlFor="target-time" className="text-xs font-bold text-[var(--secondary-accent)]">Due time (optional)</Label>
+                <Input className="h-12 rounded-lg bg-white" id="target-time" type="time" value={targetTime} onChange={(event) => setTargetTime(event.target.value)} />
+              </div>}
               <div className="space-y-2">
                 <Label htmlFor="start-date" className="text-xs font-bold text-[var(--secondary-accent)]">Start date</Label>
-                <Input className="h-12 rounded-lg bg-white" id="start-date" type="date" min={today} max={addDays(examDate, -1)} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                <Input className="h-12 rounded-lg bg-white" id="start-date" type="date" min={today} max={targetType === 'exam' ? addDays(examDate, -1) : examDate} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone" className="text-xs font-bold text-[var(--secondary-accent)]">Timezone</Label>
@@ -232,7 +285,7 @@ function StudyPlanSetupPage() {
             </div>
           </section>
 
-          <section className="border-t border-[var(--border-light)]">
+          {targetType === 'exam' && <section className="border-t border-[var(--border-light)]">
             <div className="p-4 pb-3 sm:p-5 sm:pb-3">
               <SectionHeading
                 step={2}
@@ -295,23 +348,33 @@ function StudyPlanSetupPage() {
                 </div>
               )}
             </div>
-          </section>
+          </section>}
 
           <section className="border-t border-[var(--border-light)]">
             <div className="p-4 pb-3 sm:p-5 sm:pb-3">
               <SectionHeading
                 step={3}
                 title="Weekly availability"
-                description="Set a realistic study budget for each day. Use zero for rest days."
+                description={targetType === 'exam' ? 'Set a realistic study budget for each day. Use zero for rest days.' : 'Choose the weekdays you can work and one maximum daily workload.'}
                 icon={Clock3}
               />
             </div>
             <div className="p-4 pt-1 sm:p-5 sm:pt-2">
+              {targetType !== 'exam' && (
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Estimated total work
+                    <span className="flex items-center gap-2"><Input type="number" min={15} max={10080} step={15} className="h-10 bg-white" value={estimatedMinutes} onChange={(event) => { setEstimatedMinutes(Math.max(15, Math.round(Number(event.target.value || 15) / 15) * 15)); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Maximum per day
+                    <span className="flex items-center gap-2"><Input type="number" min={15} max={720} step={15} className="h-10 bg-white" value={dailyCapMinutes} onChange={(event) => { setDailyCapMinutes(Math.max(15, Math.min(720, Math.round(Number(event.target.value || 15) / 15) * 15))); setPartialPlanAcknowledged(false); }} /><span className="font-medium text-muted-foreground">minutes</span></span>
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-7">
                 {availability.map((entry) => (
-                  <div key={entry.weekday} className="rounded-lg border border-[var(--border-light)] bg-[color-mix(in_srgb,var(--study-course-bg)_14%,white)] p-3">
+                  <div key={entry.weekday} className={`rounded-lg border p-3 ${entry.minutes > 0 ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,white)]' : 'border-[var(--border-light)] bg-white'}`}>
                     <Label className="text-xs font-bold text-[var(--study-course-text)]" htmlFor={`availability-${entry.weekday}`}>{DAYS[entry.weekday]}</Label>
-                    <Input
+                    {targetType === 'exam' ? <Input
                       className="mt-2 h-10 rounded-lg bg-white text-center font-bold"
                       id={`availability-${entry.weekday}`}
                       type="number"
@@ -323,8 +386,8 @@ function StudyPlanSetupPage() {
                         const minutes = Math.max(0, Math.min(720, Math.round(Number(e.target.value || 0) / 15) * 15));
                         setAvailability((current) => current.map((item) => item.weekday === entry.weekday ? { ...item, minutes } : item));
                       }}
-                    />
-                    <p className="mt-1.5 text-center text-[0.68rem] font-medium text-muted-foreground">minutes</p>
+                    /> : <label className="mt-3 flex items-center gap-2 text-xs font-medium"><input id={`availability-${entry.weekday}`} type="checkbox" checked={entry.minutes > 0} onChange={(event) => { setAvailability((current) => current.map((item) => item.weekday === entry.weekday ? { ...item, minutes: event.target.checked ? dailyCapMinutes : 0 } : item)); setPartialPlanAcknowledged(false); }} />Available</label>}
+                    {targetType === 'exam' && <p className="mt-1.5 text-center text-[0.68rem] font-medium text-muted-foreground">minutes</p>}
                   </div>
                 ))}
               </div>
@@ -358,18 +421,24 @@ function StudyPlanSetupPage() {
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[var(--border-light)] bg-white px-3 py-2.5 text-sm">
-                <span className="text-muted-foreground">Topics</span>
-                <span className="font-bold text-[var(--secondary-accent)]">{topics.length}</span>
+                <span className="text-muted-foreground">{targetType === 'exam' ? 'Topics' : 'Target'}</span>
+                <span className="max-w-40 truncate font-bold text-[var(--secondary-accent)]">{targetType === 'exam' ? topics.length : targetTitle || 'Untitled'}</span>
               </div>
               <p className={`text-sm leading-relaxed ${missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
                 {missingMinutes
-                  ? `Short by ${formatStudyMinutes(missingMinutes)}.`
-                  : topics.length
-                    ? `Your selected topics fit within the available time.`
-                    : 'Add your course topics to calculate the study workload.'}
+                  ? `${formatStudyMinutes(missingMinutes)} cannot be scheduled within the selected capacity.`
+                  : targetType === 'exam'
+                    ? topics.length ? `Your selected topics fit within the available time.` : 'Add your course topics to calculate the study workload.'
+                    : 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'}
               </p>
+              {targetType !== 'exam' && missingMinutes > 0 && (
+                <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                  <input type="checkbox" className="mt-0.5" checked={partialPlanAcknowledged} onChange={(event) => setPartialPlanAcknowledged(event.target.checked)} />
+                  <span>Save a partial plan and leave {formatStudyMinutes(missingMinutes)} visibly unscheduled. No work will be silently discarded.</span>
+                </label>
+              )}
               {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
-              <Button className="mobile-primary-action h-12 w-full rounded-lg" onClick={handleSave} disabled={saving || !topics.length || missingMinutes > 0}>
+              <Button className="mobile-primary-action h-12 w-full rounded-lg" onClick={handleSave} disabled={saving || (targetType === 'exam' ? !topics.length || missingMinutes > 0 : !targetTitle.trim() || (missingMinutes > 0 && !partialPlanAcknowledged))}>
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? 'Building plan...' : planId ? 'Save and rebuild' : 'Create study plan'}
               </Button>

@@ -167,6 +167,7 @@ function MobileBottomNavigation() {
     <>
       {!isFocusedStudyPlanEditor && (
         <nav
+          data-tour="navigation"
           className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-light)] bg-[color-mix(in_srgb,var(--surface)_94%,var(--secondary-color))] px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_26px_rgb(86_73_76/0.10)] backdrop-blur md:hidden"
           aria-label="Mobile primary navigation"
         >

@@ -9,11 +9,22 @@ import type {
   StudyPlanSummary,
   StudyTask,
   StudyTopic,
+  StudyTargetType,
 } from '@/app/data/types';
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
+import { trackProductEvent } from '@/app/lib/launch/client';
 
 export type StudyPlanInput = {
   courseId: string;
+  targetType?: StudyTargetType;
+  targetTitle?: string;
+  targetDate?: string;
+  targetTime?: string | null;
+  targetAssignmentId?: string | null;
+  estimatedMinutes?: number | null;
+  dailyCapMinutes?: number | null;
+  availableWeekdays?: number[];
+  partialPlanAcknowledged?: boolean;
   examType: ExamType;
   examDate: string;
   startDate: string;
@@ -73,6 +84,17 @@ export function mapStudyPlanSummary(row: Record<string, unknown>): StudyPlanSumm
     courseHomepageUrl: row.course_homepage_url ? String(row.course_homepage_url) : null,
     examType: row.exam_type as StudyPlanSummary['examType'],
     examDate: String(row.exam_date).slice(0, 10),
+    targetType: (row.target_type ?? 'exam') as StudyPlanSummary['targetType'],
+    targetTitle: String(row.target_title ?? (row.exam_type === 'midterm' ? 'Midterm exam' : 'Final exam')),
+    targetDate: String(row.target_date ?? row.exam_date).slice(0, 10),
+    targetTime: row.target_time ? String(row.target_time).slice(0, 5) : null,
+    targetAssignmentId: row.target_assignment_id ? String(row.target_assignment_id) : null,
+    estimatedMinutes: row.estimated_minutes == null ? null : Number(row.estimated_minutes),
+    dailyCapMinutes: row.daily_cap_minutes == null ? null : Number(row.daily_cap_minutes),
+    schedulerVersion: Number(row.scheduler_version ?? 1),
+    schedulerExplanation: row.scheduler_explanation ? String(row.scheduler_explanation) : null,
+    unscheduledMinutes: Number(row.unscheduled_minutes ?? 0),
+    partialPlanAcknowledged: Boolean(row.partial_plan_acknowledged),
     startDate: String(row.start_date).slice(0, 10),
     timeZone: String(row.timezone),
     archived: Boolean(row.archived),
@@ -198,9 +220,30 @@ export async function setStudyTaskCompleted(
   completed: boolean,
   userId?: string
 ): Promise<{ id: string; completedAt: string | null }> {
-  return studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
+  const result = await studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
     method: 'PATCH',
     body: JSON.stringify({ completed, userId }),
+  });
+  if (completed) void trackProductEvent('study_task_completed');
+  return result;
+}
+
+export function updateStudyTask(
+  planId: string,
+  taskId: string,
+  changes: { title: string; scheduledDate: string; estimatedMinutes: number },
+  userId?: string
+) {
+  return studyPlanRequest<{
+    id: string;
+    completedAt: string | null;
+    title: string | null;
+    scheduledDate: string;
+    estimatedMinutes: number;
+    manuallyEditedAt: string | null;
+  }>(`/${planId}/tasks/${taskId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ ...changes, userId }),
   });
 }
 

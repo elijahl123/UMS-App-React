@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ClassSessionFormDialog from '@/app/components/widgets/ClassSessionFormDialog';
-import { mapCourse, mapClassSession } from '@/app/data/mappers';
+import { mapCourse, mapClassSession, mapEvent } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import type { ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { dayLabels, formatTimeDisplay, parseTimeToMinutes } from '@/app/data/classSchedule';
+import { toIsoDate } from '@/app/data/calendarUtils';
 
 const days: ClassSession['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -107,6 +108,13 @@ function ClassSchedulePage() {
   const [sessionRows, sessionsLoading, , refreshSessions] = useLoadAction('loadClassSessions', [], {
     userId: user?.id,
   });
+  const currentWeekStart = addDays(startOfWeek(today), weekOffset * 7);
+  const currentWeekEnd = addDays(currentWeekStart, 7);
+  const [academicEventRows, academicEventsLoading] = useLoadAction('loadEvents', [], {
+    userId: user?.id,
+    from: toIsoDate(currentWeekStart),
+    to: toIsoDate(currentWeekEnd),
+  });
 
   const [addSession] = useMutateAction('createClassSession');
   const [editSession] = useMutateAction('updateClassSession');
@@ -116,7 +124,25 @@ function ClassSchedulePage() {
   const [editing, setEditing] = useState<ClassSession | null>(null);
 
   const courses = (courseRows ?? []).map(mapCourse);
-  const sessions = (sessionRows ?? []).map(mapClassSession);
+  const manualSessions = (sessionRows ?? []).map(mapClassSession);
+  const academicSessions: ClassSession[] = (academicEventRows ?? [])
+    .map(mapEvent)
+    .filter((event) => event.academicKind === 'class' && event.courseId && event.time)
+    .map((event) => {
+      const date = new Date(`${event.date}T12:00:00`);
+      const dayIndex = date.getDay();
+      const [hour, minute] = (event.time ?? '09:00').split(':').map(Number);
+      const fallbackEnd = `${String((hour + 1) % 24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      return {
+        id: `academic-event:${event.id}`,
+        courseId: event.courseId as string,
+        day: dayIndex === 0 ? 'Sun' : days[dayIndex - 1],
+        startTime: event.time as string,
+        endTime: event.endTime ?? fallbackEnd,
+        location: undefined,
+      };
+    });
+  const sessions = [...manualSessions, ...academicSessions];
   const focusedCourseId = searchParams.get('courseId');
   const visibleSessions = focusedCourseId ? sessions.filter((s) => s.courseId === focusedCourseId) : sessions;
 
@@ -195,7 +221,7 @@ function ClassSchedulePage() {
     refreshSessions();
   };
 
-  const isLoading = coursesLoading || sessionsLoading;
+  const isLoading = coursesLoading || sessionsLoading || academicEventsLoading;
 
   if (isLoading && sessions.length === 0 && courses.length === 0) {
     return <div className="p-6 text-center text-muted-foreground">Loading class schedule...</div>;
@@ -269,7 +295,7 @@ function ClassSchedulePage() {
                           >
                             <div className="flex items-start justify-between gap-1">
                               <span className="truncate text-[9px] sm:text-[11px] font-bold">{course?.code ?? '—'}</span>
-                              <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
+                              {!s.id.startsWith('academic-event:') && <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                                 <button
                                   type="button"
                                   className="rounded p-0.5 hover:bg-black/10"
@@ -290,7 +316,7 @@ function ClassSchedulePage() {
                                 >
                                   <Trash2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                                 </button>
-                              </div>
+                              </div>}
                             </div>
                             <span className="truncate text-[8px] sm:text-[10px] font-medium opacity-90">
                               {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
@@ -467,8 +493,8 @@ function ClassSchedulePage() {
                     '--mobile-item-border': colors.border,
                     '--mobile-item-text': colors.text,
                   } as React.CSSProperties}
-                  aria-label={`Edit ${course?.code ?? 'class'} on ${dayLabels[selectedDay]}`}
-                  onClick={() => openEditDialog(s)}
+                  aria-label={`${s.id.startsWith('academic-event:') ? 'View' : 'Edit'} ${course?.code ?? 'class'} on ${dayLabels[selectedDay]}`}
+                  onClick={() => { if (!s.id.startsWith('academic-event:')) openEditDialog(s); }}
                 >
                   <span className="mobile-list-rail absolute inset-y-0 left-0 w-1" />
                   <span className="flex h-full min-h-0 flex-col justify-center gap-1 pl-1.5">
@@ -516,7 +542,7 @@ function ClassSchedulePage() {
   );
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div data-tour="class-schedule" className="flex h-full flex-col gap-4">
       {isMobile ? mobileSchedule : desktopSchedule}
 
       <ClassSessionFormDialog

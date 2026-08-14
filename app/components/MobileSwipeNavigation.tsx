@@ -159,7 +159,7 @@ function MobileSwipeNavigation({ children }: { children: ReactNode }) {
     <div
       ref={containerRef}
       className={cn(
-        'flex min-h-0 flex-1 flex-col touch-pan-y',
+        'flex min-h-0 min-w-0 w-full flex-1 flex-col touch-pan-y',
         transitionDirection === 'left' && 'animate-mobile-swipe-left',
         transitionDirection === 'right' && 'animate-mobile-swipe-right'
       )}

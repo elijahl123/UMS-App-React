@@ -325,6 +325,8 @@ function CalendarPage() {
         googleCalendarId: event.googleCalendarId,
         recurringSeriesId: event.recurringSeriesId,
         recurrenceOriginalStart: event.recurrenceOriginalStart,
+        courseId: event.courseId,
+        academicKind: event.academicKind,
       });
       setEditEventOpen(true);
     }
@@ -370,6 +372,8 @@ function CalendarPage() {
       description: values.description ?? null,
       recurringSeriesId: values.recurringSeriesId,
       recurrenceOriginalStart: values.recurrenceOriginalStart,
+      courseId: values.courseId ?? null,
+      academicKind: values.academicKind ?? null,
       userId: user?.id,
     });
     refreshEvents();
@@ -408,7 +412,7 @@ function CalendarPage() {
   return (
     <>
       {!isDesktopCalendar && (
-        <section className="-mx-3 -mt-[calc(0.75rem+env(safe-area-inset-top))] min-h-[calc(100dvh-6.25rem-env(safe-area-inset-bottom))] bg-background">
+        <section data-tour="calendar" className="-mx-3 -mt-[calc(0.75rem+env(safe-area-inset-top))] min-h-[calc(100dvh-6.25rem-env(safe-area-inset-bottom))] bg-background">
           <div className="relative overflow-hidden px-5 pb-4 pt-[calc(2.25rem+env(safe-area-inset-top))]">
             <div className="relative pr-20">
               <h1 className="mobile-page-title whitespace-nowrap text-[clamp(1.55rem,8vw,2.6rem)] leading-none">{monthLabel}</h1>
@@ -537,7 +541,7 @@ function CalendarPage() {
       )}
 
       {isDesktopCalendar && (
-        <Card className="flex h-full min-h-[42rem] flex-col xl:min-h-0">
+        <Card data-tour="calendar" className="flex h-full min-h-[42rem] flex-col xl:min-h-0">
           <CardHeader className="flex flex-col gap-3 pb-4 md:flex-row md:items-center md:justify-between md:space-y-0">
             <div className="flex items-center gap-2">
               <CardTitle>{monthLabel}</CardTitle>
@@ -597,7 +601,7 @@ function CalendarPage() {
         onStudyTaskToggle={handleStudyTaskToggle}
       />
       <AddEventDialog open={addEventOpen} onOpenChange={setAddEventOpen} onSubmit={handleAddEvent} />
-      <EditEventDialog open={editEventOpen} onOpenChange={setEditEventOpen} event={editingEvent} onSubmit={handleEditEvent} onDelete={handleDeleteEvent} />
+      <EditEventDialog open={editEventOpen} onOpenChange={setEditEventOpen} event={editingEvent} courses={courses} onSubmit={handleEditEvent} onDelete={handleDeleteEvent} />
     </>
   );
 }
