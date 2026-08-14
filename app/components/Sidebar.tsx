@@ -354,35 +354,39 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
         )}
       >
         {user && (
-          <NavLink
-            to="/account"
-            onClick={handleNavClick}
+          <div
             className={cn(
-              'group mb-3 flex items-center gap-2.5 rounded-lg bg-primary/10 px-3 py-2.5 transition-colors hover:bg-primary',
-              collapsed && 'md:justify-center md:px-2'
+              'group/account mb-3 flex w-full items-center gap-2 overflow-hidden rounded-lg bg-[color-mix(in_srgb,var(--primary)_14%,var(--surface))] p-2 transition-colors hover:bg-primary',
+              collapsed && 'md:flex-col md:justify-center'
             )}
-            title={`${user.firstName} ${user.lastName}`}
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary transition-colors group-hover:bg-primary-foreground/20 group-hover:text-primary-foreground">
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </div>
-            <div className={cn('min-w-0', textClass)}>
-              <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover:text-primary-foreground">
-                {user.firstName} {user.lastName}
-              </p>
-              <p className="truncate text-xs text-muted-foreground transition-colors group-hover:text-primary-foreground/80">{displayEmail}</p>
-            </div>
-          </NavLink>
+            <NavLink
+              to="/account"
+              onClick={handleNavClick}
+              className={cn(
+                'flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1 py-0.5 transition-colors',
+                collapsed && 'md:flex-none md:justify-center md:p-0'
+              )}
+              title={`${user.firstName} ${user.lastName}`}
+            >
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--primary)_24%,var(--surface))] text-sm font-bold text-primary transition-colors group-hover/account:bg-primary-foreground/20 group-hover/account:text-primary-foreground">
+                {user.firstName.charAt(0)}
+                {user.lastName.charAt(0)}
+              </div>
+              <div className={cn('min-w-0', textClass)}>
+                <p className="truncate text-sm font-semibold text-foreground transition-colors group-hover/account:text-primary-foreground">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="truncate text-xs text-muted-foreground transition-colors group-hover/account:text-primary-foreground/80">{displayEmail}</p>
+              </div>
+            </NavLink>
+            <ThemeToggle
+              showLabel={false}
+              className="h-8 w-8 shrink-0 justify-center border-[var(--border-light)] p-0 text-[var(--text-secondary)]"
+            />
+          </div>
         )}
         <div className="flex flex-col gap-2">
-          <ThemeToggle
-            showLabel={!collapsed}
-            className={cn(
-              'w-full justify-start gap-2 border-[var(--border-light)] text-[var(--text-secondary)]',
-              collapsed && 'md:justify-center md:px-2'
-            )}
-          />
           <Button
             size="sm"
             className={cn('w-full justify-start gap-2', collapsed && 'md:justify-center md:px-2')}
