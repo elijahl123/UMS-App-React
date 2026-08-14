@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
-import { Router, type Request, type Response } from 'express';
-import sgMail from '@sendgrid/mail';
+import { Router, type Response } from 'express';
 import { config } from '../config';
 import { pool } from '../db';
+import { sendWaitlistConfirmationEmail } from '../mail';
+import { limited } from '../rateLimit';
 
 const launchEventNames = new Set([
   'landing_cta_clicked',
@@ -53,34 +54,6 @@ const trustedLaunchOrigins = new Set([
 
 export function isTrustedLaunchOrigin(origin: string | undefined): boolean {
   return Boolean(origin && trustedLaunchOrigins.has(origin.toLowerCase()));
-}
-
-type RateBucket = { count: number; resetAt: number };
-const rateBuckets = new Map<string, RateBucket>();
-
-function limited(windowMs: number, maximum: number) {
-  return (req: Request, res: Response, next: () => void) => {
-    const now = Date.now();
-    if (rateBuckets.size > 5_000) {
-      for (const [candidateKey, candidate] of rateBuckets) {
-        if (candidate.resetAt <= now) rateBuckets.delete(candidateKey);
-      }
-    }
-    const key = `${req.ip}:${req.path}`;
-    const bucket = rateBuckets.get(key);
-    if (!bucket || bucket.resetAt <= now) {
-      rateBuckets.set(key, { count: 1, resetAt: now + windowMs });
-      next();
-      return;
-    }
-    if (bucket.count >= maximum) {
-      res.setHeader('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
-      res.status(429).json({ error: { message: 'TOO_MANY_REQUESTS' } });
-      return;
-    }
-    bucket.count += 1;
-    next();
-  };
 }
 
 function sanitizeValue(value: unknown): string | null {
@@ -155,18 +128,13 @@ async function sendWaitlistConfirmation(params: {
   confirmationToken: string;
   unsubscribeToken: string;
 }) {
-  if (!config.sendgridApiKey) throw new Error('SENDGRID_API_KEY is required');
-  sgMail.setApiKey(config.sendgridApiKey);
-  const listLabel = params.list === 'ios' ? 'iPhone app updates' : 'incoming UCD student waitlist';
   const confirmationUrl = `${config.appBaseUrl}/api/launch/waitlist/confirm?token=${encodeURIComponent(params.confirmationToken)}`;
   const unsubscribeUrl = `${config.appBaseUrl}/api/launch/waitlist/unsubscribe?token=${encodeURIComponent(params.unsubscribeToken)}`;
-  await sgMail.send({
-    to: params.email,
-    from: { email: config.sendgridFromEmail, name: 'Untitled Management Software' },
-    replyTo: 'untitledmanagementsoftware@gmail.com',
-    subject: `Confirm your ${listLabel} signup`,
-    text: `Confirm your place on the ${listLabel}: ${confirmationUrl}\n\nThis link expires in 48 hours. If you did not request this, ignore this email or cancel the request: ${unsubscribeUrl}`,
-    html: `<p>Confirm your place on the ${listLabel}.</p><p><a href="${confirmationUrl}">Confirm my email</a></p><p>This link expires in 48 hours. If you did not request this, ignore this email or <a href="${unsubscribeUrl}">cancel the request</a>.</p>`,
+  await sendWaitlistConfirmationEmail({
+    email: params.email,
+    list: params.list,
+    confirmationUrl,
+    unsubscribeUrl,
   });
 }
 
@@ -202,7 +170,7 @@ launchRouter.use((req, res, next) => {
   return next();
 });
 
-launchRouter.post('/events', limited(10 * 60 * 1000, 120), async (req, res) => {
+launchRouter.post('/events', limited(10 * 60 * 1000, 120, 'launch-events'), async (req, res) => {
   try {
     const accepted = await recordProductEvent(req.body ?? {});
     return accepted ? res.status(204).end() : res.status(400).json({ error: { message: 'INVALID_EVENT' } });
@@ -212,7 +180,7 @@ launchRouter.post('/events', limited(10 * 60 * 1000, 120), async (req, res) => {
   }
 });
 
-launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10), async (req, res) => {
+launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10, 'launch-waitlist'), async (req, res) => {
   const email = String(req.body?.email ?? '').trim().toLowerCase();
   const list = req.body?.list;
   const consent = req.body?.consent === true;
@@ -270,12 +238,14 @@ launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10), async (req, res) => 
     await recordProductEvent({ ...req.body, event: 'waitlist_requested', occurredAt: new Date().toISOString(), properties: { list } });
     return res.status(202).json({ status: 'pending_confirmation' });
   } catch (err) {
-    console.error('[launch] waitlist request failed', err);
+    console.error('[launch] waitlist request failed', {
+      errorCode: err instanceof Error ? err.name : 'UNKNOWN_ERROR',
+    });
     return res.status(500).json({ error: { message: 'WAITLIST_REQUEST_FAILED' } });
   }
 });
 
-launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30), async (req, res) => {
+launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30, 'launch-waitlist-confirm'), async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : '';
   if (!token) return redirectToWaitlistResult(res, 'invalid');
   try {
@@ -313,7 +283,7 @@ launchRouter.get('/waitlist/confirm', limited(60 * 60 * 1000, 30), async (req, r
   }
 });
 
-launchRouter.get('/waitlist/unsubscribe', limited(60 * 60 * 1000, 30), async (req, res) => {
+launchRouter.get('/waitlist/unsubscribe', limited(60 * 60 * 1000, 30, 'launch-waitlist-unsubscribe'), async (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token : '';
   if (!token) return redirectToWaitlistResult(res, 'invalid');
   try {

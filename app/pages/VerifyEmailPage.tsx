@@ -21,8 +21,11 @@ function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const oobCode = getVerificationParam(searchParams, 'oobCode');
   const accountEmailToken = getVerificationParam(searchParams, 'accountEmailToken');
+  const initialSendFailed = searchParams.get('send') === 'failed';
   const [status, setStatus] = useState<'pending' | 'verifying' | 'success' | 'error'>('verifying');
   const [error, setError] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'failed'>(initialSendFailed ? 'failed' : 'idle');
   const hasRun = useRef(false);
 
   useEffect(() => {
@@ -62,6 +65,17 @@ function VerifyEmailPage() {
     })();
   }, [accountEmailToken, oobCode, searchParams, verifyEmailWithToken]);
 
+  const handleResend = async () => {
+    setIsResending(true);
+    setResendStatus('idle');
+    try {
+      const result = await resendVerificationEmail();
+      setResendStatus(result.success ? 'sent' : 'failed');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-secondary/40 p-4">
       <Card className="w-full max-w-sm shadow-lg">
@@ -79,8 +93,16 @@ function VerifyEmailPage() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <GraduationCap className="h-6 w-6" />
                 </div>
-                <p className="text-sm text-muted-foreground">Check your inbox and click the verification link. Your UCD access is granted only after the address is verified.</p>
-                <Button className="mt-2 w-full" onClick={() => void resendVerificationEmail()}>Resend verification email</Button>
+                <p className="text-sm text-muted-foreground">
+                  {resendStatus === 'failed'
+                    ? 'We could not send the verification email. Try again below.'
+                    : resendStatus === 'sent'
+                      ? 'Verification email sent. Check your inbox and click the link.'
+                      : 'Check your inbox and click the verification link. Your UCD access is granted only after the address is verified.'}
+                </p>
+                <Button className="mt-2 w-full" disabled={isResending || resendStatus === 'sent'} onClick={() => void handleResend()}>
+                  {isResending ? 'Sending…' : resendStatus === 'sent' ? 'Sent' : 'Resend verification email'}
+                </Button>
                 <Button asChild variant="outline" className="w-full"><Link to="/account">Go to account settings</Link></Button>
               </>
             )}

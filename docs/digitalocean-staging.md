@@ -79,6 +79,13 @@ GOOGLE_CALENDAR_REDIRECT_URI=https://dev.untitledmanagementsoftware.com/api/goog
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
 ```
 
+Before deploying, complete the environment-specific Firebase authorized-domain
+setup plus SendGrid domain authentication in
+[`email-delivery.md`](email-delivery.md). Staging uses
+`https://dev.untitledmanagementsoftware.com/auth/action` as the hosted handler;
+the API composes it from Firebase's generated action query and does not depend
+on the Firebase template Action URL setting.
+
 The `VITE_*` values used by browser code are built in GitHub Actions, not read
 from this file. `VITE_FIREBASE_API_KEY` remains here because the API also uses
 it for Firebase Identity Toolkit requests.
@@ -135,6 +142,9 @@ to be duplicated as environment secrets.
 Pushing to `staging` runs lint, unit tests, both builds, publishes public GHCR
 images, applies migrations, replaces the containers, and checks
 `http://127.0.0.1:8080/api/health`.
+
+After deployment, run the real-inbox verification, reset, secondary-address,
+and waitlist smoke tests in [`email-delivery.md`](email-delivery.md).
 
 GitHub creates a personal-account GHCR package as private on its first
 publication. The first release therefore publishes both packages and stops at

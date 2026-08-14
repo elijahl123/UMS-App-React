@@ -529,6 +529,27 @@ describe('auth and recovery pages', () => {
     expect(await screen.findByText(/trial billing destination/i)).toBeInTheDocument();
   });
 
+  it('keeps a created account and offers retry when the initial verification send fails', async () => {
+    const user = userEvent.setup();
+    authActions.signup.mockResolvedValueOnce({ success: true, verificationEmailSent: false });
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email" element={<div>Verification retry destination</div>} />
+      </Routes>,
+      { route: '/signup' }
+    );
+
+    await user.type(screen.getByLabelText(/first name/i), 'Jane');
+    await user.type(screen.getByLabelText(/last name/i), 'Doe');
+    await user.type(screen.getByLabelText(/email/i), 'jane@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText('Verification retry destination')).toBeInTheDocument();
+  });
+
   it('requests a password reset and shows the submitted state', async () => {
     const user = userEvent.setup();
     renderWithRouter(<ForgotPasswordPage />, { route: '/forgot-password' });
@@ -559,6 +580,16 @@ describe('auth and recovery pages', () => {
 
     expect(await screen.findByText(/your email address has been verified/i)).toBeInTheDocument();
     expect(accountEmailActions.verifyAccountEmailToken).toHaveBeenCalledWith('token123');
+  });
+
+  it('shows and clears the verification delivery retry state', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<VerifyEmailPage />, { route: '/verify-email?pending=1&send=failed' });
+
+    expect(await screen.findByText(/could not send the verification email/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /resend verification email/i }));
+    expect(authActions.resendVerificationEmail).toHaveBeenCalled();
+    expect(await screen.findByText(/verification email sent/i)).toBeInTheDocument();
   });
 
   it('shows validation errors on invalid login input', async () => {

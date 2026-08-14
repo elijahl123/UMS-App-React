@@ -57,6 +57,12 @@ GOOGLE_CALENDAR_REDIRECT_URI=https://app.untitledmanagementsoftware.com/api/goog
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
 ```
 
+Before promotion, complete the production Firebase authorized-domain setup plus
+SendGrid domain authentication in [`email-delivery.md`](email-delivery.md).
+Production uses `https://app.untitledmanagementsoftware.com/auth/action` as the
+hosted handler; the API composes it from Firebase's generated action query and
+does not depend on the Firebase template Action URL setting.
+
 If `DATABASE_URL` uses `sslrootcert=/etc/ums-app-react/do-postgres-ca.crt`,
 install the managed Postgres CA at that exact host path with mode `0644`. The
 deployment mounts it read-only into the API and migration containers.
@@ -104,6 +110,10 @@ curl -I https://app.untitledmanagementsoftware.com/assets/pdf.worker.min-<hash>.
 Confirm authentication, Stripe billing and webhooks, SendGrid delivery, Google
 Calendar OAuth, and a native Capacitor API call before considering the release
 complete.
+
+For SendGrid delivery, perform the real-inbox action-link smoke tests in
+[`email-delivery.md`](email-delivery.md) and confirm the structured logs contain
+no recipient addresses or action tokens.
 
 Production Stripe webhooks use
 `https://app.untitledmanagementsoftware.com/api/billing/webhook`.

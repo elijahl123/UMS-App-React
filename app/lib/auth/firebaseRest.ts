@@ -38,7 +38,6 @@ export const firebaseAuth = {
   lookupUser: (params: FirebaseParams) => firebaseRequest('accounts:lookup', params),
   updateProfile: (params: FirebaseParams) => firebaseRequest('accounts:update', { ...params, returnSecureToken: true }),
   changePassword: (params: FirebaseParams) => firebaseRequest('accounts:update', { ...params, returnSecureToken: true }),
-  sendOobCode: (params: FirebaseParams) => firebaseRequest('accounts:sendOobCode', params),
   verifyEmail: (params: FirebaseParams) => firebaseRequest('accounts:update', params),
   resetPassword: (params: FirebaseParams) => firebaseRequest('accounts:resetPassword', params),
   signInWithIdp: (params: FirebaseParams) =>

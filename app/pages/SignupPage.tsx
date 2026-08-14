@@ -72,8 +72,10 @@ function SignupPage() {
     try {
       const result = await signup(values);
       if (result.success) {
-        navigate(isUcdJourney && isExactUcdEmail(values.email)
-          ? '/verify-email?pending=1'
+        const verificationPending = isUcdJourney && isExactUcdEmail(values.email);
+        const verificationFailed = result.verificationEmailSent === false;
+        navigate(verificationPending || verificationFailed
+          ? `/verify-email?pending=1${verificationFailed ? '&send=failed' : ''}`
           : result.trialStartedNow ? '/billing?trial=started' : '/', { replace: true });
       } else {
         setFormError(result.error ?? 'Unable to create account.');

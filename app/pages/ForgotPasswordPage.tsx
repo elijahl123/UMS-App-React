@@ -63,8 +63,7 @@ function ForgotPasswordPage() {
                 <MailCheck className="h-6 w-6" />
               </div>
               <p className="text-sm text-muted-foreground">
-                If an account exists for that email, we&apos;ve sent instructions to reset your password. The link
-                expires in 1 hour.
+                If an account exists for that email, we&apos;ve sent a time-limited link with instructions to reset your password.
               </p>
               <Link to="/login" className="mt-2 text-sm font-semibold text-primary hover:underline">
                 Back to log in

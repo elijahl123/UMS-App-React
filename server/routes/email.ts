@@ -1,12 +1,15 @@
 import { Router, type Request, type Response } from 'express';
-import sgMail from '@sendgrid/mail';
 import { randomBytes } from 'node:crypto';
+import { authenticatedFirebaseUser, firebaseAuth } from '../auth';
 import { config } from '../config';
 import { pool } from '../db';
-
-if (config.sendgridApiKey) {
-  sgMail.setApiKey(config.sendgridApiKey);
-}
+import { ApiError } from '../errors';
+import {
+  sendFirebaseVerificationEmail,
+  sendPasswordResetEmail,
+  sendSecondaryEmailVerification,
+} from '../mail';
+import { consumeRateLimit, hashRateLimitValue } from '../rateLimit';
 
 export const emailRouter = Router();
 export const publicEmailRouter = Router();
@@ -19,22 +22,6 @@ type AccountEmailRow = {
   verification_expires_at: string | null;
   created_at: string;
 };
-
-type FirebaseLookupResult = {
-  users?: Array<{
-    localId: string;
-    email?: string;
-  }>;
-};
-
-function bearerToken(req: Request): string | null {
-  const header = req.header('authorization');
-  if (!header?.startsWith('Bearer ')) {
-    return null;
-  }
-
-  return header.slice('Bearer '.length).trim();
-}
 
 function normalizeEmail(value: unknown): string {
   const email = String(value ?? '').trim().toLowerCase();
@@ -56,61 +43,102 @@ function mapAccountEmail(row: AccountEmailRow) {
   };
 }
 
-async function authenticatedFirebaseUser(req: Request) {
-  if (req.auth?.uid && req.auth.email) {
-    return { uid: req.auth.uid, email: req.auth.email };
-  }
-
-  const token = bearerToken(req);
-  if (!token) {
-    throw new Error('AUTH_TOKEN_REQUIRED');
-  }
-  if (!config.firebaseWebApiKey) {
-    throw new Error('VITE_FIREBASE_API_KEY is required');
-  }
-
-  const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(config.firebaseWebApiKey)}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: token }),
-    }
-  );
-
-  const payload = (await response.json().catch(() => null)) as FirebaseLookupResult | null;
-  if (!response.ok || !payload?.users?.[0]) {
-    throw new Error('INVALID_AUTH_TOKEN');
-  }
-
-  const firebaseUser = payload.users[0];
-  if (!firebaseUser.email) {
-    throw new Error('EMAIL_REQUIRED');
-  }
-
-  return { uid: firebaseUser.localId, email: firebaseUser.email.trim().toLowerCase() };
-}
-
 async function sendAccountEmailVerification(email: string, token: string) {
-  if (!config.sendgridApiKey) {
-    throw new Error('SENDGRID_API_KEY is required');
-  }
-
   const verificationUrl = `${config.appBaseUrl}/#/verify-email?accountEmailToken=${encodeURIComponent(token)}`;
-  await sgMail.send({
-    to: email,
-    from: config.sendgridFromEmail,
-    subject: 'Verify this email address',
-    text: `Verify this email address for Untitled Management Software: ${verificationUrl}`,
-    html: `<p>Verify this email address for Untitled Management Software.</p><p><a href="${verificationUrl}">Verify email address</a></p>`,
-  });
+  await sendSecondaryEmailVerification(email, verificationUrl);
 }
 
 function handleRouteError(res: Response, err: unknown) {
   const message = err instanceof Error ? err.message : 'REQUEST_FAILED';
-  const status = message === 'AUTH_TOKEN_REQUIRED' || message === 'INVALID_AUTH_TOKEN' ? 401 : 400;
+  const status = err instanceof ApiError
+    ? err.status
+    : message === 'AUTH_TOKEN_REQUIRED' || message === 'INVALID_AUTH_TOKEN' ? 401 : 400;
   return res.status(status).json({ error: { message } });
 }
+
+function enforceRateLimit(res: Response, key: string, maximum: number): boolean {
+  const retryAfter = consumeRateLimit(key, 60 * 60 * 1000, maximum);
+  if (retryAfter === null) return true;
+  res.setHeader('Retry-After', String(retryAfter));
+  res.status(429).json({ error: { message: 'TOO_MANY_REQUESTS' } });
+  return false;
+}
+
+function actionCodeSettings(route: 'verify-email' | 'reset-password') {
+  return {
+    url: `${config.appBaseUrl.replace(/\/+$/, '')}/#/${route}`,
+    handleCodeInApp: false,
+  };
+}
+
+export function appHostedFirebaseActionLink(firebaseLink: string): string {
+  const generatedLink = new URL(firebaseLink);
+  const appLink = new URL('/auth/action', `${config.appBaseUrl.replace(/\/+$/, '')}/`);
+
+  // Firebase owns and validates the one-time code. Only replace the hosted
+  // handler location, preserving every generated query parameter verbatim.
+  appLink.search = generatedLink.search;
+  return appLink.toString();
+}
+
+publicEmailRouter.post('/password-reset', async (req: Request, res: Response) => {
+  let email: string;
+  try {
+    email = normalizeEmail(req.body?.email);
+  } catch (err) {
+    return handleRouteError(res, err);
+  }
+
+  const emailKey = hashRateLimitValue(email);
+  if (!enforceRateLimit(res, `password-reset:ip:${req.ip}`, 10)
+    || !enforceRateLimit(res, `password-reset:email:${emailKey}`, 3)) {
+    return;
+  }
+
+  try {
+    const firebaseLink = await firebaseAuth().generatePasswordResetLink(email, actionCodeSettings('reset-password'));
+    const link = appHostedFirebaseActionLink(firebaseLink);
+    await sendPasswordResetEmail(email, link);
+  } catch (err) {
+    console.error('[email]', {
+      event: 'password_reset_request_failed',
+      recipient: emailKey.slice(0, 16),
+      errorCode: (err as { code?: string })?.code ?? (err instanceof Error ? err.name : 'UNKNOWN_ERROR'),
+    });
+  }
+
+  return res.status(202).json({ status: 'accepted' });
+});
+
+publicEmailRouter.post('/verification', async (req: Request, res: Response) => {
+  try {
+    const authenticated = await authenticatedFirebaseUser(req);
+    const user = await firebaseAuth().getUser(authenticated.uid);
+    const email = user.email?.trim().toLowerCase();
+    if (!email) {
+      throw new ApiError('EMAIL_REQUIRED', 400);
+    }
+    if (user.emailVerified) {
+      return res.json({ status: 'already_verified' });
+    }
+
+    const recipientKey = hashRateLimitValue(email);
+    if (!enforceRateLimit(res, `email-verification:${authenticated.uid}:${recipientKey}`, 5)) {
+      return;
+    }
+
+    try {
+      const firebaseLink = await firebaseAuth().generateEmailVerificationLink(email, actionCodeSettings('verify-email'));
+      const link = appHostedFirebaseActionLink(firebaseLink);
+      await sendFirebaseVerificationEmail(email, link);
+    } catch {
+      throw new ApiError('EMAIL_DELIVERY_FAILED', 502);
+    }
+    return res.status(202).json({ status: 'accepted' });
+  } catch (err) {
+    return handleRouteError(res, err);
+  }
+});
 
 publicEmailRouter.post('/account-addresses/verify', async (req: Request, res: Response) => {
   const token = String(req.body?.token ?? '').trim();
@@ -183,6 +211,10 @@ emailRouter.post('/account-addresses', async (req: Request, res: Response) => {
     if (email === firebaseUser.email) {
       return res.status(400).json({ error: { message: 'That email is already your primary email.' } });
     }
+    const recipientKey = hashRateLimitValue(email);
+    if (!enforceRateLimit(res, `secondary-verification:${firebaseUser.uid}:${recipientKey}`, 5)) {
+      return;
+    }
 
     const token = randomBytes(32).toString('hex');
     const result = await pool.query<AccountEmailRow>(
@@ -206,7 +238,11 @@ emailRouter.post('/account-addresses', async (req: Request, res: Response) => {
 
     const row = result.rows[0];
     if (!row.verified_at) {
-      await sendAccountEmailVerification(email, token);
+      try {
+        await sendAccountEmailVerification(email, token);
+      } catch {
+        throw new ApiError('EMAIL_DELIVERY_FAILED', 502);
+      }
     }
 
     return res.status(201).json({ email: mapAccountEmail(row) });
@@ -218,6 +254,9 @@ emailRouter.post('/account-addresses', async (req: Request, res: Response) => {
 emailRouter.post('/account-addresses/:id/resend', async (req: Request, res: Response) => {
   try {
     const firebaseUser = await authenticatedFirebaseUser(req);
+    if (!enforceRateLimit(res, `secondary-verification:${firebaseUser.uid}:${req.params.id}`, 5)) {
+      return;
+    }
     const token = randomBytes(32).toString('hex');
     const result = await pool.query<AccountEmailRow>(
       `
@@ -238,7 +277,11 @@ emailRouter.post('/account-addresses/:id/resend', async (req: Request, res: Resp
       return res.status(404).json({ error: { message: 'Email address was not found or is already verified.' } });
     }
 
-    await sendAccountEmailVerification(row.email, token);
+    try {
+      await sendAccountEmailVerification(row.email, token);
+    } catch {
+      throw new ApiError('EMAIL_DELIVERY_FAILED', 502);
+    }
     return res.json({ email: mapAccountEmail(row) });
   } catch (err) {
     return handleRouteError(res, err);
