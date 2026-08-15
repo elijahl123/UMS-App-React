@@ -13,5 +13,9 @@ export function noteHtmlToText(html: string): string {
       mathNode.replaceWith(document.createTextNode(latex ? ` ${latex} ` : ' '));
     });
 
+  template.content.querySelectorAll<HTMLImageElement>('img[data-note-image-id]').forEach((image) => {
+    image.replaceWith(document.createTextNode(image.alt ? ` ${image.alt} ` : ' Image '));
+  });
+
   return (template.content.textContent ?? '').replace(/\s+/g, ' ').trim();
 }

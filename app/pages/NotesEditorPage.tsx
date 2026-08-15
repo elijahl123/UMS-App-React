@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import RichTextEditor from '@/app/components/widgets/RichTextEditor';
 import { mapCourse, mapNote } from '@/app/data/mappers';
 import { useAuth } from '@/app/lib/auth/AuthContext';
+import { extractNoteImageIdsFromHtml } from '@/app/lib/noteImages/client';
 
 const NO_COURSE = 'none';
 const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave without saving?';
@@ -34,6 +35,7 @@ function NotesEditorPage() {
   const [content, setContent] = useState('');
   const [courseId, setCourseId] = useState<string>(NO_COURSE);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasUnresolvedImages, setHasUnresolvedImages] = useState(false);
   const initialDraftRef = useRef<NoteDraftSnapshot>({
     title: '',
     content: '',
@@ -142,15 +144,17 @@ function NotesEditorPage() {
   }, [hasUnsavedChanges]);
 
   const handleSave = async () => {
-    if (!title.trim()) return;
+    if (!title.trim() || hasUnresolvedImages) return;
     setIsSaving(true);
     try {
+      const imageIds = extractNoteImageIdsFromHtml(content);
       if (isEdit) {
         await editNote({
           id: noteId!,
           courseId: courseId === NO_COURSE ? null : courseId,
           title: title.trim(),
           content,
+          imageIds,
           userId: user?.id,
         });
       } else {
@@ -158,6 +162,7 @@ function NotesEditorPage() {
           courseId: courseId === NO_COURSE ? null : courseId,
           title: title.trim(),
           content,
+          imageIds,
           userId: user?.id,
         });
       }
@@ -242,6 +247,7 @@ function NotesEditorPage() {
           onChange={setContent}
           placeholder="Write your note here..."
           autoFocus={Boolean((location.state as { focusEditor?: boolean } | null)?.focusEditor)}
+          onUploadStateChange={setHasUnresolvedImages}
         />
       </div>
 
@@ -259,9 +265,9 @@ function NotesEditorPage() {
           <Button variant="outline" onClick={() => navigateSafely('/notes')} className="w-full sm:w-auto">
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || isSaving} className="w-full gap-2 sm:w-auto">
+          <Button onClick={handleSave} disabled={!title.trim() || isSaving || hasUnresolvedImages} className="w-full gap-2 sm:w-auto">
             <Save className="h-4 w-4" />
-            {isSaving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Note'}
+            {isSaving ? 'Saving...' : hasUnresolvedImages ? 'Finish Image Uploads' : isEdit ? 'Save Changes' : 'Create Note'}
           </Button>
         </div>
       </div>

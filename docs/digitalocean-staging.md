@@ -36,6 +36,10 @@ sudo docker run --rm hello-world
 sudo systemctl enable --now docker
 ```
 
+The host Nginx site and the release container must both use
+`client_max_body_size 12m` so 10 MB note images plus multipart overhead reach
+the API.
+
 The deployment user must have passwordless `sudo` access to `docker`,
 `install`, `cp`, and `rm`. Create the protected runtime environment:
 
@@ -82,6 +86,10 @@ GOOGLE_CALENDAR_CLIENT_ID=<staging-google-client-id>
 GOOGLE_CALENDAR_CLIENT_SECRET=<staging-google-client-secret>
 GOOGLE_CALENDAR_REDIRECT_URI=https://dev.untitledmanagementsoftware.com/api/google-calendar/oauth/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
+SPACES_BUCKET=umstatic
+SPACES_REGION=<umstatic-region>
+SPACES_ACCESS_KEY_ID=<bucket-limited-access-key-id>
+SPACES_SECRET_ACCESS_KEY=<bucket-limited-secret-key>
 ```
 
 Before deploying, complete the environment-specific Firebase authorized-domain

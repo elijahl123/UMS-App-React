@@ -10,6 +10,7 @@ import {
 } from '../googleCalendarSync';
 import { syncNotificationInstancesForUser } from '../notifications';
 import { assertContentReadAccess, assertFullWriteAccess } from '../access';
+import { runNoteAction } from '../notes';
 
 export const actionsRouter = Router();
 
@@ -35,6 +36,10 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
       }
     }
     const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
+    const noteResult = await runNoteAction(req.params.name, params);
+    if (noteResult) {
+      return res.json(noteResult);
+    }
     if (req.auth?.uid && req.params.name === 'loadEvents') {
       return res.json(
         await loadEventsForUser(
