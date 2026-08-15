@@ -231,7 +231,7 @@ function ClassSchedulePage() {
     <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <CardTitle>Class Schedule</CardTitle>
-          <Button onClick={openAddDialog} className="gap-2">
+          <Button onClick={openAddDialog} className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4">
             <Plus className="h-4 w-4" />
             Add Class
           </Button>
