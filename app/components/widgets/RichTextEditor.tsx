@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -25,15 +25,25 @@ import {
   AlignRight,
   Heading1,
   Heading2,
+  ImagePlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LatexPaste, recoverChatGptPasteArtifacts } from '@/app/lib/latexPaste';
+import { NoteImage, NoteImageActionsContext, type NoteImageAttrs } from '@/app/components/widgets/NoteImageNode';
+import {
+  NOTE_IMAGE_ACCEPT,
+  NOTE_IMAGE_MAX_BYTES,
+  deleteUnattachedNoteImage,
+  noteImageErrorMessage,
+  uploadNoteImage,
+} from '@/app/lib/noteImages/client';
 
 interface Props {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  onUploadStateChange?: (hasUnresolvedImages: boolean) => void;
 }
 
 function ToolbarButton({
@@ -63,10 +73,48 @@ function ToolbarButton({
   );
 }
 
-function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: Props) {
+function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onUploadStateChange }: Props) {
   const lastEmittedRef = useRef(content);
   const didAutoFocusRef = useRef(false);
   const editorRef = useRef<Editor | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const filesRef = useRef(new Map<string, File>());
+  const previewUrlsRef = useRef(new Map<string, string>());
+  const removedUploadIdsRef = useRef(new Set<string>());
+  const unattachedImageIdsRef = useRef(new Map<string, string>());
+  const insertFilesRef = useRef<(files: File[], position?: number) => void>(() => undefined);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+
+  const releaseUploadResources = useCallback((uploadId: string) => {
+    const previewUrl = previewUrlsRef.current.get(uploadId);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      previewUrlsRef.current.delete(uploadId);
+    }
+    filesRef.current.delete(uploadId);
+  }, []);
+
+  const cleanupRemovedUploads = useCallback((doc: ProseMirrorNode) => {
+    const presentUploadIds = new Set<string>();
+    const presentImageIds = new Set<string>();
+    doc.descendants((node) => {
+      if (node.type.name !== 'noteImage') return;
+      if (typeof node.attrs.uploadId === 'string') presentUploadIds.add(node.attrs.uploadId);
+      if (typeof node.attrs.imageId === 'string') presentImageIds.add(node.attrs.imageId);
+    });
+
+    for (const uploadId of filesRef.current.keys()) {
+      if (presentUploadIds.has(uploadId)) continue;
+      removedUploadIdsRef.current.add(uploadId);
+      releaseUploadResources(uploadId);
+    }
+    for (const [imageId, uploadId] of unattachedImageIdsRef.current) {
+      if (presentImageIds.has(imageId)) continue;
+      unattachedImageIdsRef.current.delete(imageId);
+      removedUploadIdsRef.current.delete(uploadId);
+      void deleteUnattachedNoteImage(imageId).catch(() => undefined);
+    }
+  }, [releaseUploadResources]);
 
   const editMath = (kind: 'inline' | 'block', node: ProseMirrorNode, pos: number) => {
     const currentLatex = String(node.attrs.latex ?? '');
@@ -83,7 +131,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false, underline: false }),
       Underline,
       Link.configure({ openOnClick: false, autolink: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -114,6 +162,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
         onClick: (node, pos) => editMath('block', node, pos),
       }),
       LatexPaste,
+      NoteImage,
       Placeholder.configure({ placeholder: placeholder ?? 'Start typing your note...' }),
     ],
     content,
@@ -121,8 +170,30 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
       const html = editor.getHTML();
       lastEmittedRef.current = html;
       onChange(html);
+      cleanupRemovedUploads(editor.state.doc);
+      let unresolved = false;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'noteImage' && node.attrs.status !== 'ready') unresolved = true;
+      });
+      onUploadStateChange?.(unresolved);
     },
     editorProps: {
+      handlePaste: (_view, event) => {
+        const files = [...(event.clipboardData?.files ?? [])].filter((file) => file.type.startsWith('image/'));
+        if (files.length === 0) return false;
+        event.preventDefault();
+        insertFilesRef.current(files);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const files = [...(event.dataTransfer?.files ?? [])].filter((file) => file.type.startsWith('image/'));
+        if (files.length === 0) return false;
+        event.preventDefault();
+        const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        insertFilesRef.current(files, position);
+        return true;
+      },
       attributes: {
         'aria-label': 'Rich text editor',
         class:
@@ -137,6 +208,11 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
       if (editorRef.current === editor) editorRef.current = null;
     };
   }, [editor]);
+
+  useEffect(() => () => {
+    for (const url of previewUrlsRef.current.values()) URL.revokeObjectURL(url);
+    previewUrlsRef.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!editor) return;
@@ -165,6 +241,96 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
     return () => window.cancelAnimationFrame(frame);
   }, [autoFocus, editor]);
 
+  const updateUploadNode = useCallback((uploadId: string, attrs: Partial<NoteImageAttrs>) => {
+    const currentEditor = editorRef.current;
+    if (!currentEditor) return;
+    let targetPosition: number | null = null;
+    currentEditor.state.doc.descendants((node, position) => {
+      if (node.type.name === 'noteImage' && node.attrs.uploadId === uploadId) {
+        targetPosition = position;
+        return false;
+      }
+      return true;
+    });
+    if (targetPosition === null) return;
+    const node = currentEditor.state.doc.nodeAt(targetPosition);
+    if (!node) return;
+    currentEditor.view.dispatch(
+      currentEditor.state.tr.setNodeMarkup(targetPosition, undefined, { ...node.attrs, ...attrs })
+    );
+  }, []);
+
+  const performUpload = useCallback(async (uploadId: string) => {
+    const file = filesRef.current.get(uploadId);
+    if (!file) return;
+    updateUploadNode(uploadId, { status: 'uploading', error: null });
+    try {
+      const uploaded = await uploadNoteImage(file);
+      if (removedUploadIdsRef.current.has(uploadId)) {
+        removedUploadIdsRef.current.delete(uploadId);
+        releaseUploadResources(uploadId);
+        void deleteUnattachedNoteImage(uploaded.image.id).catch(() => undefined);
+        return;
+      }
+      unattachedImageIdsRef.current.set(uploaded.image.id, uploadId);
+      releaseUploadResources(uploadId);
+      updateUploadNode(uploadId, {
+        imageId: uploaded.image.id,
+        filename: uploaded.image.originalFilename,
+        status: 'ready',
+        displayUrl: uploaded.url,
+        error: null,
+      });
+      setUploadNotice(null);
+    } catch (err) {
+      updateUploadNode(uploadId, { status: 'failed', error: noteImageErrorMessage(err) });
+    }
+  }, [releaseUploadResources, updateUploadNode]);
+
+  const insertFiles = useCallback((files: File[], position?: number) => {
+    const currentEditor = editorRef.current;
+    if (!currentEditor) return;
+    const allowed = new Set(NOTE_IMAGE_ACCEPT.split(','));
+    const validFiles = files.filter((file) => {
+      if (!allowed.has(file.type)) {
+        setUploadNotice('Choose a JPEG, PNG, WebP, or GIF image.');
+        return false;
+      }
+      if (file.size > NOTE_IMAGE_MAX_BYTES) {
+        setUploadNotice('Images must be 10 MB or smaller.');
+        return false;
+      }
+      return true;
+    });
+    if (validFiles.length === 0) return;
+
+    const uploads = validFiles.map((file) => {
+      const uploadId = crypto.randomUUID();
+      const previewUrl = URL.createObjectURL(file);
+      filesRef.current.set(uploadId, file);
+      previewUrlsRef.current.set(uploadId, previewUrl);
+      return { uploadId, file, previewUrl };
+    });
+    const nodes = uploads.map(({ uploadId, file, previewUrl }) => ({
+      type: 'noteImage',
+      attrs: {
+        imageId: null,
+        uploadId,
+        alt: file.name.replace(/\.[^.]+$/, ''),
+        filename: file.name,
+        status: 'uploading',
+        displayUrl: previewUrl,
+        error: null,
+      },
+    }));
+    const chain = currentEditor.chain().focus();
+    if (typeof position === 'number') chain.insertContentAt(position, nodes).run();
+    else chain.insertContent(nodes).run();
+    uploads.forEach(({ uploadId }) => void performUpload(uploadId));
+  }, [performUpload]);
+
+  insertFilesRef.current = insertFiles;
+
   if (!editor) return null;
 
   const setLink = () => {
@@ -180,6 +346,18 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
 
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-[var(--border-light)] bg-card">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={NOTE_IMAGE_ACCEPT}
+        multiple
+        className="sr-only"
+        aria-label="Upload note images"
+        onChange={(event) => {
+          insertFiles([...event.target.files ?? []]);
+          event.target.value = '';
+        }}
+      />
       <div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--border-light)] bg-secondary/40 px-2 py-1.5">
         <ToolbarButton title="Heading 1" active={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
           <Heading1 className="h-4 w-4" />
@@ -223,6 +401,9 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
         <ToolbarButton title="Link" active={editor.isActive('link')} onClick={setLink}>
           <LinkIcon className="h-4 w-4" />
         </ToolbarButton>
+        <ToolbarButton title="Upload images" onClick={() => fileInputRef.current?.click()}>
+          <ImagePlus className="h-4 w-4" />
+        </ToolbarButton>
         <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-light)]" />
         <ToolbarButton title="Undo" onClick={() => editor.chain().focus().undo().run()}>
           <Undo className="h-4 w-4" />
@@ -231,8 +412,11 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false }: P
           <Redo className="h-4 w-4" />
         </ToolbarButton>
       </div>
+      {uploadNotice && <p className="border-b border-[var(--border-light)] px-4 py-2 text-xs font-medium text-destructive">{uploadNotice}</p>}
       <div className="max-h-[50vh] overflow-y-auto sm:max-h-[60vh]">
-        <EditorContent editor={editor} />
+        <NoteImageActionsContext.Provider value={{ retryUpload: (uploadId) => void performUpload(uploadId) }}>
+          <EditorContent editor={editor} />
+        </NoteImageActionsContext.Provider>
       </div>
     </div>
   );

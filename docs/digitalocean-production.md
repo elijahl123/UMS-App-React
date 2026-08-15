@@ -60,7 +60,15 @@ GOOGLE_CALENDAR_CLIENT_ID=<production-google-client-id>
 GOOGLE_CALENDAR_CLIENT_SECRET=<production-google-client-secret>
 GOOGLE_CALENDAR_REDIRECT_URI=https://app.untitledmanagementsoftware.com/api/google-calendar/oauth/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=<long-random-secret>
+SPACES_BUCKET=umstatic
+SPACES_REGION=<umstatic-region>
+SPACES_ACCESS_KEY_ID=<bucket-limited-access-key-id>
+SPACES_SECRET_ACCESS_KEY=<bucket-limited-secret-key>
 ```
+
+Create a Spaces access key limited to Read/Write/Delete on `umstatic`. Keep the
+bucket private. Note image uploads pass through the authenticated API, so the
+bucket does not require browser CORS rules or public-read permissions.
 
 Before promotion, complete the production Firebase authorized-domain setup plus
 SendGrid domain authentication in [`email-delivery.md`](email-delivery.md).
@@ -74,7 +82,9 @@ deployment mounts it read-only into the API and migration containers.
 
 Configure the host Nginx site from `deploy/nginx.conf.example`, with
 `server_name app.untitledmanagementsoftware.com`, and retain the existing
-Certbot-managed certificate.
+Certbot-managed certificate. Ensure both the host and container Nginx configs
+use `client_max_body_size 12m`; this provides multipart overhead for the app's
+10 MB note-image limit.
 
 ## GitHub production environment
 

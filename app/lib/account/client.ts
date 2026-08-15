@@ -2,7 +2,7 @@ import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 
 export async function downloadAccountExport(): Promise<void> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 60_000);
+  const timeout = window.setTimeout(() => controller.abort(), 5 * 60_000);
   const response = await apiFetch('/account/export', {
     headers: getApiAuthHeaders(),
     signal: controller.signal,

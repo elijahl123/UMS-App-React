@@ -48,6 +48,7 @@ async function deleteRows(client: PoolClient, userId: string, emails: string[], 
   }
 
   await client.query('DELETE FROM course_links WHERE user_id = $1;', [userId]);
+  await client.query('DELETE FROM note_images WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM notes WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM events WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM courses WHERE user_id = $1;', [userId]);
@@ -86,6 +87,7 @@ export async function reapplyDeletionTombstones() {
     pool.query<{ user_id: string }>(`
       SELECT DISTINCT user_id FROM (
         SELECT user_id FROM courses
+        UNION SELECT user_id FROM note_images
         UNION SELECT user_id FROM notes
         UNION SELECT user_id FROM events
         UNION SELECT user_id FROM google_calendar_connections

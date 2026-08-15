@@ -77,6 +77,10 @@ export const config = {
   googleCalendarRedirectUri: process.env.GOOGLE_CALENDAR_REDIRECT_URI
     ?? `${(process.env.APP_BASE_URL ?? appOrigin).replace(/\/+$/, '')}/api/google-calendar/oauth/callback`,
   googleTokenEncryptionKey: process.env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+  spacesBucket: process.env.SPACES_BUCKET ?? 'umstatic',
+  spacesRegion: process.env.SPACES_REGION,
+  spacesAccessKeyId: process.env.SPACES_ACCESS_KEY_ID,
+  spacesSecretAccessKey: process.env.SPACES_SECRET_ACCESS_KEY,
   marketingOrigin: (process.env.MARKETING_ORIGIN ?? 'https://untitledmanagementsoftware.com').replace(/\/+$/, ''),
   ucdAccessEnabled: booleanEnv('UCD_ACCESS_ENABLED'),
   ucdAccessDomain: (process.env.UCD_ACCESS_DOMAIN ?? 'ucdconnect.ie').trim().toLowerCase(),

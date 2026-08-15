@@ -18,6 +18,7 @@ import { accessRouter } from './routes/access';
 import { accountRouter } from './routes/account';
 import { telemetryRouter } from './routes/telemetry';
 import { onboardingRouter } from './routes/onboarding';
+import { noteImagesRouter } from './routes/noteImages';
 
 export function createApp() {
   const app = express();
@@ -50,6 +51,7 @@ export function createApp() {
   app.use('/api/telemetry', telemetryRouter);
   app.use('/api/onboarding', onboardingRouter);
   app.use('/api/actions', actionsRouter);
+  app.use('/api/note-images', noteImagesRouter);
   app.use('/api/brightspace-calendar', brightspaceCalendarRouter);
   app.use('/api/canvas-calendar', canvasCalendarRouter);
   app.use('/api/billing', billingRouter);

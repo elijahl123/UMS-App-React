@@ -1332,7 +1332,7 @@ function AccountPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2"><Download className="h-5 w-5 text-primary" /><CardTitle>Export your data</CardTitle></div>
-          <CardDescription>Download courses, assignments, events, classes, and plans as CSV files, plus sanitized notes as HTML in one ZIP.</CardDescription>
+          <CardDescription>Download courses, assignments, events, classes, and plans as CSV files, plus sanitized notes and their original images in one ZIP.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           <Button type="button" className="w-full gap-2 sm:w-fit" disabled={exportSubmitting} onClick={handleExport}>
