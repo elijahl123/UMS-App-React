@@ -573,8 +573,11 @@ function CalendarPage() {
               <Button size="icon" variant="outline" onClick={() => goToMonth(1)} aria-label="Next month">
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button size="sm" className="bg-primary/15 text-primary hover:bg-primary/25" onClick={() => setAddEventOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" />
+              <Button
+                className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+                onClick={() => setAddEventOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
                 Add Event
               </Button>
             </div>

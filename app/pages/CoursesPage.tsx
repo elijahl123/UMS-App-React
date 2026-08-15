@@ -120,7 +120,10 @@ function CoursesPage() {
           <h1 className="mobile-page-title md:text-2xl md:leading-none md:text-primary">Courses</h1>
           <p className="mobile-page-kicker md:hidden">Manage your courses and materials.</p>
         </div>
-        <Button onClick={openAddDialog} className="hidden gap-2 md:inline-flex">
+        <Button
+          onClick={openAddDialog}
+          className="hidden h-9 gap-2 rounded-md px-3 text-xs md:inline-flex xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+        >
           <Plus className="h-4 w-4" />
           Add Course
         </Button>

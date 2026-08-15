@@ -317,17 +317,40 @@ function HomeworkPage() {
   return (
     <div data-tour="homework" className="min-h-0 md:h-full md:overflow-hidden">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 pb-2 md:h-full md:max-w-none md:gap-0 md:overflow-hidden md:rounded-lg md:border-2 md:border-primary md:bg-card">
-        <section className="mobile-page-header !pr-1 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:pb-3 md:pr-4 md:pt-4 xl:flex-row xl:items-center xl:justify-between xl:px-5 xl:pb-4 xl:pt-5">
-          <div className="max-w-none">
-            <h1 className="mobile-page-title md:text-xl md:text-primary xl:text-2xl">Homework</h1>
-            <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem] md:hidden">
-              Stay on track and get everything done.
-            </p>
+        <section className="mobile-page-header !pr-1 md:flex md:flex-col md:items-stretch md:gap-3 md:px-4 md:!pr-4 md:pb-3 md:pt-4 xl:px-5 xl:!pr-5 xl:pb-4 xl:pt-5">
+          <div className="max-w-none md:flex md:items-center md:justify-between md:gap-4">
+            <div>
+              <h1 className="mobile-page-title md:text-xl md:text-primary xl:text-2xl">Homework</h1>
+              <p className="mobile-page-kicker whitespace-nowrap text-[0.8125rem] md:hidden">
+                Stay on track and get everything done.
+              </p>
+            </div>
+
+            {isDesktopLayout && (
+              <div className="hidden shrink-0 grid-cols-2 gap-2 md:grid" role="group" aria-label="Assignment actions">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+                  onClick={() => setShowImportPanel((current) => !current)}
+                >
+                  <FileUp className="h-4 w-4" />
+                  {showImportPanel ? 'Hide Import' : 'Import school calendar'}
+                </Button>
+                <Button
+                  onClick={openAddDialog}
+                  className="h-9 gap-2 rounded-md border-2 border-primary bg-[var(--secondary-color)] px-3 text-xs font-semibold text-primary shadow-none hover:bg-primary hover:text-primary-foreground xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Assignment
+                </Button>
+              </div>
+            )}
           </div>
           {isDesktopLayout && (
-            <div className="hidden min-w-0 grid-cols-2 items-center gap-2 md:grid xl:grid-cols-[auto_auto_auto_auto] xl:justify-end">
+            <div className="hidden min-w-0 grid-cols-2 gap-2 md:grid md:w-full xl:w-fit" role="group" aria-label="Assignment filters">
               <Select value={courseFilter} onValueChange={setCourseFilter}>
-                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[200px] xl:px-4 xl:text-sm">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by course" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,7 +363,7 @@ function HomeworkPage() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[180px] xl:px-4 xl:text-sm">
+                <SelectTrigger className="h-9 w-full rounded-md border border-input bg-card px-3 text-xs font-semibold text-[var(--secondary-accent)] shadow-none xl:h-10 xl:w-[160px] xl:px-4 xl:text-sm">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -351,22 +374,6 @@ function HomeworkPage() {
                   <SelectItem value="completed">Completed</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-9 gap-2 rounded-md px-3 text-xs xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
-                onClick={() => setShowImportPanel((current) => !current)}
-              >
-                <FileUp className="h-4 w-4" />
-                {showImportPanel ? 'Hide Import' : 'Import school calendar'}
-              </Button>
-              <Button
-                onClick={openAddDialog}
-                className="h-9 gap-2 rounded-md border-2 border-primary bg-[var(--secondary-color)] px-3 text-xs font-semibold text-primary shadow-none hover:bg-primary hover:text-primary-foreground xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
-              >
-                <Plus className="h-4 w-4" />
-                Add Assignment
-              </Button>
             </div>
           )}
         </section>

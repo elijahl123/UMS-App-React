@@ -186,14 +186,22 @@ function NotesPage() {
     <div data-tour="notes" className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden text-[var(--secondary-accent)]">
       <div className="min-h-0 flex-1 overflow-y-auto pb-3">
         <div className="mobile-page-stack px-1 pb-1 md:gap-5 md:px-0">
-          <header className="mobile-page-header md:pr-0 md:pt-2">
+          <header className="mobile-page-header md:flex md:items-center md:justify-between md:gap-4 md:pr-0 md:pt-2">
             <div>
               <h1 className="mobile-page-title sm:text-[2.25rem]">Notes</h1>
               <p className="mobile-page-kicker">Organize your notes by course.</p>
             </div>
+            <Button
+              type="button"
+              onClick={() => navigate('/notes/new')}
+              className="hidden h-9 gap-2 rounded-md px-3 text-xs md:inline-flex xl:h-10 xl:px-4 xl:text-sm [&_svg]:size-4"
+            >
+              <Plus className="h-4 w-4" />
+              Add Note
+            </Button>
           </header>
 
-          <section className="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+          <section className="grid grid-cols-[minmax(0,1fr)_7.75rem] gap-3 sm:grid-cols-[minmax(0,1fr)_10rem] md:grid-cols-1">
             <label className="relative block">
               <span className="sr-only">Search notes</span>
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-secondary)] sm:left-4 sm:h-5 sm:w-5" />
@@ -207,7 +215,7 @@ function NotesPage() {
             <Button
               type="button"
               onClick={() => navigate('/notes/new')}
-              className="mobile-primary-action px-3 sm:min-w-40 sm:px-6"
+              className="mobile-primary-action px-3 sm:min-w-40 sm:px-6 md:hidden"
             >
               <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Add Note
