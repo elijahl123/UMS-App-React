@@ -92,6 +92,16 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8080/api/health
           curl --fail --silent --show-error --head http://127.0.0.1:8080/sw.js \
             | grep -i 'cache-control:.*no-cache'
+          UPLOAD_PROBE="$(mktemp)"
+          truncate -s 26214400 "$UPLOAD_PROBE"
+          UPLOAD_STATUS="$(
+            curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --max-time 60 \
+              --form "image=@${UPLOAD_PROBE};type=image/jpeg" \
+              http://127.0.0.1:8080/api/note-images
+          )"
+          rm -f -- "$UPLOAD_PROBE"
+          test "$UPLOAD_STATUS" = "401"
           WORKER_PATH="$(
             docker compose \
               --env-file .env.docker \
@@ -245,6 +255,9 @@ jobs:
           scp -i ~/.ssh/id_ed25519 -P "$PORT" \
             deploy/docker-rollback.sh \
             "$SSH_USER@$SSH_HOST:/tmp/ums-docker-rollback.sh"
+          scp -i ~/.ssh/id_ed25519 -P "$PORT" \
+            deploy/nginx-upload-limit.conf \
+            "$SSH_USER@$SSH_HOST:/tmp/ums-nginx-upload-limit.conf"
 
       - name: Deploy exact release
         env:
