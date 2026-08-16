@@ -40,8 +40,10 @@ The host Nginx site and the release container must both use
 `client_max_body_size 27m` so 25 MB note images plus multipart overhead reach
 the API.
 
-The deployment user must have passwordless `sudo` access to `docker`,
-`install`, `cp`, and `rm`. Create the protected runtime environment:
+The deployment user must have passwordless `sudo` access to the commands used
+by `deploy/docker-deploy.sh`, including Docker Compose, file inspection and
+installation under `/etc/nginx`, `nginx -t`, and `systemctl reload nginx`.
+Create the protected runtime environment:
 
 ```sh
 sudo install -d -m 0755 /etc/ums-app-react
@@ -124,6 +126,13 @@ Install `deploy/nginx.conf.example` as the site configuration, set
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+Every release also installs `deploy/nginx-upload-limit.conf`, reconciles an
+older server-level `client_max_body_size` directive, validates the complete
+Nginx configuration, and reloads Nginx. After the containers are healthy, the
+release sends an unauthenticated 25 MiB multipart probe and requires the 401
+response from application authentication; a proxy-generated 413 fails the
+deployment.
 
 The host proxy sends all requests to `127.0.0.1:8080`; only ports 80 and 443
 should be open in the cloud firewall.

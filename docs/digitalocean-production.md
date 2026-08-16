@@ -84,7 +84,9 @@ Configure the host Nginx site from `deploy/nginx.conf.example`, with
 `server_name app.untitledmanagementsoftware.com`, and retain the existing
 Certbot-managed certificate. Ensure both the host and container Nginx configs
 use `client_max_body_size 27m`; this provides multipart overhead for the app's
-25 MB note-image limit.
+25 MB note-image limit. Releases enforce this setting on the host, reload Nginx
+only after `nginx -t` succeeds, and verify the public upload path with a 25 MiB
+request-boundary probe.
 
 ## GitHub production environment
 
