@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   deleteUnattachedNoteImage,
   extractNoteImageIdsFromHtml,
+  isSupportedNoteImageFile,
   uploadNoteImage,
 } from '@/app/lib/noteImages/client';
 
@@ -12,8 +13,8 @@ vi.mock('@/app/lib/noteImages/client', async (importOriginal) => ({
   uploadNoteImage: vi.fn(async () => ({
     image: {
       id: 'aa4d6333-ef70-48a7-810d-dfb4bde01d70',
-      originalFilename: 'lecture-diagram.png',
-      contentType: 'image/png',
+      originalFilename: 'lecture-diagram.jpg',
+      contentType: 'image/jpeg',
       byteSize: 12,
     },
     url: 'https://spaces.example/private-image?signature=temporary',
@@ -30,6 +31,12 @@ describe('note image editor', () => {
   beforeAll(() => {
     Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:preview') });
     Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+  });
+
+  it('recognizes HEIC files even when iOS omits the MIME type', () => {
+    expect(isSupportedNoteImageFile({ name: 'IMG_1234.HEIC', type: '' })).toBe(true);
+    expect(isSupportedNoteImageFile({ name: 'IMG_1234.heif', type: 'application/octet-stream' })).toBe(true);
+    expect(isSupportedNoteImageFile({ name: 'IMG_1234.bin', type: 'application/octet-stream' })).toBe(false);
   });
 
   it('uploads from the picker and persists only the managed image ID and alt text', async () => {
@@ -58,5 +65,44 @@ describe('note image editor', () => {
       'aa4d6333-ef70-48a7-810d-dfb4bde01d70'
     ));
     expect(screen.queryByRole('img', { name: 'lecture-diagram' })).not.toBeInTheDocument();
+  });
+
+  it('uploads multiple selected images sequentially', async () => {
+    vi.doUnmock('@/app/components/widgets/RichTextEditor');
+    const { default: RichTextEditor } = await import('@/app/components/widgets/RichTextEditor');
+    let finishFirst!: (value: Awaited<ReturnType<typeof uploadNoteImage>>) => void;
+    vi.mocked(uploadNoteImage)
+      .mockImplementationOnce(() => new Promise((resolve) => { finishFirst = resolve; }))
+      .mockResolvedValueOnce({
+        image: {
+          id: 'bb4d6333-ef70-48a7-810d-dfb4bde01d71',
+          originalFilename: 'second.jpg',
+          contentType: 'image/jpeg',
+          byteSize: 20,
+        },
+        url: 'https://spaces.example/second?signature=temporary',
+        expiresAt: '2026-08-15T01:15:00.000Z',
+      });
+    const user = userEvent.setup();
+    render(<RichTextEditor content="" onChange={vi.fn()} />);
+    const first = new File(['first'], 'first.HEIC', { type: 'image/heic' });
+    const second = new File(['second'], 'second.png', { type: 'image/png' });
+
+    await user.upload(screen.getByLabelText(/upload note images/i), [first, second]);
+    await waitFor(() => expect(uploadNoteImage).toHaveBeenCalledTimes(1));
+    expect(uploadNoteImage).toHaveBeenLastCalledWith(first);
+
+    finishFirst({
+      image: {
+        id: 'aa4d6333-ef70-48a7-810d-dfb4bde01d70',
+        originalFilename: 'first.jpg',
+        contentType: 'image/jpeg',
+        byteSize: 20,
+      },
+      url: 'https://spaces.example/first?signature=temporary',
+      expiresAt: '2026-08-15T01:15:00.000Z',
+    });
+    await waitFor(() => expect(uploadNoteImage).toHaveBeenCalledTimes(2));
+    expect(uploadNoteImage).toHaveBeenLastCalledWith(second);
   });
 });

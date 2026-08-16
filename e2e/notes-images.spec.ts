@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { mockAuthenticatedApp } from './support/appMocks';
+import { smallHeic } from '../server/__tests__/fixtures/noteImageFixtures';
 
 const imageId = 'aa4d6333-ef70-48a7-810d-dfb4bde01d70';
 const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=';
 
-test('uploads a private inline note image and saves only its managed ID', async ({ page }) => {
+test('uploads a private inline HEIC image and saves only its managed ID', async ({ page }) => {
   await page.setViewportSize({ width: 393, height: 851 });
   await mockAuthenticatedApp(page);
 
@@ -19,7 +20,7 @@ test('uploads a private inline note image and saves only its managed ID', async 
       status: 201,
       contentType: 'application/json',
       body: JSON.stringify({
-        image: { id: imageId, originalFilename: 'lecture-diagram.png', contentType: 'image/png', byteSize: 68 },
+        image: { id: imageId, originalFilename: 'lecture-diagram.jpg', contentType: 'image/jpeg', byteSize: 68 },
         url: `data:image/png;base64,${pixel}`,
         expiresAt: '2026-08-15T01:15:00.000Z',
       }),
@@ -29,9 +30,9 @@ test('uploads a private inline note image and saves only its managed ID', async 
   await page.goto('/#/notes/new');
   await page.getByPlaceholder('Note title').fill('Lecture diagram');
   await page.getByLabel('Upload note images').setInputFiles({
-    name: 'lecture-diagram.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from(pixel, 'base64'),
+    name: 'lecture-diagram.HEIC',
+    mimeType: 'image/heic',
+    buffer: smallHeic,
   });
 
   await expect(page.getByRole('img', { name: 'lecture-diagram' })).toBeVisible();

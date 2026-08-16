@@ -83,8 +83,8 @@ deployment mounts it read-only into the API and migration containers.
 Configure the host Nginx site from `deploy/nginx.conf.example`, with
 `server_name app.untitledmanagementsoftware.com`, and retain the existing
 Certbot-managed certificate. Ensure both the host and container Nginx configs
-use `client_max_body_size 12m`; this provides multipart overhead for the app's
-10 MB note-image limit.
+use `client_max_body_size 27m`; this provides multipart overhead for the app's
+25 MB note-image limit.
 
 ## GitHub production environment
 

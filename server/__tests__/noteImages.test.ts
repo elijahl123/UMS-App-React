@@ -2,9 +2,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../errors';
+import { NOTE_IMAGE_MAX_BYTES } from '../noteImageConversion';
+import { smallHeic } from './fixtures/noteImageFixtures';
 
 const query = vi.fn();
 const putNoteImage = vi.fn();
+const processNoteImage = vi.fn();
 const requestObjectDeletionQueueDrain = vi.fn();
 const createNoteImageViewUrl = vi.fn(async () => ({
   url: 'https://umstatic.nyc3.digitaloceanspaces.com/private?signature=test',
@@ -13,6 +16,7 @@ const createNoteImageViewUrl = vi.fn(async () => ({
 
 vi.mock('../db', () => ({ pool: { query } }));
 vi.mock('../noteImageStorage', () => ({ putNoteImage, createNoteImageViewUrl }));
+vi.mock('../noteImageProcessor', () => ({ processNoteImage }));
 vi.mock('../retention', () => ({ requestObjectDeletionQueueDrain }));
 vi.mock('../access', () => {
   const allow = (req: Request, _res: Response, next: NextFunction) => {
@@ -38,6 +42,15 @@ describe('private note image routes', () => {
   beforeEach(() => {
     query.mockReset().mockResolvedValue({ rows: [] });
     putNoteImage.mockReset().mockResolvedValue(undefined);
+    processNoteImage.mockReset().mockImplementation(async (body: Buffer) => ({
+      body: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+      contentType: 'image/jpeg',
+      extension: 'jpg',
+      converted: true,
+      width: 1,
+      height: 1,
+      sourceBytes: body.length,
+    }));
     createNoteImageViewUrl.mockClear();
     requestObjectDeletionQueueDrain.mockClear();
   });
@@ -48,9 +61,14 @@ describe('private note image routes', () => {
       .attach('image', png, { filename: 'diagram.png', contentType: 'image/png' });
 
     expect(response.status).toBe(201);
-    expect(response.body.image).toMatchObject({ originalFilename: 'diagram.png', contentType: 'image/png' });
+    expect(response.body.image).toMatchObject({ originalFilename: 'diagram.jpg', contentType: 'image/jpeg', byteSize: 4 });
     expect(response.body.url).toContain('signature=test');
-    expect(putNoteImage).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'image/png', body: png }));
+    expect(processNoteImage).toHaveBeenCalledWith(png, 'image/png');
+    expect(putNoteImage).toHaveBeenCalledWith(expect.objectContaining({
+      contentType: 'image/jpeg',
+      body: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+      objectKey: expect.stringMatching(/\.jpg$/),
+    }));
     expect(query.mock.calls.some(([sql]) => String(sql).includes("status = 'ready'"))).toBe(true);
   });
 
@@ -62,6 +80,44 @@ describe('private note image routes', () => {
     expect(response.status).toBe(415);
     expect(response.body.error.message).toBe('IMAGE_TYPE_MISMATCH');
     expect(putNoteImage).not.toHaveBeenCalled();
+  });
+
+  it('accepts HEIC aliases and an iOS-style generic MIME type when the signature and extension match', async () => {
+    const declared = await request(await testApp())
+      .post('/api/note-images')
+      .attach('image', smallHeic, { filename: 'IMG_1234.HEIC', contentType: 'image/heif' });
+    expect(declared.status).toBe(201);
+    expect(processNoteImage).toHaveBeenLastCalledWith(smallHeic, 'image/heic');
+    expect(declared.body.image.originalFilename).toBe('IMG_1234.jpg');
+
+    const generic = await request(await testApp())
+      .post('/api/note-images')
+      .attach('image', smallHeic, { filename: 'camera-roll.heic', contentType: 'application/octet-stream' });
+    expect(generic.status).toBe(201);
+  });
+
+  it('returns a useful error when conversion fails before storage', async () => {
+    processNoteImage.mockRejectedValueOnce(new ApiError('IMAGE_CONVERSION_FAILED', 422));
+    const response = await request(await testApp())
+      .post('/api/note-images')
+      .attach('image', png, { filename: 'diagram.png', contentType: 'image/png' });
+
+    expect(response.status).toBe(422);
+    expect(response.body.error.message).toBe('IMAGE_CONVERSION_FAILED');
+    expect(putNoteImage).not.toHaveBeenCalled();
+  });
+
+  it('rejects source files larger than 25 MB before conversion', async () => {
+    const response = await request(await testApp())
+      .post('/api/note-images')
+      .attach('image', Buffer.alloc(NOTE_IMAGE_MAX_BYTES + 1), {
+        filename: 'too-large.heic',
+        contentType: 'image/heic',
+      });
+
+    expect(response.status).toBe(413);
+    expect(response.body.error.message).toBe('IMAGE_TOO_LARGE');
+    expect(processNoteImage).not.toHaveBeenCalled();
   });
 
   it('surfaces storage permission failures as a useful service error', async () => {

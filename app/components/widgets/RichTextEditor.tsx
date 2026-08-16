@@ -34,6 +34,7 @@ import {
   NOTE_IMAGE_ACCEPT,
   NOTE_IMAGE_MAX_BYTES,
   deleteUnattachedNoteImage,
+  isSupportedNoteImageFile,
   noteImageErrorMessage,
   uploadNoteImage,
 } from '@/app/lib/noteImages/client';
@@ -82,6 +83,9 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
   const previewUrlsRef = useRef(new Map<string, string>());
   const removedUploadIdsRef = useRef(new Set<string>());
   const unattachedImageIdsRef = useRef(new Map<string, string>());
+  const uploadQueueRef = useRef<string[]>([]);
+  const queuedUploadIdsRef = useRef(new Set<string>());
+  const uploadQueueRunningRef = useRef(false);
   const insertFilesRef = useRef<(files: File[], position?: number) => void>(() => undefined);
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
 
@@ -179,7 +183,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
     },
     editorProps: {
       handlePaste: (_view, event) => {
-        const files = [...(event.clipboardData?.files ?? [])].filter((file) => file.type.startsWith('image/'));
+        const files = [...(event.clipboardData?.files ?? [])].filter(isSupportedNoteImageFile);
         if (files.length === 0) return false;
         event.preventDefault();
         insertFilesRef.current(files);
@@ -187,7 +191,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
       },
       handleDrop: (view, event, _slice, moved) => {
         if (moved) return false;
-        const files = [...(event.dataTransfer?.files ?? [])].filter((file) => file.type.startsWith('image/'));
+        const files = [...(event.dataTransfer?.files ?? [])].filter(isSupportedNoteImageFile);
         if (files.length === 0) return false;
         event.preventDefault();
         const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
@@ -287,17 +291,39 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
     }
   }, [releaseUploadResources, updateUploadNode]);
 
+  const drainUploadQueue = useCallback(async () => {
+    if (uploadQueueRunningRef.current) return;
+    uploadQueueRunningRef.current = true;
+    try {
+      while (uploadQueueRef.current.length > 0) {
+        const uploadId = uploadQueueRef.current.shift()!;
+        queuedUploadIdsRef.current.delete(uploadId);
+        await performUpload(uploadId);
+      }
+    } finally {
+      uploadQueueRunningRef.current = false;
+    }
+  }, [performUpload]);
+
+  const enqueueUploads = useCallback((uploadIds: string[]) => {
+    for (const uploadId of uploadIds) {
+      if (queuedUploadIdsRef.current.has(uploadId)) continue;
+      queuedUploadIdsRef.current.add(uploadId);
+      uploadQueueRef.current.push(uploadId);
+    }
+    void drainUploadQueue();
+  }, [drainUploadQueue]);
+
   const insertFiles = useCallback((files: File[], position?: number) => {
     const currentEditor = editorRef.current;
     if (!currentEditor) return;
-    const allowed = new Set(NOTE_IMAGE_ACCEPT.split(','));
     const validFiles = files.filter((file) => {
-      if (!allowed.has(file.type)) {
-        setUploadNotice('Choose a JPEG, PNG, WebP, or GIF image.');
+      if (!isSupportedNoteImageFile(file)) {
+        setUploadNotice('Choose a HEIC, HEIF, JPEG, PNG, WebP, or GIF image.');
         return false;
       }
       if (file.size > NOTE_IMAGE_MAX_BYTES) {
-        setUploadNotice('Images must be 10 MB or smaller.');
+        setUploadNotice('Images must be 25 MB or smaller.');
         return false;
       }
       return true;
@@ -326,8 +352,8 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
     const chain = currentEditor.chain().focus();
     if (typeof position === 'number') chain.insertContentAt(position, nodes).run();
     else chain.insertContent(nodes).run();
-    uploads.forEach(({ uploadId }) => void performUpload(uploadId));
-  }, [performUpload]);
+    enqueueUploads(uploads.map(({ uploadId }) => uploadId));
+  }, [enqueueUploads]);
 
   insertFilesRef.current = insertFiles;
 
@@ -414,7 +440,7 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
       </div>
       {uploadNotice && <p className="border-b border-[var(--border-light)] px-4 py-2 text-xs font-medium text-destructive">{uploadNotice}</p>}
       <div className="max-h-[50vh] overflow-y-auto sm:max-h-[60vh]">
-        <NoteImageActionsContext.Provider value={{ retryUpload: (uploadId) => void performUpload(uploadId) }}>
+        <NoteImageActionsContext.Provider value={{ retryUpload: (uploadId) => enqueueUploads([uploadId]) }}>
           <EditorContent editor={editor} />
         </NoteImageActionsContext.Provider>
       </div>
