@@ -6,15 +6,26 @@ import { fileTypeFromBuffer } from 'file-type';
 import { requireContentReadAccess, requireFullWriteAccess } from '../access';
 import { pool } from '../db';
 import { ApiError } from '../errors';
+import {
+  HEIC_MIME_TYPES,
+  NOTE_IMAGE_MAX_BYTES,
+  type SupportedNoteImageMime,
+} from '../noteImageConversion';
+import { processNoteImage } from '../noteImageProcessor';
 import { createNoteImageViewUrl, putNoteImage } from '../noteImageStorage';
 import { requestObjectDeletionQueueDrain } from '../retention';
 
-export const NOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const allowedTypes = new Map([
-  ['image/jpeg', 'jpg'],
-  ['image/png', 'png'],
-  ['image/webp', 'webp'],
-  ['image/gif', 'gif'],
+export { NOTE_IMAGE_MAX_BYTES } from '../noteImageConversion';
+const allowedTypes = new Set<SupportedNoteImageMime>([
+  'image/jpeg',
+  'image/png',
+  'image/apng',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
 ]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -39,8 +50,8 @@ function runUpload(req: Request, res: Response, next: (err?: unknown) => void) {
   upload.single('image')(req, res, next);
 }
 
-function safeFilename(value: string, extension: string): string {
-  const basename = path.basename(value || `note-image.${extension}`)
+function outputFilename(value: string, extension: string): string {
+  const basename = path.parse(path.basename(value || 'note-image')).name
     .split('')
     .filter((character) => {
       const code = character.charCodeAt(0);
@@ -48,8 +59,19 @@ function safeFilename(value: string, extension: string): string {
     })
     .join('')
     .trim()
-    .slice(0, 180);
-  return basename || `note-image.${extension}`;
+    .slice(0, 170)
+    .replace(/[. ]+$/g, '');
+  return `${basename || 'note-image'}.${extension}`;
+}
+
+function declaredTypeMatches(file: Express.Multer.File, detectedType: SupportedNoteImageMime) {
+  const declaredType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype.toLowerCase();
+  if (HEIC_MIME_TYPES.has(detectedType)) {
+    if (HEIC_MIME_TYPES.has(declaredType)) return true;
+    return (!declaredType || declaredType === 'application/octet-stream') && /\.(?:heic|heif)$/i.test(file.originalname);
+  }
+  if (detectedType === 'image/apng') return declaredType === 'image/apng' || declaredType === 'image/png';
+  return declaredType === detectedType;
 }
 
 noteImagesRouter.post('/', requireFullWriteAccess, runUpload, async (req, res) => {
@@ -60,15 +82,17 @@ noteImagesRouter.post('/', requireFullWriteAccess, runUpload, async (req, res) =
     if (!file) throw new ApiError('IMAGE_FILE_REQUIRED', 400);
     const bytes = new Uint8Array(file.buffer.buffer, file.buffer.byteOffset, file.buffer.byteLength);
     const detected = await fileTypeFromBuffer(bytes);
-    const extension = detected ? allowedTypes.get(detected.mime) : undefined;
-    if (!detected || !extension) throw new ApiError('UNSUPPORTED_IMAGE_TYPE', 415);
-    const declaredType = file.mimetype === 'image/jpg' ? 'image/jpeg' : file.mimetype;
-    if (declaredType !== detected.mime) throw new ApiError('IMAGE_TYPE_MISMATCH', 415);
+    if (!detected || !allowedTypes.has(detected.mime as SupportedNoteImageMime)) {
+      throw new ApiError('UNSUPPORTED_IMAGE_TYPE', 415);
+    }
+    const detectedType = detected.mime as SupportedNoteImageMime;
+    if (!declaredTypeMatches(file, detectedType)) throw new ApiError('IMAGE_TYPE_MISMATCH', 415);
+    const processed = await processNoteImage(file.buffer, detectedType);
 
     const userId = req.auth!.uid;
     const userHash = crypto.createHash('sha256').update(userId).digest('hex').slice(0, 24);
-    const objectKey = `notes/${userHash}/${imageId}.${extension}`;
-    const originalFilename = safeFilename(file.originalname, extension);
+    const objectKey = `notes/${userHash}/${imageId}.${processed.extension}`;
+    const originalFilename = outputFilename(file.originalname, processed.extension);
 
     await pool.query(
       `
@@ -76,17 +100,22 @@ noteImagesRouter.post('/', requireFullWriteAccess, runUpload, async (req, res) =
           id, user_id, object_key, original_filename, content_type, byte_size, status
         ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 'pending');
       `,
-      [imageId, userId, objectKey, originalFilename, detected.mime, file.size]
+      [imageId, userId, objectKey, originalFilename, processed.contentType, processed.body.length]
     );
     rowCreated = true;
-    await putNoteImage({ objectKey, body: file.buffer, contentType: detected.mime });
+    await putNoteImage({ objectKey, body: processed.body, contentType: processed.contentType });
     await pool.query(
       `UPDATE note_images SET status = 'ready', uploaded_at = NOW(), updated_at = NOW() WHERE id = $1::uuid;`,
       [imageId]
     );
     const view = await createNoteImageViewUrl(objectKey);
     return res.status(201).json({
-      image: { id: imageId, originalFilename, contentType: detected.mime, byteSize: file.size },
+      image: {
+        id: imageId,
+        originalFilename,
+        contentType: processed.contentType,
+        byteSize: processed.body.length,
+      },
       ...view,
     });
   } catch (err) {

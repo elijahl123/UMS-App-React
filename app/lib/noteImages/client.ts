@@ -1,7 +1,38 @@
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 
-export const NOTE_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
-export const NOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+export const NOTE_IMAGE_ACCEPT = [
+  'image/jpeg',
+  'image/png',
+  'image/apng',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  '.heic',
+  '.heif',
+  '.apng',
+].join(',');
+export const NOTE_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
+
+const noteImageMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/apng',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+]);
+
+export function isSupportedNoteImageFile(file: Pick<File, 'name' | 'type'>): boolean {
+  const type = file.type.toLowerCase();
+  if (noteImageMimeTypes.has(type)) return true;
+  return (!type || type === 'application/octet-stream') && /\.(?:heic|heif)$/i.test(file.name);
+}
 
 export interface UploadedNoteImage {
   image: {
@@ -65,9 +96,13 @@ export function noteImageErrorMessage(err: unknown): string {
   const code = (err as { error?: { message?: string } })?.error?.message
     ?? (err instanceof Error ? err.message : 'NOTE_IMAGE_REQUEST_FAILED');
   switch (code) {
-    case 'IMAGE_TOO_LARGE': return 'Images must be 10 MB or smaller.';
-    case 'UNSUPPORTED_IMAGE_TYPE': return 'Choose a JPEG, PNG, WebP, or GIF image.';
+    case 'IMAGE_TOO_LARGE': return 'Images must be 25 MB or smaller.';
+    case 'IMAGE_DIMENSIONS_TOO_LARGE': return 'Images must be 50 megapixels or smaller.';
+    case 'UNSUPPORTED_IMAGE_TYPE': return 'Choose a HEIC, HEIF, JPEG, PNG, WebP, or GIF image.';
     case 'IMAGE_TYPE_MISMATCH': return 'The file contents do not match its image type.';
+    case 'IMAGE_CONVERSION_FAILED': return 'The image could not be converted. Try exporting it as a JPEG and upload it again.';
+    case 'IMAGE_PROCESSING_BUSY': return 'Image processing is busy. Retry in a moment.';
+    case 'IMAGE_PROCESSING_TIMEOUT': return 'Image processing took too long. Retry or use a smaller image.';
     case 'IMAGE_STORAGE_NOT_CONFIGURED': return 'Image storage is not configured yet.';
     case 'IMAGE_STORAGE_ACCESS_DENIED': return 'Image storage does not have write access to the configured Space.';
     case 'IMAGE_STORAGE_CREDENTIALS_INVALID': return 'Image storage credentials are invalid.';

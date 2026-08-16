@@ -37,7 +37,7 @@ sudo systemctl enable --now docker
 ```
 
 The host Nginx site and the release container must both use
-`client_max_body_size 12m` so 10 MB note images plus multipart overhead reach
+`client_max_body_size 27m` so 25 MB note images plus multipart overhead reach
 the API.
 
 The deployment user must have passwordless `sudo` access to `docker`,

@@ -2,6 +2,7 @@ import { createApp } from './app';
 import { ensureBillingTables } from './billing';
 import { config } from './config';
 import { pool } from './db';
+import { closeNoteImageProcessor } from './noteImageProcessor';
 import { startRetentionCleanup } from './retention';
 
 await ensureBillingTables();
@@ -47,6 +48,7 @@ async function shutdown(signal: NodeJS.Signals) {
         resolve();
       });
     });
+    await closeNoteImageProcessor();
     await pool.end();
     clearTimeout(forcedExit);
     console.log('[shutdown] complete');
