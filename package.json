@@ -55,6 +55,8 @@
     "@tiptap/core": "^3.7.2",
     "@tiptap/extension-link": "^3.7.2",
     "@tiptap/extension-mathematics": "3.27.4",
+    "@tiptap/extension-subscript": "3.27.4",
+    "@tiptap/extension-superscript": "3.27.4",
     "@tiptap/extension-text-align": "^3.7.2",
     "@tiptap/extension-underline": "^3.7.2",
     "@tiptap/extensions": "^3.7.2",

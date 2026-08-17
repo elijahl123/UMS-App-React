@@ -138,11 +138,93 @@ export function normalizeChatGptMathHtml(html: string) {
   const template = document.createElement('template');
   template.innerHTML = html;
 
+  const editableMathMlTags = new Set([
+    'math',
+    'semantics',
+    'mrow',
+    'mi',
+    'mn',
+    'mo',
+    'mtext',
+    'ms',
+    'mspace',
+    'msub',
+    'msup',
+    'msubsup',
+  ]);
+
+  const renderEditableMathMl = (source: Element, target: HTMLElement): boolean => {
+    const tag = source.localName;
+    if (!editableMathMlTags.has(tag)) return false;
+
+    if (tag === 'semantics') {
+      const presentation = [...source.children].find((child) => child.localName !== 'annotation');
+      return presentation ? renderEditableMathMl(presentation, target) : false;
+    }
+
+    if (tag === 'mi' || tag === 'mn' || tag === 'mo' || tag === 'mtext' || tag === 'ms') {
+      target.append(document.createTextNode(source.textContent ?? ''));
+      return true;
+    }
+
+    if (tag === 'mspace') {
+      target.append(document.createTextNode(' '));
+      return true;
+    }
+
+    const children = [...source.children];
+    if (children.length === 0) {
+      const text = source.textContent ?? '';
+      if (!text) return false;
+      target.append(document.createTextNode(text));
+      return true;
+    }
+
+    if (tag === 'msub' || tag === 'msup' || tag === 'msubsup') {
+      if (children.length < 2 || !renderEditableMathMl(children[0], target)) return false;
+
+      const subscript = tag === 'msub' || tag === 'msubsup' ? children[1] : null;
+      const superscript = tag === 'msup' ? children[1] : tag === 'msubsup' ? children[2] : null;
+
+      if (subscript) {
+        const sub = document.createElement('sub');
+        if (!renderEditableMathMl(subscript, sub)) return false;
+        target.append(sub);
+      }
+      if (superscript) {
+        const sup = document.createElement('sup');
+        if (!renderEditableMathMl(superscript, sup)) return false;
+        target.append(sup);
+      }
+      return true;
+    }
+
+    for (const child of children) {
+      if (!renderEditableMathMl(child, target)) return false;
+    }
+    return true;
+  };
+
+  const editableMath = (source: Element, type: 'inline' | 'block') => {
+    const math = source.querySelector('.katex-mathml math') ?? source.querySelector('math');
+    const semantics = math?.querySelector('semantics');
+    if (!semantics) return null;
+
+    const replacement = document.createElement(type === 'block' ? 'div' : 'span');
+    return renderEditableMathMl(semantics, replacement) ? replacement : null;
+  };
+
   const replaceMath = (source: Element, type: 'inline' | 'block') => {
     const latex = source
       .querySelector('annotation[encoding="application/x-tex"]')
       ?.textContent?.trim();
     if (!latex) return;
+
+    const editable = editableMath(source, type);
+    if (editable) {
+      source.replaceWith(editable);
+      return;
+    }
 
     const replacement = document.createElement(type === 'block' ? 'div' : 'span');
     replacement.dataset.type = type === 'block' ? 'block-math' : 'inline-math';
