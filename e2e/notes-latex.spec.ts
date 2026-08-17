@@ -19,18 +19,19 @@ test('renders, edits, and serializes ChatGPT-style pasted LaTeX', async ({ page 
     const clipboard = new DataTransfer();
     clipboard.setData(
       'text/plain',
-      'Energy is \\(E=mc^2\\).\n\n\\[\n\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n\\]'
+      'Ratio is \\(\\frac{E}{m}\\).\n\n\\[\n\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\n\\]'
     );
     clipboard.setData(
       'text/html',
-      '<p>Energy is <span class="katex">' +
-        '<span class="katex-mathml"><math><semantics><mrow>E=mc²</mrow>' +
-        '<annotation encoding="application/x-tex">E=mc^2</annotation>' +
+      '<p>Ratio is <span class="katex">' +
+        '<span class="katex-mathml"><math><semantics><mfrac><mi>E</mi><mi>m</mi></mfrac>' +
+        '<annotation encoding="application/x-tex">\\frac{E}{m}</annotation>' +
         '</semantics></math></span>' +
-        '<span class="katex-html" aria-hidden="true">E=mc²</span>' +
+        '<span class="katex-html" aria-hidden="true">E/m</span>' +
         '</span>.</p>' +
         '<span class="katex-display"><span class="katex">' +
-        '<span class="katex-mathml"><math><semantics><mrow>sum</mrow>' +
+        '<span class="katex-mathml"><math><semantics><mrow><mo>∑</mo>' +
+        '<mfrac><mi>n</mi><mn>2</mn></mfrac></mrow>' +
         '<annotation encoding="application/x-tex">\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}</annotation>' +
         '</semantics></math></span>' +
         '<span class="katex-html" aria-hidden="true">sum</span>' +
@@ -47,7 +48,7 @@ test('renders, edits, and serializes ChatGPT-style pasted LaTeX', async ({ page 
 
   const inlineMath = editor.locator('[data-type="inline-math"]');
   const blockMath = editor.locator('[data-type="block-math"]');
-  await expect(inlineMath).toHaveAttribute('data-latex', 'E=mc^2');
+  await expect(inlineMath).toHaveAttribute('data-latex', '\\frac{E}{m}');
   await expect(inlineMath.locator('.katex')).toBeVisible();
   await expect(blockMath).toHaveAttribute(
     'data-latex',
@@ -57,16 +58,16 @@ test('renders, edits, and serializes ChatGPT-style pasted LaTeX', async ({ page 
 
   page.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('prompt');
-    expect(dialog.defaultValue()).toBe('E=mc^2');
-    await dialog.accept('E=hv');
+    expect(dialog.defaultValue()).toBe('\\frac{E}{m}');
+    await dialog.accept('\\frac{p}{q}');
   });
   await inlineMath.click();
-  await expect(inlineMath).toHaveAttribute('data-latex', 'E=hv');
+  await expect(inlineMath).toHaveAttribute('data-latex', '\\frac{p}{q}');
 
   await page.getByRole('button', { name: 'Create Note' }).click();
   await expect(page).toHaveURL(/#\/notes$/);
   expect(savedContent).toContain(
-    '<span data-latex="E=hv" data-type="inline-math"></span>'
+    '<span data-latex="\\frac{p}{q}" data-type="inline-math"></span>'
   );
   expect(savedContent).toContain(
     '<div data-latex="\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}" data-type="block-math"></div>'

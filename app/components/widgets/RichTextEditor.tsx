@@ -3,6 +3,8 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Link from '@tiptap/extension-link';
+import Subscript from '@tiptap/extension-subscript';
+import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
 import { BlockMath, InlineMath } from '@tiptap/extension-mathematics';
 import type { Editor } from '@tiptap/core';
@@ -26,6 +28,8 @@ import {
   Heading1,
   Heading2,
   ImagePlus,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LatexPaste, recoverChatGptPasteArtifacts } from '@/app/lib/latexPaste';
@@ -137,6 +141,8 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
     extensions: [
       StarterKit.configure({ link: false, underline: false }),
       Underline,
+      Subscript,
+      Superscript,
       Link.configure({ openOnClick: false, autolink: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       InlineMath.extend({
@@ -403,6 +409,12 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
         </ToolbarButton>
         <ToolbarButton title="Strikethrough" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
           <Strikethrough className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton title="Subscript" active={editor.isActive('subscript')} onClick={() => editor.chain().focus().toggleSubscript().run()}>
+          <SubscriptIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton title="Superscript" active={editor.isActive('superscript')} onClick={() => editor.chain().focus().toggleSuperscript().run()}>
+          <SuperscriptIcon className="h-4 w-4" />
         </ToolbarButton>
         <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border-light)]" />
         <ToolbarButton title="Align left" active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}>

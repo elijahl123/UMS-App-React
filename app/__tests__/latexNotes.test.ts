@@ -20,32 +20,30 @@ function createMathEditor() {
 }
 
 describe('LaTeX note paste parsing', () => {
-  it('collapses ChatGPT KaTeX clipboard HTML into one math node per formula', () => {
+  it('keeps text-like ChatGPT math editable and complex formulas rendered', () => {
     const html =
-      '<p>A DFA uses ' +
+      '<p>Use ' +
       '<span class="katex">' +
-      '<span class="katex-mathml"><math><semantics><mrow>A=(Q,Σ)</mrow>' +
-      '<annotation encoding="application/x-tex">A=(Q,\\Sigma)</annotation>' +
+      '<span class="katex-mathml"><math><semantics><mrow>' +
+      '<msub><mi>R</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub>' +
+      '<mo>→</mo><msup><mi>x</mi><mn>2</mn></msup></mrow>' +
+      '<annotation encoding="application/x-tex">R_{ij}\\to x^2</annotation>' +
       '</semantics></math></span>' +
-      '<span class="katex-html" aria-hidden="true">A=(Q,Σ)</span>' +
+      '<span class="katex-html" aria-hidden="true">Rij→x²</span>' +
       '</span>.</p>' +
       '<span class="katex-display"><span class="katex">' +
-      '<span class="katex-mathml"><math><semantics><mrow>δ(q,ε)=q</mrow>' +
-      '<annotation encoding="application/x-tex">\\delta(q,\\epsilon)=q</annotation>' +
+      '<span class="katex-mathml"><math><semantics><mfrac><mi>a</mi><mi>b</mi></mfrac>' +
+      '<annotation encoding="application/x-tex">\\frac{a}{b}</annotation>' +
       '</semantics></math></span>' +
-      '<span class="katex-html" aria-hidden="true">δ(q,ε)=q</span>' +
+      '<span class="katex-html" aria-hidden="true">a/b</span>' +
       '</span></span>';
 
     const normalized = normalizeChatGptMathHtml(html);
 
-    expect(normalized).toContain(
-      '<span data-type="inline-math" data-latex="A=(Q,\\Sigma)"></span>'
-    );
-    expect(normalized).toContain(
-      '<div data-type="block-math" data-latex="\\delta(q,\\epsilon)=q"></div>'
-    );
+    expect(normalized).toContain('<span>R<sub>ij</sub>→x<sup>2</sup></span>');
+    expect(normalized).toContain('<div data-type="block-math" data-latex="\\frac{a}{b}"></div>');
     expect(normalized).not.toContain('katex');
-    expect(normalized).not.toContain('A=(Q,Σ)');
+    expect(normalized).not.toContain('Rij→x²');
   });
 
   it('recognizes ChatGPT and dollar-delimited inline formulas', () => {
@@ -101,6 +99,22 @@ describe('LaTeX note paste parsing', () => {
     }
     expect(parseBlockLatex('$$  $$')).toBeNull();
     expect(parseBlockLatex('\\[not closed')).toBeNull();
+  });
+
+  it('keeps Unicode script notation from study notes as ordinary editable text', () => {
+    const editor = createMathEditor();
+    const value = 'xyⁱz ∉ L; {0ⁿ1ⁿ | n ≥ 0}; w = 0ᵖ1ᵖ; L₁ ∪ L₂';
+    const paragraph = editor.schema.nodes.paragraph.create(null, editor.schema.text(value));
+
+    const transformed = transformLatexSlice(
+      new Slice(Fragment.from(paragraph), 0, 0),
+      editor.schema
+    );
+
+    expect(transformed.content.firstChild?.textContent).toBe(value);
+    expect(transformed.content.firstChild?.childCount).toBe(1);
+    expect(transformed.content.firstChild?.firstChild?.isText).toBe(true);
+    editor.destroy();
   });
 
   it('preserves rich-text marks while replacing a formula split across text nodes', () => {
