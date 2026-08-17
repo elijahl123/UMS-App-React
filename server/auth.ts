@@ -323,7 +323,23 @@ export async function requireAppAuthentication(req: Request, res: Response, next
   } catch (err) {
     const status = err instanceof ApiError ? err.status : 401;
     const message = err instanceof Error ? err.message : 'INVALID_AUTH_TOKEN';
-    return res.status(status).json({ error: { message } });
+    const respond = () => res.status(status).json({ error: { message } });
+
+    // Nginx buffers note-image uploads before proxying them to the API. If the
+    // API responds before consuming that buffered body, Nginx can hit EPIPE
+    // while forwarding it and replace this authentication response with 502.
+    // Drain only this bounded multipart route so clients (and the deployment
+    // boundary probe) reliably receive the intended 401 response.
+    const isNoteImageUpload = req.method === 'POST'
+      && /^\/api\/note-images\/?(?:\?|$)/.test(req.originalUrl)
+      && Boolean(req.is('multipart/form-data'));
+    if (isNoteImageUpload && !req.readableEnded) {
+      req.once('end', respond);
+      req.resume();
+      return;
+    }
+
+    return respond();
   }
 }
 
