@@ -1,7 +1,10 @@
 import http from 'node:http';
 import express from 'express';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { requireAppAuthentication } from '../auth';
+
+vi.mock('../config', () => ({ config: {} }));
+vi.mock('../db', () => ({ pool: { query: vi.fn() } }));
 
 const openServers = new Set<http.Server>();
 
