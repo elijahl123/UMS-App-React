@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 
 let authToken: string | null = null;
+let authTokenRefresher: (() => Promise<string | null>) | null = null;
 const API_TIMEOUT_MS = 10000;
 
 export function getApiBaseUrl(): string {
@@ -23,7 +24,7 @@ export function apiUrl(path = ''): string {
   return normalizedPath ? `${baseUrl}/${normalizedPath}` : baseUrl;
 }
 
-export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
   const notifyAccessFailure = async (response: Response) => {
     if (response.status !== 403 || typeof window === 'undefined') return response;
     const payload = await response.clone().json().catch(() => null) as { error?: { message?: string } } | null;
@@ -33,20 +34,36 @@ export function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     }
     return response;
   };
-  if (init?.signal) {
-    return fetch(apiUrl(path), init).then(notifyAccessFailure);
+  let nextInit = init;
+  const headers = new Headers(init?.headers);
+  if (headers.has('Authorization') && authTokenRefresher) {
+    const freshToken = await authTokenRefresher();
+    if (freshToken) {
+      headers.set('Authorization', `Bearer ${freshToken}`);
+    } else {
+      headers.delete('Authorization');
+    }
+    nextInit = { ...init, headers };
+  }
+
+  if (nextInit?.signal) {
+    return fetch(apiUrl(path), nextInit).then(notifyAccessFailure);
   }
 
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-  return fetch(apiUrl(path), { ...init, signal: controller.signal })
+  return fetch(apiUrl(path), { ...nextInit, signal: controller.signal })
     .then(notifyAccessFailure)
     .finally(() => window.clearTimeout(timeoutId));
 }
 
 export function setApiAuthToken(token: string | null) {
   authToken = token;
+}
+
+export function setApiAuthTokenRefresher(refresher: (() => Promise<string | null>) | null) {
+  authTokenRefresher = refresher;
 }
 
 export function getApiAuthHeaders(): HeadersInit {

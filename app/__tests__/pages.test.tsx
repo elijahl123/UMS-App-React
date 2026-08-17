@@ -467,11 +467,22 @@ describe('auth and recovery pages', () => {
     const user = userEvent.setup();
     renderWithRouter(<LoginPage />, { route: '/login' });
 
+    expect(screen.getByRole('checkbox', { name: /remember me/i })).toBeChecked();
     await user.type(screen.getByLabelText(/email/i), 'jane@example.com');
     await user.type(screen.getByLabelText(/password/i), 'password123');
     await user.click(screen.getByRole('button', { name: /^log in$/i }));
 
-    await waitFor(() => expect(authActions.login).toHaveBeenCalledWith('jane@example.com', 'password123'));
+    await waitFor(() => expect(authActions.login).toHaveBeenCalledWith('jane@example.com', 'password123', true));
+  });
+
+  it('uses the temporary-session choice for Google login', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<LoginPage />, { route: '/login' });
+
+    await user.click(screen.getByRole('checkbox', { name: /remember me/i }));
+    await user.click(screen.getByRole('button', { name: /continue with google/i }));
+
+    expect(authActions.signInWithGoogle).toHaveBeenCalledWith(false);
   });
 
   it('sends first-login trial starts to billing after login', async () => {

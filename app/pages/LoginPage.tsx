@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { GraduationCap, Loader2 } from 'lucide-react';
+import { Check, GraduationCap, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ function LoginPage() {
   const location = useLocation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -43,7 +44,7 @@ function LoginPage() {
     setFormError(null);
     setIsSubmitting(true);
     try {
-      const result = await login(values.email, values.password);
+      const result = await login(values.email, values.password, rememberMe);
       if (result.success) {
         navigate(result.trialStartedNow ? '/billing?trial=started' : from, { replace: true });
       } else {
@@ -98,6 +99,19 @@ function LoginPage() {
                   </FormItem>
                 )}
               />
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                <span className="relative h-4 w-4 shrink-0">
+                  <input
+                    type="checkbox"
+                    className="peer absolute inset-0 cursor-pointer opacity-0"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  <span className="pointer-events-none absolute inset-0 rounded border border-border bg-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2" />
+                  {rememberMe && <Check className="pointer-events-none absolute left-px top-px h-3.5 w-3.5 stroke-[3] text-primary" aria-hidden="true" />}
+                </span>
+                <span>Remember me on this device</span>
+              </label>
               {(formError || googleSignInError) && (
                 <p className="text-sm font-medium text-destructive">{formError ?? googleSignInError}</p>
               )}
@@ -108,7 +122,7 @@ function LoginPage() {
             </form>
           </Form>
           <div className="mt-4">
-            <GoogleSignInButton label="Continue with Google" />
+            <GoogleSignInButton label="Continue with Google" rememberMe={rememberMe} />
           </div>
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}

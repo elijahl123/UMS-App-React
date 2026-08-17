@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { mapFirebaseUser } from '@/app/data/mappers';
 import type { AppUser, StagingAccessUser } from '@/app/data/types';
-import { apiFetch, getApiAuthHeaders, setApiAuthToken } from '@/app/lib/api/client';
+import { apiFetch, getApiAuthHeaders, setApiAuthToken, setApiAuthTokenRefresher } from '@/app/lib/api/client';
 import {
   consumeGoogleRedirectIdToken,
   getGoogleOAuthRequestUri,
@@ -18,9 +18,18 @@ import { isKnownInstitutionEmail, isLaunchJourney } from '@/app/lib/launch/attri
 import { trackProductEvent } from '@/app/lib/launch/client';
 import { initializeOnboarding, ONBOARDING_INITIALIZE_PENDING_KEY } from '@/app/lib/onboarding/client';
 import { requestPasswordResetEmail, requestPrimaryEmailVerification } from '@/app/lib/email/client';
+import {
+  clearStoredAuthSession,
+  expiresAtFrom,
+  readStoredAuthSession,
+  shouldRefreshSession,
+  writeStoredAuthSession,
+  type SessionPersistence,
+  type StoredAuthSession,
+} from '@/app/lib/auth/sessionPersistence';
 
-const SESSION_STORAGE_KEY = 'schoolwork_auth_session';
 const TRIAL_REDIRECT_STORAGE_KEY = 'schoolwork_trial_started_redirect';
+const GOOGLE_PERSISTENCE_STORAGE_KEY = 'schoolwork_google_auth_persistence';
 
 type AuthResult = Promise<{
   success: boolean;
@@ -38,6 +47,7 @@ interface FirebaseAuthResult {
   email: string;
   idToken: string;
   refreshToken: string;
+  expiresIn?: string;
   displayName?: string;
 }
 
@@ -46,10 +56,18 @@ interface FirebaseIdpResult {
   email: string;
   idToken: string;
   refreshToken: string;
+  expiresIn?: string;
   displayName?: string;
   emailVerified?: boolean;
   providerId?: string;
   isNewUser?: boolean;
+}
+
+interface FirebaseRefreshResult {
+  id_token: string;
+  refresh_token: string;
+  expires_in: string;
+  user_id: string;
 }
 
 interface FirebaseLookupResult {
@@ -63,25 +81,6 @@ interface FirebaseLookupResult {
       providerId?: string;
     }>;
   }>;
-}
-
-interface StoredSession {
-  idToken: string;
-  user: AppUser;
-}
-
-function readStoredSession(): StoredSession | null {
-  const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!stored) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(stored) as StoredSession;
-  } catch {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-    return null;
-  }
 }
 
 function friendlyFirebaseError(code: string): string {
@@ -117,6 +116,20 @@ function extractErrorCode(err: unknown): string {
   return response?.error?.message ?? 'UNKNOWN_ERROR';
 }
 
+function isTerminalRefreshError(err: unknown): boolean {
+  return new Set(['TOKEN_EXPIRED', 'USER_DISABLED', 'USER_NOT_FOUND', 'INVALID_REFRESH_TOKEN']).has(extractErrorCode(err));
+}
+
+function persistenceFromRememberMe(rememberMe: boolean): SessionPersistence {
+  return rememberMe ? 'local' : 'session';
+}
+
+function consumeGooglePersistence(): SessionPersistence | null {
+  const stored = sessionStorage.getItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
+  sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
+  return stored === 'local' || stored === 'session' ? stored : null;
+}
+
 interface AuthContextValue {
   user: AppUser | null;
   idToken: string | null;
@@ -124,7 +137,7 @@ interface AuthContextValue {
   isStagingAccessControlEnabled: boolean;
   isLoading: boolean;
   isStagingAccessLoading: boolean;
-  login: (email: string, password: string) => AuthResult;
+  login: (email: string, password: string, rememberMe: boolean) => AuthResult;
   signup: (values: {
     email: string;
     password: string;
@@ -138,7 +151,7 @@ interface AuthContextValue {
   verifyEmailWithToken: (oobCode: string) => Promise<{ success: boolean; error?: string }>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   resetPasswordWithToken: (oobCode: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
-  signInWithGoogle: () => AuthResult;
+  signInWithGoogle: (rememberMe?: boolean) => AuthResult;
   deleteAccount: (values: { confirmationEmail: string }) => Promise<{ success: boolean; error?: string }>;
   isGoogleSignInAvailable: boolean;
   isProcessingGoogleRedirect: boolean;
@@ -161,6 +174,83 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [trialStartedRedirectPending, setTrialStartedRedirectPending] = useState(() =>
     sessionStorage.getItem(TRIAL_REDIRECT_STORAGE_KEY) === '1'
   );
+  const sessionRef = useRef<StoredAuthSession | null>(null);
+  const persistenceRef = useRef<SessionPersistence>('local');
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
+
+  const clearSession = useCallback(() => {
+    sessionRef.current = null;
+    refreshPromiseRef.current = null;
+    setUser(null);
+    setIdToken(null);
+    setStagingAccess(null);
+    setApiAuthToken(null);
+    clearStoredAuthSession();
+  }, []);
+
+  const persistSession = useCallback((
+    tokens: { idToken: string; refreshToken?: string | null; expiresIn?: string | number },
+    nextUser: AppUser,
+    persistence: SessionPersistence = persistenceRef.current
+  ) => {
+    const currentSession = sessionRef.current;
+    const calculatedExpiresAt = expiresAtFrom(tokens.expiresIn, tokens.idToken);
+    const nextSession: StoredAuthSession = {
+      version: 2,
+      idToken: tokens.idToken,
+      refreshToken: tokens.refreshToken ?? currentSession?.refreshToken ?? null,
+      expiresAt: calculatedExpiresAt ?? (tokens.idToken === currentSession?.idToken ? currentSession.expiresAt : null),
+      user: nextUser,
+    };
+    sessionRef.current = nextSession;
+    persistenceRef.current = persistence;
+    setIdToken(nextSession.idToken);
+    setApiAuthToken(nextSession.idToken);
+    setUser(nextUser);
+    writeStoredAuthSession(nextSession, persistence);
+  }, []);
+
+  const refreshAuthToken = useCallback(async (force = false): Promise<string | null> => {
+    const session = sessionRef.current;
+    if (!session) return null;
+    if (!session.refreshToken || (!force && !shouldRefreshSession(session))) {
+      return session.idToken;
+    }
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const refreshToken = session.refreshToken;
+    const refreshPromise = (async () => {
+      try {
+        const result = await firebaseAuth.refreshToken(refreshToken) as FirebaseRefreshResult;
+        persistSession({
+          idToken: result.id_token,
+          refreshToken: result.refresh_token,
+          expiresIn: result.expires_in,
+        }, session.user);
+        return result.id_token;
+      } catch (err) {
+        if (isTerminalRefreshError(err)) {
+          console.warn('[Auth] Stored Firebase session is no longer valid:', extractErrorCode(err));
+          clearSession();
+          return null;
+        }
+        console.warn('[Auth] Token refresh temporarily failed; keeping the stored session:', err);
+        return sessionRef.current?.idToken ?? session.idToken;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    refreshPromiseRef.current = refreshPromise;
+    return refreshPromise;
+  }, [clearSession, persistSession]);
+
+  useEffect(() => {
+    setApiAuthTokenRefresher(() => refreshAuthToken());
+    return () => setApiAuthTokenRefresher(null);
+  }, [refreshAuthToken]);
 
   const refreshStagingAccess = async (token = idToken, enabled = isStagingAccessControlEnabled): Promise<boolean> => {
     if (!enabled) {
@@ -224,7 +314,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginWithGoogle = async (googleIdToken: string, linkToIdToken?: string, accessControlEnabled = isStagingAccessControlEnabled) => {
+  const loginWithGoogle = async (
+    googleIdToken: string,
+    linkToIdToken?: string,
+    accessControlEnabled = isStagingAccessControlEnabled,
+    persistence = persistenceRef.current
+  ) => {
     try {
       const postBody = `id_token=${encodeURIComponent(googleIdToken)}&providerId=google.com`;
       const result: FirebaseIdpResult = await firebaseAuth.signInWithIdp({
@@ -245,7 +340,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
             emailVerified: result.emailVerified ?? true,
             connectedProviders: [result.providerId ?? 'google.com'],
       };
-      persistSession(result.idToken, nextUser);
+      persistSession({
+        idToken: result.idToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
+      }, nextUser, persistence);
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       if (result.isNewUser) {
         initializeFirstRun(nextUser);
@@ -273,13 +372,20 @@ function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
         }
+        const storedRecord = readStoredAuthSession();
+        if (storedRecord) {
+          sessionRef.current = storedRecord.session;
+          persistenceRef.current = storedRecord.persistence;
+          setApiAuthToken(storedRecord.session.idToken);
+        }
         const googleIdToken = consumeGoogleRedirectIdToken();
 
         if (googleIdToken) {
           console.log('[Auth] Found Google id_token from local OAuth redirect');
           setIsProcessingGoogleRedirect(true);
-          const storedSession = readStoredSession();
-          const result = await loginWithGoogle(googleIdToken, storedSession?.idToken, accessControlEnabled);
+          const persistence = consumeGooglePersistence() ?? storedRecord?.persistence ?? 'local';
+          const linkToken = storedRecord ? await refreshAuthToken() : null;
+          const result = await loginWithGoogle(googleIdToken, linkToken ?? undefined, accessControlEnabled, persistence);
           if (!result.success) {
             setGoogleSignInError(result.error ?? 'Failed to complete sign-in. Please try again.');
             console.error('[Auth] Google redirect sign-in failed:', result.error);
@@ -304,7 +410,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
             if (freshUser) {
               console.log('[Auth] Successfully logged in user:', freshUser.email);
               const nextUser = mapFirebaseUser(freshUser);
-              persistSession(sessionToken, nextUser);
+              persistSession({ idToken: sessionToken }, nextUser, consumeGooglePersistence() ?? 'local');
               await startTrialAfterAuth(nextUser);
               await refreshStagingAccess(sessionToken, accessControlEnabled);
               // Clean URL
@@ -320,24 +426,38 @@ function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         console.log('[Auth] No sessionToken found, checking for stored session');
-        const session = readStoredSession();
-        if (session) {
+        if (storedRecord) {
+          const { session, persistence } = storedRecord;
+          sessionRef.current = session;
+          persistenceRef.current = persistence;
+          setUser(session.user);
+          setIdToken(session.idToken);
+          setApiAuthToken(session.idToken);
           try {
-            setApiAuthToken(session.idToken);
-            const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: session.idToken });
+            const activeToken = await refreshAuthToken();
+            if (!activeToken || !sessionRef.current) return;
+            const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: activeToken });
             const freshUser = lookup?.users?.[0];
             if (freshUser) {
               const nextUser = mapFirebaseUser(freshUser);
-              persistSession(session.idToken, nextUser);
+              persistSession({
+                idToken: activeToken,
+                refreshToken: sessionRef.current.refreshToken,
+                expiresIn: sessionRef.current.expiresAt === null
+                  ? undefined
+                  : Math.max(1, Math.round((sessionRef.current.expiresAt - Date.now()) / 1000)),
+              }, nextUser, persistence);
               await startTrialAfterAuth(nextUser);
-              await refreshStagingAccess(session.idToken, accessControlEnabled);
+              await refreshStagingAccess(activeToken, accessControlEnabled);
             } else {
-              setApiAuthToken(null);
-              localStorage.removeItem(SESSION_STORAGE_KEY);
+              clearSession();
             }
-          } catch {
-            setApiAuthToken(null);
-            localStorage.removeItem(SESSION_STORAGE_KEY);
+          } catch (err) {
+            if (!session.refreshToken && extractErrorCode(err) === 'INVALID_ID_TOKEN') {
+              clearSession();
+            } else {
+              console.warn('[Auth] Stored session could not be verified; keeping it for a later retry:', err);
+            }
           }
         }
       } catch (err) {
@@ -351,13 +471,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const persistSession = (nextIdToken: string, nextUser: AppUser) => {
-    setIdToken(nextIdToken);
-    setApiAuthToken(nextIdToken);
-    setUser(nextUser);
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ idToken: nextIdToken, user: nextUser } as StoredSession));
-  };
-
   const initializeFirstRun = (nextUser: AppUser) => {
     localStorage.setItem(ONBOARDING_INITIALIZE_PENDING_KEY, nextUser.id);
     void initializeOnboarding().then(() => {
@@ -367,7 +480,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }).catch(() => undefined);
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean) => {
     try {
       const result: FirebaseAuthResult = await firebaseAuth.signIn({ email, password });
       const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: result.idToken });
@@ -376,7 +489,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'Could not log in. Please try again.' };
       }
       const nextUser = mapFirebaseUser(freshUser);
-      persistSession(result.idToken, nextUser);
+      persistSession({
+        idToken: result.idToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
+      }, nextUser, persistenceFromRememberMe(rememberMe));
       const trialStartedNow = await startTrialAfterAuth(nextUser);
       await refreshStagingAccess(result.idToken);
       return { success: true, trialStartedNow };
@@ -389,7 +506,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const displayName = `${values.firstName} ${values.lastName}`.trim();
       const result: FirebaseAuthResult = await firebaseAuth.signUp({ email: values.email, password: values.password });
-      await firebaseAuth.updateProfile({ idToken: result.idToken, email: values.email, displayName });
+      const profileResult: FirebaseAuthResult = await firebaseAuth.updateProfile({
+        idToken: result.idToken,
+        email: values.email,
+        displayName,
+      });
       const nextUser = {
         id: result.localId,
         email: values.email,
@@ -399,7 +520,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
         emailVerified: false,
         connectedProviders: ['password'],
       };
-      persistSession(result.idToken, nextUser);
+      persistSession({
+        idToken: profileResult.idToken ?? result.idToken,
+        refreshToken: profileResult.refreshToken ?? result.refreshToken,
+        expiresIn: profileResult.expiresIn ?? result.expiresIn,
+      }, nextUser, 'local');
       initializeFirstRun(nextUser);
       void trackProductEvent('signup_completed');
       const trialStartedNow = await startTrialAfterAuth(nextUser);
@@ -418,11 +543,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setUser(null);
-    setIdToken(null);
-    setStagingAccess(null);
-    setApiAuthToken(null);
-    localStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
+    clearSession();
   };
 
   const updateProfile = async (values: { email: string; firstName: string; lastName: string }) => {
@@ -442,7 +564,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
         firstName: values.firstName,
         lastName: values.lastName,
       };
-      persistSession(result.idToken ?? idToken, nextUser);
+      persistSession({
+        idToken: result.idToken ?? idToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
+      }, nextUser);
       await refreshStagingAccess(result.idToken ?? idToken);
       return { success: true };
     } catch (err) {
@@ -456,10 +582,14 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       // Re-authenticate by signing in with the current password before changing it.
-      await firebaseAuth.signIn({ email: user.email, password: values.currentPassword });
-      const result: FirebaseAuthResult = await firebaseAuth.changePassword({ idToken, password: values.newPassword });
-      persistSession(result.idToken ?? idToken, user);
-      await refreshStagingAccess(result.idToken ?? idToken);
+      const reauthenticated: FirebaseAuthResult = await firebaseAuth.signIn({ email: user.email, password: values.currentPassword });
+      const result: FirebaseAuthResult = await firebaseAuth.changePassword({ idToken: reauthenticated.idToken, password: values.newPassword });
+      persistSession({
+        idToken: result.idToken ?? reauthenticated.idToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
+      }, user);
+      await refreshStagingAccess(result.idToken ?? reauthenticated.idToken);
       return { success: true };
     } catch (err) {
       const code = extractErrorCode(err);
@@ -496,7 +626,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         const freshUser = lookup?.users?.[0];
         if (freshUser) {
           const nextUser = mapFirebaseUser(freshUser);
-          persistSession(idToken, nextUser);
+          persistSession({ idToken }, nextUser);
           await reconcileAccess();
         }
       }
@@ -524,19 +654,23 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (rememberMe?: boolean) => {
     console.log('[Auth] ========== signInWithGoogle() called ==========');
     console.log('[Auth] Current URL:', window.location.href);
     console.log('[Auth] isGoogleSignInAvailable:', isGoogleSignInConfigured());
     setGoogleSignInError(null);
     setIsProcessingGoogleRedirect(true);
+    const persistence = rememberMe === undefined ? persistenceRef.current : persistenceFromRememberMe(rememberMe);
+    sessionStorage.setItem(GOOGLE_PERSISTENCE_STORAGE_KEY, persistence);
     try {
       console.log('[Auth] Calling startGoogleSignIn()...');
       setGoogleAuthReturnTo(user ? '/account' : isLaunchJourney() ? '/signup?student_launch_google=1' : '/');
+      const linkToken = user ? await refreshAuthToken() : null;
       const { idToken: googleIdToken } = await startGoogleSignIn();
+      consumeGooglePersistence();
       console.log('[Auth] ========== startGoogleSignIn() completed successfully ==========');
       console.log('[Auth] Received google idToken, exchanging for Firebase session');
-      const result = await loginWithGoogle(googleIdToken, idToken ?? undefined);
+      const result = await loginWithGoogle(googleIdToken, linkToken ?? undefined, isStagingAccessControlEnabled, persistence);
       console.log('[Auth] Firebase exchange result:', result.success ? 'SUCCESS' : 'FAILED - ' + result.error);
       if (!result.success) {
         setGoogleSignInError(result.error ?? 'Unable to sign in with Google.');
@@ -559,6 +693,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       setGoogleSignInError(message);
       return { success: false, error: message };
     } finally {
+      sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
       setIsProcessingGoogleRedirect(false);
     }
   };
