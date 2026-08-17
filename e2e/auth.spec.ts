@@ -16,6 +16,7 @@ test.describe('authentication routes', () => {
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
+    await expect(page.getByRole('checkbox', { name: /remember me/i })).toBeChecked();
 
     await page.getByRole('link', { name: 'Sign up' }).click();
 

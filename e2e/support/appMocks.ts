@@ -522,6 +522,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
       email: options.secondaryEmail,
       idToken: 'e2e-secondary-login-token',
       refreshToken: 'e2e-secondary-refresh-token',
+      expiresIn: '3600',
       displayName: `${options.primaryUser.firstName} ${options.primaryUser.lastName}`,
     });
   });
@@ -633,6 +634,7 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
       email: options.googleEmail,
       idToken: 'e2e-google-secondary-login-token',
       refreshToken: 'e2e-google-secondary-refresh-token',
+      expiresIn: '3600',
       displayName: `${options.primaryUser.firstName} ${options.primaryUser.lastName}`,
       emailVerified: true,
       providerId: 'google.com',

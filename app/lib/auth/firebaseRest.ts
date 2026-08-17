@@ -32,6 +32,28 @@ async function firebaseRequest<TResult = any>(endpoint: string, params: Firebase
   return payload as TResult;
 }
 
+async function refreshTokenRequest<TResult = any>(refreshToken: string): Promise<TResult> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), FIREBASE_TIMEOUT_MS);
+
+  const response = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(firebaseApiKey())}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+    signal: controller.signal,
+  }).finally(() => window.clearTimeout(timeoutId));
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw payload ?? { error: { message: 'FIREBASE_TOKEN_REFRESH_FAILED' } };
+  }
+
+  return payload as TResult;
+}
+
 export const firebaseAuth = {
   signUp: (params: FirebaseParams) => firebaseRequest('accounts:signUp', { ...params, returnSecureToken: true }),
   signIn: (params: FirebaseParams) => firebaseRequest('accounts:signInWithPassword', { ...params, returnSecureToken: true }),
@@ -42,4 +64,5 @@ export const firebaseAuth = {
   resetPassword: (params: FirebaseParams) => firebaseRequest('accounts:resetPassword', params),
   signInWithIdp: (params: FirebaseParams) =>
     firebaseRequest('accounts:signInWithIdp', { ...params, returnSecureToken: true, returnIdpCredential: true }),
+  refreshToken: (refreshToken: string) => refreshTokenRequest(refreshToken),
 };

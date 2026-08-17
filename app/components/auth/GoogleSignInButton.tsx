@@ -27,9 +27,10 @@ function GoogleIcon() {
 
 interface GoogleSignInButtonProps {
   label?: string;
+  rememberMe?: boolean;
 }
 
-function GoogleSignInButton({ label = 'Continue with Google' }: GoogleSignInButtonProps) {
+function GoogleSignInButton({ label = 'Continue with Google', rememberMe }: GoogleSignInButtonProps) {
   const { signInWithGoogle, isGoogleSignInAvailable, isProcessingGoogleRedirect } = useAuth();
 
   return (
@@ -44,7 +45,7 @@ function GoogleSignInButton({ label = 'Continue with Google' }: GoogleSignInButt
         variant="outline"
         className="w-full gap-2"
         disabled={!isGoogleSignInAvailable || isProcessingGoogleRedirect}
-        onClick={() => signInWithGoogle()}
+        onClick={() => signInWithGoogle(rememberMe)}
       >
         {isProcessingGoogleRedirect ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
         {label}

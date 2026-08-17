@@ -66,4 +66,21 @@ describe('API client', () => {
       expect.objectContaining({ headers: { Accept: 'application/json' } })
     );
   });
+
+  it('refreshes authenticated request headers before sending', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { apiFetch, setApiAuthTokenRefresher } = await loadApiClient('https://app.untitledmanagementsoftware.com/api');
+    const refresher = vi.fn(async () => 'fresh-id-token');
+    setApiAuthTokenRefresher(refresher);
+
+    await apiFetch('/actions/listCourses', {
+      headers: { Authorization: 'Bearer stale-id-token' },
+    });
+
+    expect(refresher).toHaveBeenCalledTimes(1);
+    const [, sentInit] = fetchMock.mock.calls[0] as unknown as Parameters<typeof fetch>;
+    const sentHeaders = new Headers(sentInit?.headers);
+    expect(sentHeaders.get('Authorization')).toBe('Bearer fresh-id-token');
+  });
 });
