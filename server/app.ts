@@ -6,6 +6,7 @@ import { createCorsOptions } from './cors';
 import { actionsRouter } from './routes/actions';
 import { authSessionRouter } from './routes/authSession';
 import { billingRouter, billingWebhookRouter, publicBillingRouter } from './routes/billing';
+import { appleBillingWebhookRouter } from './routes/appleBilling';
 import { brightspaceCalendarRouter } from './routes/brightspaceCalendar';
 import { canvasCalendarRouter } from './routes/canvasCalendar';
 import { emailRouter, publicEmailRouter } from './routes/email';
@@ -42,6 +43,7 @@ export function createApp() {
   app.use('/api/google-calendar/oauth', googleCalendarOAuthRouter);
   app.use('/api/launch', launchRouter);
   app.use('/api/billing', publicBillingRouter);
+  app.use('/api/billing/apple-webhook', appleBillingWebhookRouter);
 
   app.use('/api', requireStagingAccess);
   app.use('/api/staging-access', stagingAccessRouter);

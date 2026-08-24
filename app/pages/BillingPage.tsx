@@ -9,6 +9,8 @@ import { useAuth } from '@/app/lib/auth/AuthContext';
 import { appEnv } from '@/app/lib/env';
 import { useTheme, type ResolvedTheme } from '@/app/lib/theme/ThemeContext';
 import { getApiBaseUrl } from '@/app/lib/api/client';
+import { isIOSNativeApp } from '@/app/lib/billing/revenuecat';
+import AppleBillingPanel from '@/app/pages/billing/AppleBillingPanel';
 import {
   cancelSubscription,
   createPaymentMethodSetupIntent,
@@ -389,6 +391,10 @@ function BillingPage() {
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-muted-foreground">Loading billing...</div>;
+  }
+
+  if (isIOSNativeApp()) {
+    return <AppleBillingPanel status={status} logout={logout} onRefresh={refreshStatus} />;
   }
 
   const missingSetup = !config?.publishableKey || !config.prices.monthly || !config.prices.yearly;
