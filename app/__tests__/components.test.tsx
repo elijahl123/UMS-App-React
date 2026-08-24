@@ -27,6 +27,11 @@ import { apiState, authActions } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 import type { CalendarItem } from '@/app/data/calendarUtils';
 import { Route, Routes } from 'react-router-dom';
+import { submitFeedback } from '@/app/lib/email/client';
+
+vi.mock('@/app/lib/email/client', () => ({
+  submitFeedback: vi.fn(async () => ({ status: 'accepted' as const })),
+}));
 
 describe('widgets and calendar components', () => {
   it('renders assignment, event, class, and late-assignment widgets', () => {
@@ -212,6 +217,35 @@ describe('widgets and calendar components', () => {
     expect(screen.getByRole('heading', { name: /^add$/i })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /add assignment/i }));
     expect(screen.getByRole('heading', { name: /add assignment/i })).toBeInTheDocument();
+  });
+
+  it('sends feedback from the sidebar feedback dialog', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<Sidebar />);
+
+    await user.click(screen.getByRole('button', { name: /^feedback$/i }));
+    expect(screen.getByRole('heading', { name: /^feedback$/i })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/feedback message/i), 'This is great feedback');
+    await user.click(screen.getByRole('button', { name: /send feedback/i }));
+
+    expect(submitFeedback).toHaveBeenCalledWith('This is great feedback', expect.any(String));
+    expect(await screen.findByText(/thanks! your feedback was sent/i)).toBeInTheDocument();
+  });
+
+  it('sends feedback from the mobile more sheet', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<MobileBottomNavigation />);
+
+    await user.click(screen.getByRole('button', { name: /^more$/i }));
+    await user.click(screen.getByRole('button', { name: /^feedback$/i }));
+    expect(screen.getByRole('heading', { name: /^feedback$/i })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/feedback message/i), 'Mobile feedback');
+    await user.click(screen.getByRole('button', { name: /send feedback/i }));
+
+    expect(submitFeedback).toHaveBeenCalledWith('Mobile feedback', expect.any(String));
+    expect(await screen.findByText(/thanks! your feedback was sent/i)).toBeInTheDocument();
   });
 
   it('toggles the theme from desktop and mobile navigation', async () => {
