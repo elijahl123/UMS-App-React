@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, ChevronRight, Plus } from 'lucide-react';
 import type { Assignment, Course } from '@/app/data/types';
-import AddAssignmentDialog from '@/app/components/widgets/AddAssignmentDialog';
+import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
 import { formatAssignmentDue } from '@/app/data/assignmentDates';
 import { getCourseColor } from '@/app/data/courseColors';
 
@@ -88,7 +88,7 @@ function UpcomingAssignmentsWidget({ assignments, courses, onAdd, compact = fals
           </ul>
         )}
       </CardContent>
-      <AddAssignmentDialog open={open} onOpenChange={setOpen} courses={courses} onSubmit={onAdd} />
+      <AssignmentFormDialog open={open} onOpenChange={setOpen} courses={courses} assignment={null} onSubmit={onAdd} />
     </Card>
   );
 }

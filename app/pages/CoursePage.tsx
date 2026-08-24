@@ -498,7 +498,7 @@ function CoursePage() {
                           e.currentTarget.style.color = linkColor.border;
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.color = 'var(--color-text-muted-foreground)';
+                          e.currentTarget.style.color = 'var(--muted-foreground)';
                         }}
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -510,10 +510,10 @@ function CoursePage() {
                         onClick={() => handleDeleteLink(l.id)}
                         className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] md:h-9 md:w-9 xl:h-7 xl:w-7"
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.color = '#dc2626';
+                          e.currentTarget.style.color = 'var(--main-accent)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.color = 'var(--color-text-muted-foreground)';
+                          e.currentTarget.style.color = 'var(--muted-foreground)';
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />

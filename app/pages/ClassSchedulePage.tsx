@@ -298,7 +298,7 @@ function ClassSchedulePage() {
                               {!s.id.startsWith('academic-event:') && <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                                 <button
                                   type="button"
-                                  className="rounded p-0.5 hover:bg-black/10"
+                                  className="rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--secondary-accent)_12%,transparent)]"
                                   title="Edit"
                                   onClick={() => openEditDialog(s)}
                                 >
@@ -306,7 +306,7 @@ function ClassSchedulePage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="rounded p-0.5 hover:bg-black/10"
+                                  className="rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--secondary-accent)_12%,transparent)]"
                                   title="Delete"
                                   onClick={() => {
                                     if (confirm('Are you sure you want to delete this class session?')) {
