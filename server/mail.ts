@@ -6,7 +6,8 @@ export type AppEmailKind =
   | 'firebase_verification'
   | 'password_reset'
   | 'secondary_email_verification'
-  | 'waitlist_confirmation';
+  | 'waitlist_confirmation'
+  | 'feedback';
 
 type RenderedEmail = {
   subject: string;
@@ -40,7 +41,7 @@ function recipientId(email: string): string {
     .slice(0, 16);
 }
 
-function emailShell(title: string, preheader: string, body: string): string {
+function emailShell(title: string, preheader: string, body: string, eyebrow = 'Account security'): string {
   const logoUrl = escapeHtml(`${config.appBaseUrl.replace(/\/+$/, '')}/app-icons/android/launchericon-96x96.png`);
   return `<!doctype html>
 <html lang="en">
@@ -71,7 +72,7 @@ function emailShell(title: string, preheader: string, body: string): string {
           </tr>
           <tr>
             <td style="padding:40px 32px 32px">
-              <p style="margin:0 0 12px;color:#f08080;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">Account security</p>
+              <p style="margin:0 0 12px;color:#f08080;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase">${escapeHtml(eyebrow)}</p>
               <h1 style="margin:0 0 16px;color:#2f2f2f;font-size:28px;line-height:1.25;letter-spacing:-.4px">${escapeHtml(title)}</h1>
               ${body}
             </td>
@@ -163,6 +164,21 @@ export function waitlistConfirmationTemplate(params: {
   };
 }
 
+export function feedbackTemplate(params: { senderEmail: string; senderName?: string; message: string }): RenderedEmail {
+  const from = params.senderName ? `${params.senderName} <${params.senderEmail}>` : params.senderEmail;
+  const escapedMessage = escapeHtml(params.message).replace(/\n/g, '<br>');
+  return {
+    subject: `UMS feedback from ${from}`,
+    text: `New feedback from ${from}:\n\n${params.message}`,
+    html: emailShell(
+      'New feedback',
+      `New in-app feedback from ${from}.`,
+      `<p style="margin:0 0 16px;color:#5a5a5a;font-size:15px">From <strong>${escapeHtml(from)}</strong></p><div style="margin:0;padding:16px;background:#f7f7f7;border:1px solid #e8e8e8;border-radius:10px;color:#2f2f2f;font-size:15px;white-space:pre-wrap">${escapedMessage}</div>`,
+      'User feedback',
+    ),
+  };
+}
+
 async function sendAppEmail(params: SendAppEmailParams): Promise<void> {
   if (!config.sendgridApiKey) {
     throw new Error('SENDGRID_API_KEY is required');
@@ -210,6 +226,15 @@ export function sendPasswordResetEmail(email: string, link: string) {
 
 export function sendSecondaryEmailVerification(email: string, link: string) {
   return sendAppEmail({ kind: 'secondary_email_verification', to: email, ...secondaryEmailVerificationTemplate(link) });
+}
+
+export function sendFeedbackEmail(params: { senderEmail: string; senderName?: string; message: string }) {
+  return sendAppEmail({
+    kind: 'feedback',
+    to: config.feedbackRecipientEmail,
+    replyTo: params.senderEmail,
+    ...feedbackTemplate(params),
+  });
 }
 
 export function sendWaitlistConfirmationEmail(params: {

@@ -15,6 +15,7 @@ const mailMocks = vi.hoisted(() => ({
   sendPasswordResetEmail: vi.fn(),
   sendFirebaseVerificationEmail: vi.fn(),
   sendSecondaryEmailVerification: vi.fn(),
+  sendFeedbackEmail: vi.fn(),
 }));
 
 vi.mock('../auth', () => ({
@@ -34,7 +35,7 @@ let baseUrl: string;
 let resetRateLimitsForTests: () => void;
 
 beforeAll(async () => {
-  const [{ publicEmailRouter }, rateLimit] = await Promise.all([
+  const [{ publicEmailRouter, emailRouter }, rateLimit] = await Promise.all([
     import('../routes/email'),
     import('../rateLimit'),
   ]);
@@ -42,6 +43,7 @@ beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use('/api/email', publicEmailRouter);
+  app.use('/api/email', emailRouter);
   await new Promise<void>((resolve) => {
     server = app.listen(0, '127.0.0.1', resolve);
   });
@@ -66,6 +68,7 @@ beforeEach(() => {
   );
   mailMocks.sendPasswordResetEmail.mockResolvedValue(undefined);
   mailMocks.sendFirebaseVerificationEmail.mockResolvedValue(undefined);
+  mailMocks.sendFeedbackEmail.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -161,5 +164,42 @@ describe('Firebase email action routes', () => {
     authMocks.authenticatedFirebaseUser.mockRejectedValueOnce(new Error('AUTH_TOKEN_REQUIRED'));
     const result = await post('verification');
     expect(result.response.status).toBe(401);
+  });
+});
+
+describe('feedback route', () => {
+  it('sends feedback from the authenticated user and requires a message', async () => {
+    const { response, payload } = await post('feedback', { message: 'Loving the app, one idea...', name: 'Student Name' }, 'Bearer token');
+
+    expect(response.status).toBe(202);
+    expect(payload).toEqual({ status: 'accepted' });
+    expect(mailMocks.sendFeedbackEmail).toHaveBeenCalledWith({
+      senderEmail: 'student@example.com',
+      senderName: 'Student Name',
+      message: 'Loving the app, one idea...',
+    });
+
+    const empty = await post('feedback', { message: '   ' }, 'Bearer token');
+    expect(empty.response.status).toBe(400);
+  });
+
+  it('requires authentication and surfaces delivery failures', async () => {
+    authMocks.authenticatedFirebaseUser.mockRejectedValueOnce(new Error('AUTH_TOKEN_REQUIRED'));
+    const unauthenticated = await post('feedback', { message: 'hello' });
+    expect(unauthenticated.response.status).toBe(401);
+
+    mailMocks.sendFeedbackEmail.mockRejectedValueOnce(new Error('SendGrid unavailable'));
+    const failed = await post('feedback', { message: 'hello' }, 'Bearer token');
+    expect(failed.response.status).toBe(502);
+    expect(failed.payload.error?.message).toBe('EMAIL_DELIVERY_FAILED');
+  });
+
+  it('rate limits repeated feedback submissions per user', async () => {
+    for (let i = 0; i < 5; i += 1) {
+      await post('feedback', { message: `message ${i}` }, 'Bearer token');
+    }
+    const limited = await post('feedback', { message: 'one more' }, 'Bearer token');
+    expect(limited.response.status).toBe(429);
+    expect(limited.payload.error?.message).toBe('TOO_MANY_REQUESTS');
   });
 });

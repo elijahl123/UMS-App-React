@@ -26,6 +26,7 @@ import { useAuth } from '@/app/lib/auth/AuthContext';
 import { createDailyClassNoteTitle, findDailyClassNote, formatTimeDisplay, getTodayClassFocus } from '@/app/data/classSchedule';
 import type { Course } from '@/app/data/types';
 import ThemeToggle from '@/app/components/ThemeToggle';
+import FeedbackDialog from '@/app/components/FeedbackDialog';
 
 interface CreatedNoteRow {
   id: number | string;
@@ -46,6 +47,7 @@ interface Props {
 
 function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
   const [coursesOpen, setCoursesOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const { user, logout, stagingAccess, isStagingAccessControlEnabled } = useAuth();
   const [courseRows] = useLoadAction('loadCourses', [], { userId: user?.id });
@@ -390,7 +392,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
           <Button
             size="sm"
             className={cn('w-full justify-start gap-2', collapsed && 'md:justify-center md:px-2')}
-            onClick={handleNavClick}
+            onClick={() => setFeedbackOpen(true)}
             title="Feedback"
           >
             <MessageSquare className="h-4 w-4" />
@@ -424,6 +426,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
           </Button>
         </div>
       </div>
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </aside>
   );
 }
