@@ -65,7 +65,7 @@ const actionBuilders: Record<string, ActionBuilder> = {
     values: [
       required(params, 'code'),
       required(params, 'name'),
-      params.color ?? 'course-gray',
+      params.color ?? 'course-diamond',
       courseHomepageUrl(params),
       required(params, 'userId'),
     ],

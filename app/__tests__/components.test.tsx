@@ -159,7 +159,7 @@ describe('widgets and calendar components', () => {
       expect(screen.getByText(/no more classes today/i)).toBeInTheDocument();
       expect(screen.getByText(/your schedule is clear for the rest of the day/i)).toBeInTheDocument();
       expect(screen.getByText(/no more classes today/i).closest('[style]')).toHaveStyle({
-        backgroundColor: 'var(--course-gray)',
+        backgroundColor: 'var(--course-diamond)',
       });
     } finally {
       vi.useRealTimers();

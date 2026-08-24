@@ -336,7 +336,7 @@ function StudyPlanPage() {
       )}
 
       {plan.unscheduledMinutes > 0 && (
-        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))] p-3 text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">
+        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] p-3 text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div><p className="font-bold">Partial plan saved</p><p className="mt-1 text-sm">{formatStudyMinutes(plan.unscheduledMinutes)} remains unscheduled because the selected days do not have enough capacity.</p></div>
         </div>
@@ -473,7 +473,7 @@ function StudyPlanPage() {
                       onClick={() => toggleTask(task.id, !task.completedAt)}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] focus-visible:ring-offset-2 disabled:opacity-60 sm:h-9 sm:w-9 ${
                         task.completedAt
-                          ? 'border-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]'
+                          ? 'border-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))] bg-[color-mix(in_srgb,var(--course-emerald)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]'
                           : 'border-[var(--study-course-border)] bg-card text-[var(--study-course-text)]'
                       }`}
                     >

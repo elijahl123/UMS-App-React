@@ -321,10 +321,10 @@ function NotesPage() {
             <div className="grid gap-2 lg:grid-cols-2">
               {filtered.map((note, index) => {
                 const course = getCourse(note.courseId);
-                const colors = course ? getCourseColor(course.color) : getCourseColor('course-pink');
+                const colors = course ? getCourseColor(course.color) : getCourseColor('course-tourmaline');
                 const preview = noteHtmlToText(note.content);
                 const isFavorite = favoriteNoteIds.has(note.id);
-                const railColor = isFavorite ? 'var(--main-color)' : index % 4 === 3 ? 'var(--course-yellow)' : colors.border;
+                const railColor = isFavorite ? 'var(--main-color)' : index % 4 === 3 ? 'var(--course-citrine)' : colors.border;
                 const itemStyle = {
                   '--mobile-item-bg': colors.bg,
                   '--mobile-item-border': isFavorite ? 'var(--main-color)' : colors.border,

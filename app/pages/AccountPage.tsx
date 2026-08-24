@@ -653,13 +653,13 @@ function AccountPage() {
       </div>
 
       {!user.emailVerified && (
-        <Card className="border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))]">
+        <Card className="border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))]">
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]" />
+              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]" />
               <div>
-                <p className="text-sm font-semibold text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">Your email address is not verified</p>
-                <p className="text-sm text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]">
+                <p className="text-sm font-semibold text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">Your email address is not verified</p>
+                <p className="text-sm text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]">
                   {resendSuccess
                     ? "We've sent a new verification link. Please check your inbox."
                     : 'Please verify your email to secure your account.'}
@@ -670,7 +670,7 @@ function AccountPage() {
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 gap-2 border-[color-mix(in_srgb,var(--course-yellow)_70%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--course-yellow)_24%,var(--surface))]"
+              className="shrink-0 gap-2 border-[color-mix(in_srgb,var(--course-citrine)_70%,var(--surface))] text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--course-citrine)_24%,var(--surface))]"
               onClick={handleResendVerification}
               disabled={resendSubmitting || resendSuccess}
             >
@@ -840,7 +840,7 @@ function AccountPage() {
                   <span className="flex items-center gap-2 font-medium text-foreground">
                     <span
                       className="h-3 w-3 shrink-0 rounded-full border"
-                      style={{ backgroundColor: googleOwnedCalendars[0]?.backgroundColor ?? 'var(--course-blue)' }}
+                      style={{ backgroundColor: googleOwnedCalendars[0]?.backgroundColor ?? 'var(--course-sapphire)' }}
                     />
                     <span className="truncate">{googleOwnedCalendars[0]?.summary ?? 'Primary calendar'}</span>
                   </span>
@@ -895,7 +895,7 @@ function AccountPage() {
             </p>
           )}
           {googleCalendarSuccess && (
-            <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
               <CheckCircle2 className="h-4 w-4" />
               {googleCalendarSuccess}
             </p>
@@ -1038,7 +1038,7 @@ function AccountPage() {
 
               {notificationsError && <p className="text-sm font-medium text-destructive">{notificationsError}</p>}
               {notificationsSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   {notificationsSuccess}
                 </p>
@@ -1144,7 +1144,7 @@ function AccountPage() {
             {accountEmailsLoading && <p className="text-sm text-muted-foreground">Loading email addresses...</p>}
             {accountEmailError && <p className="text-sm font-medium text-destructive">{accountEmailError}</p>}
             {accountEmailSuccess && (
-              <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+              <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
                 <CheckCircle2 className="h-4 w-4" />
                 {accountEmailSuccess}
               </p>
@@ -1247,7 +1247,7 @@ function AccountPage() {
               />
               {profileError && <p className="text-sm font-medium text-destructive">{profileError}</p>}
               {profileSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   Profile updated successfully.
                 </p>
@@ -1315,7 +1315,7 @@ function AccountPage() {
               </div>
               {passwordError && <p className="text-sm font-medium text-destructive">{passwordError}</p>}
               {passwordSuccess && (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
                   <CheckCircle2 className="h-4 w-4" />
                   Password updated successfully.
                 </p>

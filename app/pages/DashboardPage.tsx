@@ -186,7 +186,7 @@ function DashboardPage() {
       value: todaysSessions.length,
       icon: GraduationCap,
       to: '/class-schedule',
-      className: 'bg-[color-mix(in_srgb,var(--course-yellow)_44%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-citrine)_44%,var(--surface))] text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]',
     },
     {
       label: 'Late Assignments',
@@ -194,7 +194,7 @@ function DashboardPage() {
       value: late.length,
       icon: CheckCircle2,
       to: '/homework?status=late',
-      className: 'bg-[color-mix(in_srgb,var(--course-green)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_66%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-emerald)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-emerald)_66%,var(--secondary-accent))]',
     },
     {
       label: 'Upcoming Events',
@@ -202,7 +202,7 @@ function DashboardPage() {
       value: upcomingEvents.length,
       icon: CalendarDays,
       to: '/calendar',
-      className: 'bg-[color-mix(in_srgb,var(--course-blue)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-blue)_58%,var(--secondary-accent))]',
+      className: 'bg-[color-mix(in_srgb,var(--course-sapphire)_42%,var(--surface))] text-[color-mix(in_srgb,var(--course-sapphire)_58%,var(--secondary-accent))]',
     },
   ];
 
@@ -295,8 +295,8 @@ function DashboardPage() {
                   </div>
                 </div>
                 {studyDashboard.tasks.length === 0 ? (
-                  <div className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] px-4 py-5 text-center">
-                    <CheckCircle2 className="mx-auto h-6 w-6 text-[color-mix(in_srgb,var(--course-green)_72%,var(--secondary-accent))]" />
+                  <div className="rounded-lg border border-[color-mix(in_srgb,var(--course-emerald)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-emerald)_34%,var(--surface))] px-4 py-5 text-center">
+                    <CheckCircle2 className="mx-auto h-6 w-6 text-[color-mix(in_srgb,var(--course-emerald)_72%,var(--secondary-accent))]" />
                     <p className="mt-2 text-sm font-bold text-[var(--secondary-accent)]">Today is clear</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {studyDashboard.plans[0]

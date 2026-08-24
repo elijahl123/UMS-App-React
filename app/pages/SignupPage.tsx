@@ -123,7 +123,7 @@ function SignupPage() {
           </CardHeader>
           <CardContent className="grid gap-4">
             {waitlistPending ? (
-              <p role="status" className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">Check your inbox to confirm your place.</p>
+              <p role="status" className="rounded-lg border border-[color-mix(in_srgb,var(--course-emerald)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-emerald)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">Check your inbox to confirm your place.</p>
             ) : (
               <>{waitlistFields}<Button disabled={isSubmitting} onClick={() => void requestWaitlist(user.email)}>{isSubmitting ? 'Sending…' : 'Join waitlist'}</Button></>
             )}
@@ -203,7 +203,7 @@ function SignupPage() {
                 )}
               />}
               {isPersonalJourneyEmail && waitlistFields}
-              {waitlistPending && <p role="status" className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">Check your inbox to confirm your place.</p>}
+              {waitlistPending && <p role="status" className="rounded-lg border border-[color-mix(in_srgb,var(--course-emerald)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-emerald)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">Check your inbox to confirm your place.</p>}
               {(formError || googleSignInError) && (
                 <p className="text-sm font-medium text-destructive">{formError ?? googleSignInError}</p>
               )}

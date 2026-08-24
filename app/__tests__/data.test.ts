@@ -19,7 +19,7 @@ describe('data mappers and calendar utilities', () => {
       id: 1,
       code: 'MATH 101',
       name: 'Calculus I',
-      color: 'course-blue',
+      color: 'course-sapphire',
       homepage_url: 'https://courses.example.edu/math-101',
     })).toEqual(courses[0]);
     expect(
@@ -113,7 +113,7 @@ describe('data mappers and calendar utilities', () => {
       textColor: 'var(--calendar-event-text)',
       borderColor: 'var(--calendar-event-border)',
     });
-    expect(getCourseColor('course-blue').border).toBeTruthy();
+    expect(getCourseColor('course-sapphire').border).toBeTruthy();
   });
 
   it('expands event ranges and groups only consecutive study-plan days', () => {

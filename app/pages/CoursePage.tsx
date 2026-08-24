@@ -51,9 +51,9 @@ function formatTimeDisplay(time: string): string {
 
 const STATUS_STYLES: Record<string, string> = {
   late: 'bg-[color-mix(in_srgb,var(--main-accent)_18%,var(--surface))] text-[var(--main-accent)]',
-  completed: 'bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
-  due_today: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
-  upcoming: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+  completed: 'bg-[color-mix(in_srgb,var(--course-emerald)_48%,var(--surface))] text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]',
+  due_today: 'bg-[color-mix(in_srgb,var(--course-citrine)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]',
+  upcoming: 'bg-[color-mix(in_srgb,var(--course-citrine)_50%,var(--surface))] text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]',
 };
 
 function CoursePage() {
@@ -289,7 +289,7 @@ function CoursePage() {
                         {a.status === 'late' ? (
                           <AlertTriangle className="h-4 w-4 text-[var(--main-accent)]" />
                         ) : a.status === 'completed' ? (
-                          <CheckCircle2 className="h-4 w-4 text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]" />
+                          <CheckCircle2 className="h-4 w-4 text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]" />
                         ) : (
                           <ClipboardList className="h-4 w-4" />
                         )}

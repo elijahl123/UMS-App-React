@@ -17,7 +17,7 @@ const buttonVariants = cva(
           "border border-secondary/35 bg-[var(--secondary-accent-soft)] text-[var(--secondary-accent)] shadow-none hover:bg-secondary hover:text-secondary-foreground",
         secondary:
           "bg-secondary text-secondary-foreground shadow-none hover:bg-[var(--secondary-accent-hover)] dark:hover:bg-secondary/80",
-        success: "bg-[var(--course-green)] text-[var(--course-green-text)] rounded-md shadow-none hover:opacity-90",
+        success: "bg-[var(--course-emerald)] text-[var(--course-emerald-text)] rounded-md shadow-none hover:opacity-90",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },

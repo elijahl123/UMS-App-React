@@ -33,13 +33,13 @@ function LateAssignmentsWidget({ assignments, courses, compact = false }: Props)
       </CardHeader>
       <CardContent className={assignments.length === 0 ? `min-h-0 ${compact ? 'flex items-center justify-center overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'flex items-center justify-center px-4 pb-4 sm:px-6 sm:pb-6'}` : `min-h-0 ${compact ? 'overflow-hidden px-4 pb-4 sm:px-4 sm:pb-4' : 'px-4 pb-4 sm:px-6 sm:pb-6'}`}>
         {assignments.length === 0 ? (
-          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
+          <div className={`flex w-full flex-col items-center justify-center rounded-lg border border-[color-mix(in_srgb,var(--course-emerald)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-emerald)_34%,var(--surface))] py-5 text-center md:h-full md:flex-1 md:py-0 ${compact ? 'gap-2' : 'gap-4'}`}>
             <img
               src="/storages/zwD6Awu5SX/static/NoLateAssignments.svg"
               alt="No late assignments"
               className={compact ? 'hidden h-16 w-auto max-w-[60%] sm:block xl:h-20' : 'h-[clamp(5.5rem,18vw,8rem)] w-auto max-w-[70%]'}
             />
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--course-green)_70%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_52%,var(--surface))] text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] md:hidden">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--course-emerald)_70%,var(--surface))] bg-[color-mix(in_srgb,var(--course-emerald)_52%,var(--surface))] text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))] md:hidden">
               <Check className="h-5 w-5" />
             </span>
             <div>

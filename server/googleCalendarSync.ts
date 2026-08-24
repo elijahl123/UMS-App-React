@@ -696,7 +696,7 @@ async function ucdClassCourse(
   const result = await client.query<{ id: string }>(
     `
       INSERT INTO courses (code, name, color, user_id)
-      VALUES ($2, $3, 'course-gray', $1)
+      VALUES ($2, $3, 'course-diamond', $1)
       ON CONFLICT (user_id, code) WHERE user_id IS NOT NULL
       DO UPDATE SET name = CASE WHEN courses.name = courses.code THEN EXCLUDED.name ELSE courses.name END
       RETURNING id::text;

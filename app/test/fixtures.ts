@@ -11,8 +11,8 @@ export const mockUser: AppUser = {
 };
 
 export const courses: Course[] = [
-  { id: '1', code: 'MATH 101', name: 'Calculus I', color: 'course-blue', homepageUrl: 'https://courses.example.edu/math-101' },
-  { id: '2', code: 'ENG 205', name: 'Modern Literature', color: 'course-green', homepageUrl: null },
+  { id: '1', code: 'MATH 101', name: 'Calculus I', color: 'course-sapphire', homepageUrl: 'https://courses.example.edu/math-101' },
+  { id: '2', code: 'ENG 205', name: 'Modern Literature', color: 'course-emerald', homepageUrl: null },
 ];
 
 export const assignments: Assignment[] = [

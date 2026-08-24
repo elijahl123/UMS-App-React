@@ -474,7 +474,7 @@ function BillingPage() {
               <div className="flex flex-col gap-5 rounded-lg border border-[var(--border-light)] p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="flex items-start gap-3">
-                    <div className="rounded-full bg-[var(--course-green)] p-2 text-[var(--course-green-text)]">
+                    <div className="rounded-full bg-[var(--course-emerald)] p-2 text-[var(--course-emerald-text)]">
                       <Check className="h-5 w-5" />
                     </div>
                     <div className="flex-1">
@@ -553,7 +553,7 @@ function BillingPage() {
                         <div>
                           <p className="font-bold text-foreground">{paymentMethodTitle(paymentMethod)}</p>
                           <p className="mt-1 text-sm text-muted-foreground">{paymentMethodDescription(paymentMethod)}</p>
-                          {paymentMethodSuccess && <p className="mt-2 text-sm font-semibold text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">{paymentMethodSuccess}</p>}
+                          {paymentMethodSuccess && <p className="mt-2 text-sm font-semibold text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">{paymentMethodSuccess}</p>}
                         </div>
                       </div>
                       <Button

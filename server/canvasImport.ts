@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 
 export const CANVAS_SOURCE_PROVIDER = 'canvas_ics';
-const DEFAULT_COURSE_COLOR = 'course-gray';
+const DEFAULT_COURSE_COLOR = 'course-diamond';
 const MAX_IMPORT_ROWS = 2_000;
 
 export type CanvasImportRow = {

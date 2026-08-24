@@ -432,7 +432,7 @@ function StudyPlanSetupPage() {
                     : 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'}
               </p>
               {targetType !== 'exam' && missingMinutes > 0 && (
-                <label className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))] p-3 text-xs text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">
+                <label className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] p-3 text-xs text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
                   <input type="checkbox" className="mt-0.5" checked={partialPlanAcknowledged} onChange={(event) => setPartialPlanAcknowledged(event.target.checked)} />
                   <span>Save a partial plan and leave {formatStudyMinutes(missingMinutes)} visibly unscheduled. No work will be silently discarded.</span>
                 </label>

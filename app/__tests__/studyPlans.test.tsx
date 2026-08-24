@@ -17,7 +17,7 @@ const plan: StudyPlan = {
   courseId: '1',
   courseCode: 'MATH 101',
   courseName: 'Calculus I',
-  courseColor: 'course-blue',
+  courseColor: 'course-sapphire',
   courseHomepageUrl: 'https://courses.example.edu/math-101',
   examType: 'final',
   examDate: '2026-07-31',
