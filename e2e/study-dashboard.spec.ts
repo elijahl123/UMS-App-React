@@ -55,7 +55,7 @@ test('dashboard widgets fill the available desktop height without affecting mobi
 test('study focus is responsive, themed, urgent, and revalidates once after completion', async ({ page }) => {
   await mockAuthenticatedApp(page);
   const courseCodes = ['COMP31020', 'MATH10210', 'MST20050', 'CHEM10100', 'HIST20200', 'BIO20500', 'PHYS30100', 'ART11000'];
-  const courseColors = ['course-peridot', 'course-ruby', 'course-sapphire', 'course-citrine', 'course-amethyst', 'course-emerald', 'course-tourmaline', 'course-diamond'];
+  const courseColors = ['course-peridot', 'course-garnet', 'course-sapphire', 'course-citrine', 'course-amethyst', 'course-emerald', 'course-tourmaline', 'course-diamond'];
   const plans = courseCodes.map((courseCode, index) => summary(
     index + 1,
     courseCode,
