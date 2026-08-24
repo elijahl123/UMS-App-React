@@ -19,10 +19,10 @@ const colorMap: Record<string, CourseColor> = {
 const fallback = { bg: 'var(--course-diamond)', text: 'var(--course-diamond-text)', border: 'var(--course-diamond-border)' };
 
 export const courseColorOptions = [
+  { key: 'course-garnet', label: 'Garnet' },
   { key: 'course-amethyst', label: 'Amethyst' },
   { key: 'course-diamond', label: 'Diamond' },
   { key: 'course-emerald', label: 'Emerald' },
-  { key: 'course-garnet', label: 'Garnet' },
   { key: 'course-peridot', label: 'Peridot' },
   { key: 'course-sapphire', label: 'Sapphire' },
   { key: 'course-tourmaline', label: 'Tourmaline' },
