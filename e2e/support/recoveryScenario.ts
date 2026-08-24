@@ -17,7 +17,7 @@ export async function runStudyPlanRecoveryScenario(page: Page, visualPrefix?: st
     course_id: 1,
     course_code: 'MATH101',
     course_name: 'Calculus I',
-    course_color: 'course-blue',
+    course_color: 'course-sapphire',
     course_homepage_url: null,
     exam_type: 'final',
     exam_date: '2099-09-01',

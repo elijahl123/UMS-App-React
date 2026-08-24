@@ -63,7 +63,7 @@ describe('course homepage actions', () => {
     const create = getActionQuery('createCourse', {
       code: 'MATH 101',
       name: 'Calculus',
-      color: 'course-blue',
+      color: 'course-sapphire',
       homepageUrl: ' courses.example.edu/math ',
       userId: 'user-1',
     });
@@ -71,7 +71,7 @@ describe('course homepage actions', () => {
       id: '1',
       code: 'MATH 101',
       name: 'Calculus',
-      color: 'course-blue',
+      color: 'course-sapphire',
       homepageUrl: '',
       userId: 'user-1',
     });
@@ -79,7 +79,7 @@ describe('course homepage actions', () => {
     expect(create?.values).toEqual([
       'MATH 101',
       'Calculus',
-      'course-blue',
+      'course-sapphire',
       'https://courses.example.edu/math',
       'user-1',
     ]);

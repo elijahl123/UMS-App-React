@@ -116,7 +116,7 @@ function VerifyEmailPage() {
             )}
             {status === 'success' && (
               <>
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--course-green)] text-[var(--course-green-text)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--course-emerald)] text-[var(--course-emerald-text)]">
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
                 <p className="text-sm text-muted-foreground">Your email address has been verified. Thank you!</p>

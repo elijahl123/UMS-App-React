@@ -438,7 +438,7 @@ export default function OnboardingExperience() {
     setBusy(true);
     setError(null);
     try {
-      await createCourse({ code: courseCode.trim(), name: courseName.trim(), color: 'course-blue', homepageUrl: '', userId: user?.id });
+      await createCourse({ code: courseCode.trim(), name: courseName.trim(), color: 'course-sapphire', homepageUrl: '', userId: user?.id });
       await reloadCourses();
       await advance();
     } catch (err) {

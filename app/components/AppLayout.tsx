@@ -64,7 +64,7 @@ function AppLayout() {
         }`}
       >
         {(accessStatus.accessMode === 'read_only' || accessStatus.billingWarning || accessNotice) && (
-          <div role="status" className="mb-3 flex shrink-0 items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))] px-3 py-2 text-sm text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">
+          <div role="status" className="mb-3 flex shrink-0 items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] px-3 py-2 text-sm text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
             {accessStatus.accessMode === 'read_only' ? <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
             <span>{accessNotice ?? accessStatus.billingWarning ?? `Your ${accessStatus.entitlement?.institutionName ?? 'student'} access is in its 14-day read-only grace period. Viewing and exports remain available until 1 February 2027.`}</span>
           </div>

@@ -1,7 +1,7 @@
 import type { PoolClient } from 'pg';
 
 export const BRIGHTSPACE_SOURCE_PROVIDER = 'brightspace_pdf';
-const DEFAULT_COURSE_COLOR = 'course-gray';
+const DEFAULT_COURSE_COLOR = 'course-diamond';
 const IMPORT_TIME_ZONE = 'Europe/Dublin';
 
 export type BrightspaceImportRow = {

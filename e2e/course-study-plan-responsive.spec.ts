@@ -11,7 +11,7 @@ const plan = {
   course_id: 1,
   course_code: 'COMP30870',
   course_name: 'Software Engineering Project With A Long Responsive Title',
-  course_color: 'course-green',
+  course_color: 'course-emerald',
   course_homepage_url: 'https://courses.example.edu/comp30870',
   exam_type: 'final',
   exam_date: '2026-08-20',

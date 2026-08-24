@@ -36,7 +36,7 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-const emptyValues: FormValues = { code: '', name: '', homepageUrl: '', color: 'course-gray' };
+const emptyValues: FormValues = { code: '', name: '', homepageUrl: '', color: 'course-diamond' };
 
 function CourseFormDialog({ open, onOpenChange, course, onSubmit, onDelete }: Props) {
   const isEdit = Boolean(course);

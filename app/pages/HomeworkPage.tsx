@@ -46,9 +46,9 @@ const groupPresentation: Record<GroupKey, Pick<Group, 'iconClass' | 'iconBgClass
     textClass: 'text-[var(--main-accent)]',
   },
   today: {
-    iconClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))]',
-    textClass: 'text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]',
+    iconClass: 'text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-citrine)_50%,var(--surface))]',
+    textClass: 'text-[color-mix(in_srgb,var(--course-citrine)_62%,var(--secondary-accent))]',
   },
   upcoming: {
     iconClass: 'text-[var(--main-accent)]',
@@ -56,9 +56,9 @@ const groupPresentation: Record<GroupKey, Pick<Group, 'iconClass' | 'iconBgClass
     textClass: 'text-[var(--main-accent)]',
   },
   completed: {
-    iconClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
-    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-green)_48%,var(--surface))]',
-    textClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+    iconClass: 'text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]',
+    iconBgClass: 'bg-[color-mix(in_srgb,var(--course-emerald)_48%,var(--surface))]',
+    textClass: 'text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]',
   },
 };
 
@@ -140,7 +140,7 @@ function HomeworkPage() {
         label: 'Completed',
         value: completedTotal,
         icon: CheckCircle2,
-        iconClass: 'text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]',
+        iconClass: 'text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]',
       },
       { label: 'Late', value: lateTotal, icon: AlertTriangle, iconClass: 'text-[var(--main-accent)]' },
     ];
@@ -280,7 +280,7 @@ function HomeworkPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
+              className="h-8 w-8 rounded-none text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
               title="Mark incomplete"
               onClick={() => handleMarkIncomplete(a)}
             >

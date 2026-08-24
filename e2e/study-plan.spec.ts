@@ -38,7 +38,7 @@ test('shares one topic note across study phases and launches the course homepage
           course_id: Number(body.courseId),
           course_code: 'COMP30870',
           course_name: 'Software Engineering Project',
-          course_color: 'course-green',
+          course_color: 'course-emerald',
           course_homepage_url: 'https://courses.example.edu/comp30870',
           exam_type: body.examType,
           exam_date: body.examDate,
