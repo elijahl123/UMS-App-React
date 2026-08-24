@@ -49,4 +49,30 @@ describe('email API client', () => {
     await expect(requestPrimaryEmailVerification()).rejects.toEqual({ error: { message: 'TOO_MANY_REQUESTS' } });
     setApiAuthToken(null);
   });
+
+  it('submits feedback with the current Firebase bearer token', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      void input;
+      void init;
+      return new Response(JSON.stringify({ status: 'accepted' }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const [{ setApiAuthToken }, { submitFeedback }] = await Promise.all([
+      import('@/app/lib/api/client'),
+      import('@/app/lib/email/client'),
+    ]);
+    setApiAuthToken('firebase-id-token');
+
+    await expect(submitFeedback('This is great feedback', 'Student Name')).resolves.toEqual({ status: 'accepted' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/email/feedback', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ message: 'This is great feedback', name: 'Student Name' }),
+    }));
+    const request = fetchMock.mock.calls[0]![1]!;
+    expect(new Headers(request.headers).get('Authorization')).toBe('Bearer firebase-id-token');
+    setApiAuthToken(null);
+  });
 });

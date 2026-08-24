@@ -67,6 +67,7 @@ export const config = {
   firebaseWebApiKey: process.env.VITE_FIREBASE_API_KEY,
   sendgridApiKey: process.env.SENDGRID_API_KEY,
   sendgridFromEmail: process.env.SENDGRID_FROM_EMAIL ?? 'noreply@untitledmanagementsoftware.com',
+  feedbackRecipientEmail: process.env.FEEDBACK_RECIPIENT_EMAIL ?? 'elijah.kane.1972@gmail.com',
   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
   stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? process.env.VITE_STRIPE_PUBLISHABLE_KEY,

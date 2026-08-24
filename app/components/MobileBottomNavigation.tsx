@@ -26,6 +26,7 @@ import { mapCourse } from '@/app/data/mappers';
 import { cn } from '@/lib/utils';
 import type { Assignment, CalendarEvent, ClassSession, Course } from '@/app/data/types';
 import ThemeToggle from '@/app/components/ThemeToggle';
+import FeedbackDialog from '@/app/components/FeedbackDialog';
 
 type AddTarget = 'assignment' | 'event' | 'course' | 'class' | null;
 
@@ -40,6 +41,7 @@ function MobileBottomNavigation() {
   const { user, logout, stagingAccess, isStagingAccessControlEnabled } = useAuth();
   const [moreOpen, setMoreOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [activeAddTarget, setActiveAddTarget] = useState<AddTarget>(null);
 
   const [courseRows] = useLoadAction('loadCourses', [], { userId: user?.id });
@@ -247,7 +249,7 @@ function MobileBottomNavigation() {
             {isStagingAccessControlEnabled &&
               stagingAccess?.role === 'admin' &&
               renderMoreButton('Staging Access', <Shield className="h-4 w-4" />, () => handleMoreNavigate('/admin/staging-access'))}
-            {renderMoreButton('Feedback', <MessageSquare className="h-4 w-4" />, () => setMoreOpen(false), 'secondary')}
+            {renderMoreButton('Feedback', <MessageSquare className="h-4 w-4" />, () => { setMoreOpen(false); setFeedbackOpen(true); }, 'secondary')}
             <ThemeToggle className="mobile-control justify-start gap-3 px-4" />
             {accountCard}
             <Button
@@ -284,6 +286,7 @@ function MobileBottomNavigation() {
         courses={courses}
         onSubmit={handleSessionSubmit}
       />
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>
   );
 }

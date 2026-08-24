@@ -5,6 +5,7 @@ import { config } from '../config';
 import { pool } from '../db';
 import { ApiError } from '../errors';
 import {
+  sendFeedbackEmail,
   sendFirebaseVerificationEmail,
   sendPasswordResetEmail,
   sendSecondaryEmailVerification,
@@ -167,6 +168,37 @@ publicEmailRouter.post('/account-addresses/verify', async (req: Request, res: Re
     }
 
     return res.json({ email: mapAccountEmail(row) });
+  } catch (err) {
+    return handleRouteError(res, err);
+  }
+});
+
+const FEEDBACK_MAX_LENGTH = 5000;
+
+emailRouter.post('/feedback', async (req: Request, res: Response) => {
+  try {
+    const firebaseUser = await authenticatedFirebaseUser(req);
+    if (!enforceRateLimit(res, `feedback:${firebaseUser.uid}`, 5)) {
+      return;
+    }
+
+    const message = String(req.body?.message ?? '').trim();
+    if (!message) {
+      throw new ApiError('Feedback message is required.', 400);
+    }
+    if (message.length > FEEDBACK_MAX_LENGTH) {
+      throw new ApiError(`Feedback message must be ${FEEDBACK_MAX_LENGTH} characters or fewer.`, 400);
+    }
+
+    const senderName = String(req.body?.name ?? '').trim().slice(0, 200) || undefined;
+
+    try {
+      await sendFeedbackEmail({ senderEmail: firebaseUser.email, senderName, message });
+    } catch {
+      throw new ApiError('EMAIL_DELIVERY_FAILED', 502);
+    }
+
+    return res.status(202).json({ status: 'accepted' });
   } catch (err) {
     return handleRouteError(res, err);
   }

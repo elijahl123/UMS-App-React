@@ -89,6 +89,29 @@ describe('application email templates', () => {
     expect(serializedLog).not.toContain('do-not-log');
   });
 
+  it('renders and sends feedback to the configured recipient with reply-to set to the sender', async () => {
+    const feedback = mail.feedbackTemplate({
+      senderEmail: 'student@example.com',
+      senderName: 'Student Name',
+      message: 'Loving the app!\nOne idea: dark mode.',
+    });
+
+    expect(feedback.subject).toContain('Student Name <student@example.com>');
+    expect(feedback.html).toContain('Loving the app!<br>One idea: dark mode.');
+
+    await mail.sendFeedbackEmail({
+      senderEmail: 'student@example.com',
+      senderName: 'Student Name',
+      message: 'Loving the app!',
+    });
+
+    expect(sendGridMocks.send).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'elijah.kane.1972@gmail.com',
+      replyTo: 'student@example.com',
+      categories: ['feedback'],
+    }));
+  });
+
   it('sanitizes failed-send logs before rethrowing the provider error', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     sendGridMocks.send.mockRejectedValueOnce(Object.assign(new Error('provider rejected recipient student@example.com'), {
