@@ -11,6 +11,7 @@ import {
 } from '@/app/lib/auth/googleOAuth';
 import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
 import { startTrial } from '@/app/lib/billing/client';
+import { configureRevenueCat, isIOSNativeApp, logOutRevenueCat } from '@/app/lib/billing/revenuecat';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 import { reconcileAccess } from '@/app/lib/access/client';
@@ -295,6 +296,16 @@ function AuthProvider({ children }: { children: ReactNode }) {
   }, [trialStartedRedirectPending]);
 
   const startTrialAfterAuth = async (nextUser: AppUser): Promise<boolean> => {
+    await configureRevenueCat(nextUser.id).catch((err) => {
+      console.warn('[Auth] RevenueCat configure failed:', err);
+    });
+
+    // iOS purchasers get Apple's own free-trial offer via RevenueCat; skip the
+    // homegrown 14-day trial there so the two don't double up.
+    if (isIOSNativeApp()) {
+      return false;
+    }
+
     try {
       const access = await reconcileAccess().catch((err) => {
         console.warn('[Auth] student entitlement check failed:', err);
@@ -545,6 +556,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
     clearSession();
+    void logOutRevenueCat().catch((err) => {
+      console.warn('[Auth] RevenueCat logout failed:', err);
+    });
   };
 
   const updateProfile = async (values: { email: string; firstName: string; lastName: string }) => {

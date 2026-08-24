@@ -78,9 +78,20 @@ export async function ensureBillingTables() {
       ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMPTZ;
 
+    ALTER TABLE user_subscriptions
+      ADD COLUMN IF NOT EXISTS provider TEXT NOT NULL DEFAULT 'stripe',
+      ADD COLUMN IF NOT EXISTS rc_app_user_id TEXT UNIQUE,
+      ADD COLUMN IF NOT EXISTS rc_original_transaction_id TEXT UNIQUE,
+      ADD COLUMN IF NOT EXISTS rc_product_id TEXT,
+      ADD COLUMN IF NOT EXISTS rc_entitlement_id TEXT,
+      ADD COLUMN IF NOT EXISTS rc_expiration_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS rc_will_renew BOOLEAN,
+      ADD COLUMN IF NOT EXISTS rc_environment TEXT;
+
     CREATE INDEX IF NOT EXISTS idx_user_subscriptions_customer_id ON user_subscriptions (stripe_customer_id);
     CREATE INDEX IF NOT EXISTS idx_user_subscriptions_subscription_id ON user_subscriptions (stripe_subscription_id);
     CREATE INDEX IF NOT EXISTS idx_user_subscriptions_trial_ends_at ON user_subscriptions (trial_ends_at);
+    CREATE INDEX IF NOT EXISTS idx_user_subscriptions_rc_app_user_id ON user_subscriptions (rc_app_user_id);
   `);
 }
 
@@ -104,6 +115,7 @@ function mapBillingStatus(row?: Record<string, unknown>) {
   return {
     status,
     subscribed,
+    provider: (row?.provider as string | undefined) ?? 'stripe',
     currentPeriodEnd: (row?.current_period_end as string | null | undefined) ?? null,
     cancelAtPeriodEnd: (row?.cancel_at_period_end as boolean | undefined) ?? false,
     stripeSubscriptionId: (row?.stripe_subscription_id as string | null | undefined) ?? null,
@@ -307,6 +319,7 @@ export async function upsertSubscriptionForUser(params: {
       VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $7::bigint IS NULL THEN NULL ELSE to_timestamp($7::bigint) END, COALESCE($8, FALSE))
       ON CONFLICT (user_id) DO UPDATE
       SET email = EXCLUDED.email,
+          provider = 'stripe',
           stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, user_subscriptions.stripe_customer_id),
           stripe_subscription_id = COALESCE(EXCLUDED.stripe_subscription_id, user_subscriptions.stripe_subscription_id),
           stripe_price_id = COALESCE(EXCLUDED.stripe_price_id, user_subscriptions.stripe_price_id),
@@ -377,7 +390,7 @@ export async function updateSubscriptionByStripeSubscription(subscription: Strip
 export async function getBillingStatus(userId: string) {
   const result = await pool.query(
     `
-      SELECT user_id, email, stripe_customer_id, stripe_subscription_id, stripe_price_id, status,
+      SELECT user_id, email, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, provider,
              current_period_end::text AS current_period_end,
              cancel_at_period_end,
              trial_started_at::text AS trial_started_at,

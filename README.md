@@ -30,7 +30,11 @@ APP_ORIGINS=
 APP_BASE_URL=http://localhost:5173
 PORT=3001
 VITE_DEV_ORIGIN=http://localhost:5173
+REVENUECAT_WEBHOOK_AUTH_HEADER=xxxx
+VITE_REVENUECAT_IOS_API_KEY=appl_xxxx
 ```
+
+`REVENUECAT_WEBHOOK_AUTH_HEADER` is a server secret (RevenueCat dashboard → Integrations → Webhooks) checked against the `Authorization` header on incoming subscription events for the iOS app's Apple In-App Purchase billing. `VITE_REVENUECAT_IOS_API_KEY` is the client-safe RevenueCat "Apple App Store" public API key, used to configure the native purchase SDK on iOS builds only (Stripe remains the billing provider on web/Android).
 
 The app uses:
 

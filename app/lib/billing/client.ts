@@ -5,6 +5,7 @@ export type BillingInterval = 'monthly' | 'yearly';
 export interface BillingStatus {
   status: string;
   subscribed: boolean;
+  provider?: 'stripe' | 'apple';
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   stripeSubscriptionId: string | null;
