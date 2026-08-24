@@ -107,7 +107,7 @@ function LoginPage() {
                     checked={rememberMe}
                     onChange={(event) => setRememberMe(event.target.checked)}
                   />
-                  <span className="pointer-events-none absolute inset-0 rounded border border-border bg-white peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2" />
+                  <span className="pointer-events-none absolute inset-0 rounded border border-border bg-[var(--surface)] peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2" />
                   {rememberMe && <Check className="pointer-events-none absolute left-px top-px h-3.5 w-3.5 stroke-[3] text-primary" aria-hidden="true" />}
                 </span>
                 <span>Remember me on this device</span>

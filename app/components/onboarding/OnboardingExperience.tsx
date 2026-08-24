@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   BellRing,
   BookOpen,
@@ -399,7 +400,12 @@ export default function OnboardingExperience() {
   };
 
   useEffect(() => {
-    if (state?.status !== 'active') return;
+    // Setup steps render through Radix Dialog (see `shell` below), which already
+    // provides a focus trap, Escape handling, and scroll lock. This manual trap is
+    // only needed for the tour/spotlight coachmark, which is intentionally a
+    // non-blocking overlay (the page behind it stays visible and interactive) and
+    // so can't use a real modal dialog.
+    if (state?.status !== 'active' || !activeStep || setupSteps.has(activeStep)) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         void skip();
@@ -636,29 +642,39 @@ export default function OnboardingExperience() {
   const shell = (title: string, description: string, icon: typeof Gauge, content: ReactNode) => {
     const Icon = icon;
     return (
-      <div ref={(node) => { dialogRef.current = node; }} className="fixed inset-0 z-[90] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
-        <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-background shadow-2xl sm:max-w-xl sm:rounded-2xl">
-          <div className="sticky top-0 z-10 border-b bg-background px-5 pb-4 pt-5 sm:px-6">
-            <div className="mb-3 flex items-center justify-between gap-4 text-xs font-semibold text-muted-foreground">
-              <span>Getting started · {stepIndex + 1} of {ONBOARDING_STEPS.length}</span>
-              <Button variant="ghost" size="sm" onClick={() => void skip()} disabled={busy}>Skip walkthrough</Button>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width]" style={{ width: `${progress}%` }} /></div>
-          </div>
-          <div className="p-5 sm:p-6">
-            <p className="sr-only" aria-live="polite">Walkthrough step {stepIndex + 1} of {ONBOARDING_STEPS.length}: {title}</p>
-            <div className="mb-5 flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
-              <div>
-                <h2 ref={headingRef} tabIndex={-1} id="onboarding-title" className="text-xl font-bold outline-none">{title}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <DialogPrimitive.Root open onOpenChange={(next) => { if (!next) void skip(); }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-black/55" />
+          <DialogPrimitive.Content
+            onInteractOutside={(event) => event.preventDefault()}
+            className="fixed inset-x-0 bottom-0 z-[91] max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-background shadow-2xl outline-none sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-full sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl"
+          >
+            <div className="sticky top-0 z-10 border-b bg-background px-5 pb-4 pt-5 sm:px-6">
+              <div className="mb-3 flex items-center justify-between gap-4 text-xs font-semibold text-muted-foreground">
+                <span>Getting started · {stepIndex + 1} of {ONBOARDING_STEPS.length}</span>
+                <Button variant="ghost" size="sm" onClick={() => void skip()} disabled={busy}>Skip walkthrough</Button>
               </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary transition-[width]" style={{ width: `${progress}%` }} /></div>
             </div>
-            {content}
-            {error && <p role="alert" className="mt-4 rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">{error}</p>}
-          </div>
-        </div>
-      </div>
+            <div className="p-5 sm:p-6">
+              <p className="sr-only" aria-live="polite">Walkthrough step {stepIndex + 1} of {ONBOARDING_STEPS.length}: {title}</p>
+              <div className="mb-5 flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
+                <div>
+                  <DialogPrimitive.Title asChild>
+                    <h2 ref={headingRef} tabIndex={-1} className="text-xl font-bold outline-none">{title}</h2>
+                  </DialogPrimitive.Title>
+                  <DialogPrimitive.Description asChild>
+                    <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+                  </DialogPrimitive.Description>
+                </div>
+              </div>
+              {content}
+              {error && <p role="alert" className="mt-4 rounded-md bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">{error}</p>}
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     );
   };
 

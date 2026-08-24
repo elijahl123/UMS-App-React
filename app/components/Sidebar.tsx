@@ -208,7 +208,7 @@ function Sidebar({ collapsed = false, onCollapsedChange, onClose }: Props) {
               {dueTodayCount > 0 && (
                 <Badge
                   variant="secondary"
-                  className="bg-[#fff2cf] px-1.5 text-xs text-[#6B5A1E] hover:bg-[#fff2cf]"
+                  className="bg-[var(--course-yellow)] px-1.5 text-xs text-[var(--course-yellow-text)] hover:bg-[var(--course-yellow)]"
                   title={`${dueTodayCount} assignment${dueTodayCount === 1 ? '' : 's'} due today`}
                 >
                   {dueTodayCount}
