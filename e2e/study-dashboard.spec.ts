@@ -93,6 +93,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
       tasks,
       activePlanCount: plans.length,
       overduePlanCount: 1,
+      recoveryPlanCount: 1,
       urgentPlan: plans[0],
       nextStudyDate: '2026-07-26',
     });
@@ -123,7 +124,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   await expect(page.getByText('MATH10210 Midterm')).toBeVisible();
   await expect(page.getByText('MST20050 Final')).toBeVisible();
   await expect(page.getByText('ART11000 Final')).toBeVisible();
-  await expect(page.getByText('1 plan needs attention')).toBeVisible();
+  await expect(page.getByText('1 plan needs replanning')).toBeVisible();
   await expect(page.getByRole('button', { name: /^Complete Study task/ })).toHaveCount(22);
   await expect(page.getByRole('button', { name: /^Show \d+ more/ })).toHaveCount(7);
   await expect(page.getByRole('button', { name: 'Complete Study task 29 for COMP31020', exact: true })).toHaveCount(0);

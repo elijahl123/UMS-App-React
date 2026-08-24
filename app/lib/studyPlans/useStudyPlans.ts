@@ -4,6 +4,7 @@ import type {
   StudyDashboardData,
   StudyPlanDefinition,
   StudyPlanSummary,
+  StudyRecoveryStatus,
   StudyTask,
 } from '@/app/data/types';
 import {
@@ -11,6 +12,7 @@ import {
   getStudyPlanDashboard,
   getStudyPlanDefinition,
   getStudyPlanTasks,
+  getStudyPlanRecoveryStatus,
   listStudyPlanSummaries,
 } from './client';
 
@@ -60,9 +62,21 @@ const EMPTY_DASHBOARD: StudyDashboardData = {
   tasks: [],
   activePlanCount: 0,
   overduePlanCount: 0,
+  recoveryPlanCount: 0,
   urgentPlan: null,
   nextStudyDate: null,
 };
+
+export function useStudyPlanRecoveryStatus(
+  planId?: string,
+  userId?: string
+): ResourceResult<StudyRecoveryStatus | null> {
+  const load = useCallback(
+    () => planId ? getStudyPlanRecoveryStatus(planId, userId) : Promise.resolve(null),
+    [planId, userId]
+  );
+  return useStudyResource(null, Boolean(planId && userId), load);
+}
 
 export function useStudyPlanSummaries(courseId?: string, userId?: string): ResourceResult<StudyPlanSummary[]> {
   const load = useCallback(() => listStudyPlanSummaries(courseId, userId), [courseId, userId]);

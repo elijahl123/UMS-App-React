@@ -321,6 +321,7 @@ async function mockStudyPlanApis(page: Page) {
         tasks: [],
         activePlanCount: 0,
         overduePlanCount: 0,
+        recoveryPlanCount: 0,
         urgentPlan: null,
         nextStudyDate: null,
       });

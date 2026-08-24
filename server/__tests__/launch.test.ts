@@ -58,12 +58,18 @@ describe('campus launch public inputs', () => {
       list: 'palomar_incoming',
       step: 'coursework',
       savedCount: 3,
+      movedCount: 4,
+      shortfallMinutes: 45,
+      unscheduledMinutes: 60,
       rejectedCount: -1,
       correctedCount: 2.5,
       title: 'private schoolwork title',
       error: 'raw PDF text',
       unexpected: true,
-    })).toEqual({ sourceType: 'canvas_ics', targetType: 'assignment', list: 'palomar_incoming', step: 'coursework', savedCount: 3 });
+    })).toEqual({
+      sourceType: 'canvas_ics', targetType: 'assignment', list: 'palomar_incoming', step: 'coursework',
+      savedCount: 3, movedCount: 4, shortfallMinutes: 45, unscheduledMinutes: 60,
+    });
   });
 
   it('validates Palomar consent, keeps redirects source-aware, and separates suppression groups', async () => {

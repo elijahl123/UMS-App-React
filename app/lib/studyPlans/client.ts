@@ -7,6 +7,8 @@ import type {
   StudyDifficulty,
   StudyPlanDefinition,
   StudyPlanSummary,
+  StudyRecoveryPreview,
+  StudyRecoveryStatus,
   StudyTask,
   StudyTopic,
   StudyTargetType,
@@ -103,6 +105,11 @@ export function mapStudyPlanSummary(row: Record<string, unknown>): StudyPlanSumm
     totalTasks: Number(row.total_tasks ?? 0),
     completedTasks: Number(row.completed_tasks ?? 0),
     overdueTasks: Number(row.overdue_tasks ?? 0),
+    overCapacityMinutes: Number(row.over_capacity_minutes ?? 0),
+    overCapacityDays: Number(row.over_capacity_days ?? 0),
+    recoveryNeeded: Boolean(row.recovery_needed ?? (
+      Number(row.overdue_tasks ?? 0) > 0 || Number(row.over_capacity_minutes ?? 0) > 0
+    )),
     studyDaysLeft: Number(row.study_days_left ?? 0),
     activeTopics: Number(row.active_topics ?? 0),
     nextStudyDate: row.next_study_date ? String(row.next_study_date).slice(0, 10) : null,
@@ -161,6 +168,7 @@ export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashb
     tasks: Array<Record<string, unknown>>;
     activePlanCount: number;
     overduePlanCount: number;
+    recoveryPlanCount?: number;
     urgentPlan: Record<string, unknown> | null;
     nextStudyDate: string | null;
   }>(`/dashboard${requestQuery({ userId })}`);
@@ -176,9 +184,67 @@ export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashb
     })),
     activePlanCount: Number(payload.activePlanCount),
     overduePlanCount: Number(payload.overduePlanCount),
+    recoveryPlanCount: Number(payload.recoveryPlanCount ?? payload.overduePlanCount),
     urgentPlan: payload.urgentPlan ? mapStudyPlanSummary(payload.urgentPlan) : null,
     nextStudyDate: payload.nextStudyDate ? String(payload.nextStudyDate).slice(0, 10) : null,
   };
+}
+
+export async function getStudyPlanRecoveryStatus(planId: string, userId?: string): Promise<StudyRecoveryStatus> {
+  return studyPlanRequest<StudyRecoveryStatus>(`/${planId}/recovery${requestQuery({ userId })}`);
+}
+
+export async function previewStudyPlanRecovery(
+  planId: string,
+  omittedGroupIds: string[] = [],
+  additionalMinutesPerDay = 0,
+  userId?: string
+): Promise<StudyRecoveryPreview> {
+  const result = await studyPlanRequest<StudyRecoveryPreview>(`/${planId}/recovery/preview`, {
+    method: 'POST',
+    body: JSON.stringify({ omittedGroupIds, additionalMinutesPerDay, userId }),
+  });
+  void trackProductEvent('study_recovery_previewed', {
+    movedCount: result.taskChanges.filter((change) => change.status === 'moved').length,
+    shortfallMinutes: result.shortfallMinutes,
+  });
+  return result;
+}
+
+export async function confirmStudyPlanRecovery(
+  planId: string,
+  stateToken: string,
+  omittedGroupIds: string[] = [],
+  additionalMinutesPerDay = 0,
+  userId?: string
+): Promise<{ planId: string; recovered: boolean; revisionId: string | null; preview: StudyRecoveryPreview }> {
+  const result = await studyPlanRequest<{
+    planId: string;
+    recovered: boolean;
+    revisionId: string | null;
+    preview: StudyRecoveryPreview;
+  }>(`/${planId}/recovery/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ stateToken, omittedGroupIds, additionalMinutesPerDay, userId }),
+  });
+  if (result.recovered) void trackProductEvent('study_recovery_applied', {
+    movedCount: result.preview.taskChanges.filter((change) => change.status === 'moved').length,
+    unscheduledMinutes: result.preview.totals.after.unscheduledMinutes,
+    addedCapacityMinutes: result.preview.capacityChanges.reduce((sum, change) => sum + change.addedMinutes, 0),
+  });
+  return result;
+}
+
+export async function undoStudyPlanRecovery(
+  planId: string,
+  userId?: string
+): Promise<{ planId: string; undone: boolean; revisionId: string }> {
+  const result = await studyPlanRequest<{ planId: string; undone: boolean; revisionId: string }>(`/${planId}/recovery/undo`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+  if (result.undone) void trackProductEvent('study_recovery_undone');
+  return result;
 }
 
 export async function getStudyPlanCalendar(
@@ -300,5 +366,10 @@ export function studyPlanErrorMessage(error: unknown): string {
   if (payload?.error?.message === 'INSUFFICIENT_STUDY_CAPACITY' && details) {
     return `This plan needs ${details.requiredMinutes ?? 0} minutes, but only ${details.availableMinutes ?? 0} are available. Add ${details.missingMinutes ?? 0} minutes or reduce the workload.`;
   }
+  if (payload?.error?.message === 'RECOVERY_PREVIEW_STALE') return 'The plan changed after this preview. Review the updated recovery plan before confirming.';
+  if (payload?.error?.message === 'RECOVERY_OMISSIONS_REQUIRED') return 'Choose enough work to leave unscheduled before confirming recovery.';
+  if (payload?.error?.message === 'RECOVERY_UNDO_UNSAFE') return 'Recovery can no longer be undone because the plan changed afterward.';
+  if (payload?.error?.message === 'RECOVERY_UNDO_NOT_AVAILABLE') return 'There is no recovery revision available to undo.';
+  if (payload?.error?.message === 'RECOVERY_NO_MOVABLE_WORK') return 'The remaining overdue work is pinned. Edit those tasks manually before recovering the plan.';
   return payload?.error?.message ?? 'Unable to save the study plan.';
 }

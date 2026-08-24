@@ -89,6 +89,19 @@ vi.doMock('@/app/lib/studyPlans/client', () => ({
 }));
 
 vi.doMock('@/app/lib/studyPlans/useStudyPlans', () => ({
+  useStudyPlanRecoveryStatus: (planId?: string) => {
+    const plan = studyPlanState.plans.find((candidate) => candidate.id === planId);
+    return [{
+      planId: planId ?? '',
+      needsRecovery: Boolean(plan?.recoveryNeeded),
+      reasons: plan?.overdueTasks ? ['overdue'] : plan?.overCapacityMinutes ? ['over_capacity'] : [],
+      overdueMinutes: plan?.tasks.filter((task) => !task.completedAt).reduce((sum, task) => sum + task.estimatedMinutes, 0) ?? 0,
+      overCapacityMinutes: plan?.overCapacityMinutes ?? 0,
+      unscheduledMinutes: plan?.unscheduledMinutes ?? 0,
+      unresolvedTasks: [],
+      latestRevision: null,
+    }, false, null, vi.fn(async () => undefined), vi.fn()];
+  },
   useStudyPlanSummaries: (courseId?: string) => [
     courseId ? studyPlanState.plans.filter((plan) => plan.courseId === courseId) : studyPlanState.plans,
     false,
@@ -131,6 +144,7 @@ vi.doMock('@/app/lib/studyPlans/useStudyPlans', () => ({
       ),
       activePlanCount: studyPlanState.plans.filter((plan) => !plan.archived).length,
       overduePlanCount: studyPlanState.plans.filter((plan) => !plan.archived && plan.overdueTasks > 0).length,
+      recoveryPlanCount: studyPlanState.plans.filter((plan) => !plan.archived && plan.recoveryNeeded).length,
       urgentPlan: studyPlanState.plans.find((plan) => !plan.archived && plan.overdueTasks > 0) ?? null,
       nextStudyDate: studyPlanState.plans.map((plan) => plan.nextStudyDate).filter(Boolean).sort()[0] ?? null,
     },

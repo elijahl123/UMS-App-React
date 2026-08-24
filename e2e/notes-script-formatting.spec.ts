@@ -1,5 +1,33 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { mockAuthenticatedApp } from './support/appMocks';
+
+async function selectTextRange(editor: Locator, start: number, end: number) {
+  await editor.evaluate((element, offsets) => {
+    const range = document.createRange();
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let textOffset = 0;
+    let startSet = false;
+    let node = walker.nextNode();
+
+    while (node) {
+      const nodeEnd = textOffset + (node.textContent?.length ?? 0);
+      if (!startSet && offsets.start <= nodeEnd) {
+        range.setStart(node, offsets.start - textOffset);
+        startSet = true;
+      }
+      if (startSet && offsets.end <= nodeEnd) {
+        range.setEnd(node, offsets.end - textOffset);
+        break;
+      }
+      textOffset = nodeEnd;
+      node = walker.nextNode();
+    }
+
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }, { start, end });
+}
 
 test('formats and saves subscript and superscript text', async ({ page }) => {
   await mockAuthenticatedApp(page);
@@ -16,12 +44,9 @@ test('formats and saves subscript and superscript text', async ({ page }) => {
   const editor = page.locator('.ProseMirror');
   await editor.fill('H2O and x2');
 
-  await editor.press('Home');
-  await editor.press('ArrowRight');
-  await editor.press('Shift+ArrowRight');
+  await selectTextRange(editor, 1, 2);
   await page.getByRole('button', { name: 'Subscript' }).click();
-  await editor.press('End');
-  await editor.press('Shift+ArrowLeft');
+  await selectTextRange(editor, 9, 10);
   await page.getByRole('button', { name: 'Superscript' }).click();
 
   await expect(editor.locator('sub')).toHaveText('2');

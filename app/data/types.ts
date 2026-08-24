@@ -124,6 +124,9 @@ export interface StudyPlanSummary {
   totalTasks: number;
   completedTasks: number;
   overdueTasks: number;
+  overCapacityMinutes: number;
+  overCapacityDays: number;
+  recoveryNeeded: boolean;
   studyDaysLeft: number;
   activeTopics: number;
   nextStudyDate: string | null;
@@ -152,8 +155,97 @@ export interface StudyDashboardData {
   tasks: StudyDashboardTask[];
   activePlanCount: number;
   overduePlanCount: number;
+  recoveryPlanCount: number;
   urgentPlan: StudyPlanSummary | null;
   nextStudyDate: string | null;
+}
+
+export type StudyRecoveryReason = 'overdue' | 'over_capacity' | 'unscheduled';
+
+export interface StudyRecoveryTotals {
+  scheduledMinutes: number;
+  overdueMinutes: number;
+  overCapacityMinutes: number;
+  unscheduledMinutes: number;
+}
+
+export interface StudyRecoveryUnresolvedTask {
+  id: string;
+  title: string;
+  scheduledDate: string;
+  minutes: number;
+  reason: 'pinned_overdue' | 'pinned_over_capacity';
+}
+
+export interface StudyRecoveryOmissionGroup {
+  id: string;
+  topicId: string;
+  phase: StudyPhase;
+  title: string;
+  minutes: number;
+  cascadesTo: string[];
+}
+
+export interface StudyRecoveryDayChange {
+  date: string;
+  capacityMinutes: number;
+  beforeMinutes: number;
+  afterMinutes: number;
+}
+
+export interface StudyRecoveryTaskChange {
+  groupId: string;
+  title: string;
+  minutes: number;
+  fromDates: string[];
+  toDates: string[];
+  status: 'moved' | 'unchanged' | 'unscheduled';
+}
+
+export interface StudyRecoveryCapacityChange {
+  date: string;
+  beforeMinutes: number;
+  afterMinutes: number;
+  addedMinutes: number;
+}
+
+export interface StudyRecoveryPreview {
+  planId: string;
+  stateToken: string;
+  needsRecovery: boolean;
+  canConfirm: boolean;
+  reasons: StudyRecoveryReason[];
+  requiredOmissionMinutes: number;
+  shortfallMinutes: number;
+  selectedOmissionMinutes: number;
+  additionalMinutesPerDay: number;
+  effectiveOmittedGroupIds: string[];
+  recommendedOmittedGroupIds: string[];
+  omissionGroups: StudyRecoveryOmissionGroup[];
+  unresolvedTasks: StudyRecoveryUnresolvedTask[];
+  capacityChanges: StudyRecoveryCapacityChange[];
+  dayChanges: StudyRecoveryDayChange[];
+  taskChanges: StudyRecoveryTaskChange[];
+  totals: {
+    before: StudyRecoveryTotals;
+    after: StudyRecoveryTotals;
+    movedMinutes: number;
+  };
+}
+
+export interface StudyRecoveryStatus {
+  planId: string;
+  needsRecovery: boolean;
+  reasons: StudyRecoveryReason[];
+  overdueMinutes: number;
+  overCapacityMinutes: number;
+  unscheduledMinutes: number;
+  unresolvedTasks: StudyRecoveryUnresolvedTask[];
+  latestRevision: {
+    id: string;
+    appliedAt: string;
+    undoAvailable: boolean;
+  } | null;
 }
 
 export interface StudyCalendarData {

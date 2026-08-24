@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
-import type { AppUser, StagingAccessUser, StudyPlan } from '@/app/data/types';
+import type { AppUser, StagingAccessUser, StudyPlan, StudyRecoveryPreview } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
 import type { GoogleCalendarStatus } from '@/app/lib/googleCalendar/client';
@@ -177,6 +177,31 @@ export const studyPlanActions = {
     planId: planId ?? 'plan-1',
   })),
   refreshStudyPlan: vi.fn(async (planId: string) => ({ planId, refreshed: true })),
+  previewStudyPlanRecovery: vi.fn(async (planId: string): Promise<StudyRecoveryPreview> => ({
+    planId,
+    stateToken: 'a'.repeat(64),
+    needsRecovery: true,
+    canConfirm: true,
+    reasons: ['overdue'],
+    requiredOmissionMinutes: 0,
+    shortfallMinutes: 0,
+    selectedOmissionMinutes: 0,
+    additionalMinutesPerDay: 0,
+    effectiveOmittedGroupIds: [],
+    recommendedOmittedGroupIds: [],
+    omissionGroups: [],
+    capacityChanges: [],
+    unresolvedTasks: [],
+    dayChanges: [{ date: '2026-07-29', capacityMinutes: 60, beforeMinutes: 60, afterMinutes: 60 }],
+    taskChanges: [{ groupId: 'topic-1:learn', title: 'Learn & review: Graph algorithms', minutes: 60, fromDates: ['2026-07-22'], toDates: ['2026-07-29'], status: 'moved' }],
+    totals: {
+      before: { scheduledMinutes: 60, overdueMinutes: 60, overCapacityMinutes: 0, unscheduledMinutes: 0 },
+      after: { scheduledMinutes: 60, overdueMinutes: 0, overCapacityMinutes: 0, unscheduledMinutes: 0 },
+      movedMinutes: 60,
+    },
+  })),
+  confirmStudyPlanRecovery: vi.fn(async (planId: string) => ({ planId, recovered: true, revisionId: 'revision-1' })),
+  undoStudyPlanRecovery: vi.fn(async (planId: string) => ({ planId, undone: true, revisionId: 'revision-1' })),
   setStudyTaskCompleted: vi.fn(async (_planId: string, taskId: string, completed: boolean) => ({
     id: taskId,
     completedAt: completed ? '2026-07-25T12:00:00.000Z' : null,
