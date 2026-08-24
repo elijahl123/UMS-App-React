@@ -26,10 +26,12 @@ import {
   Download,
   RotateCcw,
   Palette,
+  MessageSquareHeart,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/app/lib/auth/AuthContext';
@@ -39,6 +41,7 @@ import {
   resendAccountEmailVerification,
   type AccountEmailAddress,
 } from '@/app/lib/accountEmails/client';
+import { submitFeedback } from '@/app/lib/email/client';
 import SchoolCalendarImportPanel from '@/app/components/SchoolCalendarImportPanel';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 import type { NotificationPreferences } from '@/app/data/types';
@@ -170,6 +173,11 @@ function AccountPage() {
     items: GoogleCalendarPreviewItem[];
     reviewedCount: number;
   } | null>(null);
+
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
@@ -571,6 +579,28 @@ function AccountPage() {
     }
   };
 
+  const handleFeedbackSubmit = async () => {
+    setFeedbackError(null);
+    setFeedbackSuccess(false);
+    const trimmed = feedbackMessage.trim();
+    if (!trimmed) {
+      setFeedbackError('Enter your feedback before sending.');
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    try {
+      const name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+      await submitFeedback(trimmed, name || undefined);
+      setFeedbackMessage('');
+      setFeedbackSuccess(true);
+    } catch (err) {
+      setFeedbackError(requestError(err, 'Unable to send feedback.'));
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     const acceptableEmails = [accountPrimaryEmail, user?.email].filter((email): email is string => Boolean(email));
     const normalizedConfirmation = deleteConfirmation.trim().toLowerCase();
@@ -716,6 +746,43 @@ function AccountPage() {
           >
             <RotateCcw className="h-4 w-4" />
             Restart walkthrough
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquareHeart className="h-5 w-5 text-primary" />
+            <CardTitle>Feedback</CardTitle>
+          </div>
+          <CardDescription>Send a bug report, idea, or anything else on your mind. It goes straight to the UMS team.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Textarea
+            placeholder="What's working well? What could be better?"
+            aria-label="Feedback message"
+            rows={4}
+            value={feedbackMessage}
+            onChange={(event) => setFeedbackMessage(event.target.value)}
+            disabled={feedbackSubmitting}
+            maxLength={5000}
+          />
+          {feedbackError && <p className="text-sm font-medium text-destructive">{feedbackError}</p>}
+          {feedbackSuccess && (
+            <p className="flex items-center gap-1.5 text-sm font-medium text-[color-mix(in_srgb,var(--course-emerald)_68%,var(--secondary-accent))]">
+              <CheckCircle2 className="h-4 w-4" />
+              Thanks! Your feedback was sent.
+            </p>
+          )}
+          <Button
+            type="button"
+            className="w-full gap-2 sm:w-auto"
+            disabled={feedbackSubmitting || !feedbackMessage.trim()}
+            onClick={handleFeedbackSubmit}
+          >
+            {feedbackSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {feedbackSubmitting ? 'Sending...' : 'Send feedback'}
           </Button>
         </CardContent>
       </Card>

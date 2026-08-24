@@ -24,3 +24,7 @@ export function requestPasswordResetEmail(email: string) {
 export function requestPrimaryEmailVerification() {
   return emailRequest<{ status: 'accepted' | 'already_verified' }>('verification');
 }
+
+export function submitFeedback(message: string, name?: string) {
+  return emailRequest<{ status: 'accepted' }>('feedback', { message, name });
+}
