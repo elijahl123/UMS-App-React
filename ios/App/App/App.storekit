@@ -1,0 +1,78 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "34F88749",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "5.99",
+      "familyShareable" : false,
+      "internalID" : "6804787564",
+      "localizations" : [
+        {
+          "description" : "Subscribe to gain access to all UMS has to offer!",
+          "displayName" : "Monthly Subscription",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.untitledmanagementsoftware.app.monthly",
+      "referenceName" : "Monthly",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "59.99",
+      "familyShareable" : false,
+      "internalID" : "6804790078",
+      "localizations" : [
+        {
+          "description" : "Subscribe to gain access to all UMS has to offer!",
+          "displayName" : "Yearly Subscription",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.untitledmanagementsoftware.app.yearly",
+      "referenceName" : "Yearly",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6793208053",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "HFK72GG79L",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 809293544.43155003,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionBundleGroups" : [
+
+  ],
+  "subscriptionGroups" : [
+
+  ],
+  "subscriptionSuiteGroups" : [
+
+  ],
+  "version" : {
+    "major" : 6,
+    "minor" : 3
+  }
+}
