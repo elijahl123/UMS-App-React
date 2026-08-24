@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "34F88749",
+  "identifier" : "7C24CF22",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -53,7 +53,7 @@
     "_developerTeamID" : "HFK72GG79L",
     "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 809293544.43155003,
+    "_lastSynchronizedDate" : 809295019.66561902,
     "_locale" : "en_US",
     "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "USA",
@@ -66,7 +66,97 @@
 
   ],
   "subscriptionGroups" : [
+    {
+      "id" : "22332739",
+      "localizations" : [
+        {
+          "description" : "",
+          "displayName" : "UMS Subscription",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "UMS Subscription",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
 
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "5.99",
+              "displayPrice" : "5.99",
+              "internalID" : "6804820725_BILLED_UPFRONT",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "5.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6804820725",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Gain access to everything UMS has to offer!",
+              "displayName" : "UMS Subscription Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.untitledmanagementsoftware.app.monthly.v2",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Monthly Subscription",
+          "subscriptionGroupID" : "22332739",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "billingPlans" : [
+            {
+              "billingPlanType" : "BILLED_UPFRONT",
+              "commitmentDisplayPrice" : "59.99",
+              "displayPrice" : "59.99",
+              "internalID" : "6804821408_BILLED_UPFRONT",
+              "isEnabled" : true
+            }
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "59.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6804821408",
+          "introductoryOffers" : [
+
+          ],
+          "localizations" : [
+            {
+              "description" : "Gain access to everything UMS has to offer!",
+              "displayName" : "UMS Yearly Subscription",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.untitledmanagementsoftware.app.yearly.v2",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Yearly Subscription",
+          "subscriptionGroupID" : "22332739",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
   ],
   "subscriptionSuiteGroups" : [
 
