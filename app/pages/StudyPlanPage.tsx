@@ -26,23 +26,23 @@ import {
   formatStudyDate,
   formatStudyMinutes,
   groupStudyDays,
-  isStudyPlanBehind,
   studyPlanProgress,
   todayForTimeZone,
 } from '@/app/data/studyPlans';
 import {
   deleteStudyPlan,
   openStudyTaskNote,
-  refreshStudyPlan,
   setStudyPlanArchived,
   setStudyTaskCompleted,
   studyPlanErrorMessage,
   updateStudyTask,
+  undoStudyPlanRecovery,
 } from '@/app/lib/studyPlans/client';
-import { useStudyPlanDefinition, useStudyPlanTasks } from '@/app/lib/studyPlans/useStudyPlans';
+import { useStudyPlanDefinition, useStudyPlanRecoveryStatus, useStudyPlanTasks } from '@/app/lib/studyPlans/useStudyPlans';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { getCourseColor } from '@/app/data/courseColors';
 import { openExternalUrl } from '@/app/lib/externalLinks';
+import { RecoveryDialog } from '@/app/components/studyPlans/RecoveryDialog';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WINDOW_DAYS = 28;
@@ -69,7 +69,8 @@ function StudyPlanPage() {
   const [windowStart, setWindowStart] = useState('');
   const [busyTask, setBusyTask] = useState<string | null>(null);
   const [busyNoteTask, setBusyNoteTask] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const [undoingRecovery, setUndoingRecovery] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const today = plan ? todayForTimeZone(plan.timeZone) : '';
@@ -83,6 +84,7 @@ function StudyPlanPage() {
     windowEnd,
     user?.id
   );
+  const [recoveryStatus, , , reloadRecoveryStatus] = useStudyPlanRecoveryStatus(planId, user?.id);
   useEffect(() => {
     if (!plan) return;
     if (plan.targetDate <= plan.startDate) {
@@ -97,7 +99,7 @@ function StudyPlanPage() {
     [plan, tasks]
   );
   const progress = plan ? studyPlanProgress(plan) : { completed: 0, total: 0, percent: 0 };
-  const behind = plan ? isStudyPlanBehind(plan, today) : false;
+  const recoveryNeeded = recoveryStatus?.needsRecovery ?? plan?.recoveryNeeded ?? false;
 
   const toggleTask = async (taskId: string, completed: boolean) => {
     if (!plan) return;
@@ -116,17 +118,21 @@ function StudyPlanPage() {
     }
   };
 
-  const handleRefresh = async () => {
-    if (!plan || !confirm(`Recalculate all incomplete work from today through the day before the ${plan.targetType === 'exam' ? 'exam' : 'due date'}? Manual task changes will be replaced.`)) return;
-    setRefreshing(true);
+  const reloadRecoveryData = async () => {
+    await Promise.all([reloadPlan(), reloadTasks(), reloadRecoveryStatus()]);
+  };
+
+  const handleUndoRecovery = async () => {
+    if (!plan) return;
+    setUndoingRecovery(true);
     setError(null);
     try {
-      await refreshStudyPlan(plan.id, user?.id);
-      await Promise.all([reloadPlan(), reloadTasks()]);
+      await undoStudyPlanRecovery(plan.id, user?.id);
+      await reloadRecoveryData();
     } catch (err) {
       setError(studyPlanErrorMessage(err));
     } finally {
-      setRefreshing(false);
+      setUndoingRecovery(false);
     }
   };
 
@@ -270,7 +276,7 @@ function StudyPlanPage() {
                 {plan.targetType === 'exam' ? (plan.examType === 'final' ? 'Final exam' : 'Midterm') : plan.targetType}
               </Badge>
               {plan.archived && <Badge variant="secondary">Archived</Badge>}
-              {behind && <Badge variant="secondary" className="bg-destructive/10 text-destructive">Needs refresh</Badge>}
+              {recoveryNeeded && <Badge variant="secondary" className="bg-destructive/10 text-destructive">Needs replanning</Badge>}
             </div>
             <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-[var(--secondary-accent)] sm:text-4xl">
               {plan.targetTitle}
@@ -287,8 +293,8 @@ function StudyPlanPage() {
                 <Pencil className="mr-1.5 h-4 w-4" /> Edit plan
               </Link>
             </Button>
-            <Button variant="outline" className="h-11 rounded-lg px-3" onClick={handleRefresh} disabled={refreshing || plan.archived}>
-              <RefreshCw className={`mr-1.5 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            <Button variant="outline" className="h-11 rounded-lg px-3" onClick={() => setRecoveryOpen(true)} disabled={!recoveryNeeded || plan.archived}>
+              <RefreshCw className="mr-1.5 h-4 w-4" /> Recovery mode
             </Button>
             <Button variant="outline" className="h-11 rounded-lg px-3" onClick={handleArchive}>
               <Archive className="mr-1.5 h-4 w-4" /> {plan.archived ? 'Restore' : 'Archive'}
@@ -300,19 +306,32 @@ function StudyPlanPage() {
         </CardContent>
       </Card>
 
-      {behind && !plan.archived && (
+      {recoveryNeeded && !plan.archived && (
         <div className="mobile-list-item flex min-h-12 shrink-0 flex-col gap-3 border-destructive/25 bg-destructive/5 p-3 sm:flex-row sm:items-center">
             <div className="flex gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div>
-                <p className="font-bold text-[var(--secondary-accent)]">Some study work is overdue</p>
-                <p className="mt-1 text-sm text-muted-foreground">Completed work stays fixed. Incomplete work can be rebalanced across the remaining days.</p>
+                <p className="font-bold text-[var(--secondary-accent)]">This plan needs replanning</p>
+                <p className="mt-1 text-sm text-muted-foreground">Preview how flexible work can be rebalanced. Completed and manually edited tasks stay fixed.</p>
               </div>
             </div>
-            <Button className="h-12 shrink-0 rounded-lg sm:ml-auto sm:h-11" onClick={handleRefresh} disabled={refreshing}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh plan
+            <Button className="h-12 shrink-0 rounded-lg sm:ml-auto sm:h-11" onClick={() => setRecoveryOpen(true)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Start Recovery Mode
             </Button>
+        </div>
+      )}
+
+      {recoveryStatus?.latestRevision?.undoAvailable && (
+        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 items-center gap-3 border-primary/25 bg-primary/5 p-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[var(--secondary-accent)]">Recovery applied</p>
+            <p className="mt-1 text-sm text-muted-foreground">You can undo the latest recovery until this plan changes again.</p>
+          </div>
+          <Button variant="outline" onClick={handleUndoRecovery} disabled={undoingRecovery} className="h-11 shrink-0">
+            <RefreshCw className={`mr-2 h-4 w-4 ${undoingRecovery ? 'animate-spin' : ''}`} /> Undo
+          </Button>
         </div>
       )}
 
@@ -532,6 +551,13 @@ function StudyPlanPage() {
 
         </aside>
       </div>
+      <RecoveryDialog
+        planId={plan.id}
+        userId={user?.id}
+        open={recoveryOpen}
+        onOpenChange={setRecoveryOpen}
+        onApplied={reloadRecoveryData}
+      />
     </div>
   );
 }

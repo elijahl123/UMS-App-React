@@ -7,7 +7,7 @@ import CoursePage from '@/app/pages/CoursePage';
 import DashboardPage from '@/app/pages/DashboardPage';
 import StudyPlanPage from '@/app/pages/StudyPlanPage';
 import StudyPlanSetupPage from '@/app/pages/StudyPlanSetupPage';
-import type { StudyPlan } from '@/app/data/types';
+import type { StudyPlan, StudyRecoveryPreview } from '@/app/data/types';
 import { studyPlanActions, studyPlanState } from '@/app/test/mocks';
 import { mockUser } from '@/app/test/fixtures';
 import { renderWithRouter } from '@/app/test/render';
@@ -40,6 +40,9 @@ const plan: StudyPlan = {
   totalTasks: 1,
   completedTasks: 0,
   overdueTasks: 1,
+  overCapacityMinutes: 0,
+  overCapacityDays: 0,
+  recoveryNeeded: true,
   studyDaysLeft: 1,
   activeTopics: 1,
   nextStudyDate: '2026-07-22',
@@ -117,7 +120,7 @@ describe('study plans', () => {
     );
   });
 
-  it('offers explicit refresh for overdue incomplete work', async () => {
+  it('previews and confirms Recovery Mode for overdue incomplete work', async () => {
     const user = userEvent.setup();
     studyPlanState.plans = [{ ...plan, examDate: '2099-07-31', targetDate: '2099-07-31' }];
     renderRoute(
@@ -126,9 +129,117 @@ describe('study plans', () => {
       '/courses/1/study-plans/plan-1'
     );
 
-    expect(screen.getByText(/some study work is overdue/i)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /refresh plan/i }));
-    await waitFor(() => expect(studyPlanActions.refreshStudyPlan).toHaveBeenCalledWith('plan-1', mockUser.id));
+    expect(screen.getByText(/plan needs replanning/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /start recovery mode/i }));
+    expect(await screen.findByRole('heading', { name: /recovery mode/i })).toBeInTheDocument();
+    await waitFor(() => expect(studyPlanActions.previewStudyPlanRecovery).toHaveBeenCalledWith('plan-1', [], 0, mockUser.id));
+    await user.click(screen.getByRole('button', { name: /confirm recovery/i }));
+    await waitFor(() => expect(studyPlanActions.confirmStudyPlanRecovery).toHaveBeenCalledWith(
+      'plan-1', 'a'.repeat(64), [], 0, mockUser.id
+    ));
+  });
+
+  it('requires an explicit dependency-safe omission when recovery is short on capacity', async () => {
+    const user = userEvent.setup();
+    studyPlanState.plans = [{ ...plan, examDate: '2099-07-31', targetDate: '2099-07-31' }];
+    const shortfallPreview: StudyRecoveryPreview = {
+      planId: 'plan-1', stateToken: 'b'.repeat(64), needsRecovery: true, canConfirm: false,
+      reasons: ['overdue'], requiredOmissionMinutes: 45, shortfallMinutes: 45,
+      selectedOmissionMinutes: 0, additionalMinutesPerDay: 0,
+      effectiveOmittedGroupIds: [], recommendedOmittedGroupIds: ['topic-1:practice'],
+      unresolvedTasks: [], dayChanges: [], capacityChanges: [],
+      omissionGroups: [{
+        id: 'topic-1:practice', topicId: 'topic-1', phase: 'practice',
+        title: 'Practice: Graph algorithms', minutes: 45, cascadesTo: ['topic-1:recall'],
+      }],
+      taskChanges: [],
+      totals: {
+        before: { scheduledMinutes: 105, overdueMinutes: 105, overCapacityMinutes: 0, unscheduledMinutes: 0 },
+        after: { scheduledMinutes: 60, overdueMinutes: 0, overCapacityMinutes: 0, unscheduledMinutes: 45 },
+        movedMinutes: 60,
+      },
+    };
+    studyPlanActions.previewStudyPlanRecovery
+      .mockResolvedValueOnce(shortfallPreview)
+      .mockResolvedValueOnce({
+        ...shortfallPreview,
+        canConfirm: true,
+        shortfallMinutes: 0,
+        selectedOmissionMinutes: 45,
+        effectiveOmittedGroupIds: ['topic-1:practice', 'topic-1:recall'],
+      });
+
+    renderRoute(
+      '/courses/:courseId/study-plans/:planId',
+      <StudyPlanPage />,
+      '/courses/1/study-plans/plan-1'
+    );
+    await user.click(screen.getByRole('button', { name: /start recovery mode/i }));
+    const confirmButton = await screen.findByRole('button', { name: /confirm recovery/i });
+    expect(confirmButton).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /practice: graph algorithms/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /leave the remaining work unscheduled/i }));
+    await waitFor(() => expect(studyPlanActions.previewStudyPlanRecovery).toHaveBeenLastCalledWith(
+      'plan-1', ['topic-1:practice'], 0, mockUser.id
+    ));
+    await waitFor(() => expect(confirmButton).toBeEnabled());
+    await user.click(confirmButton);
+    await waitFor(() => expect(studyPlanActions.confirmStudyPlanRecovery).toHaveBeenCalledWith(
+      'plan-1', 'b'.repeat(64), ['topic-1:practice'], 0, mockUser.id
+    ));
+  });
+
+  it('can add only the daily capacity needed to schedule all remaining work', async () => {
+    const user = userEvent.setup();
+    studyPlanState.plans = [{ ...plan, examDate: '2099-07-31', targetDate: '2099-07-31' }];
+    const shortfallPreview = await studyPlanActions.previewStudyPlanRecovery('plan-1');
+    const shortfall = {
+      ...shortfallPreview,
+      stateToken: 'c'.repeat(64),
+      canConfirm: false,
+      requiredOmissionMinutes: 45,
+      shortfallMinutes: 45,
+      recommendedOmittedGroupIds: ['topic-1:practice'],
+      omissionGroups: [{
+        id: 'topic-1:practice', topicId: 'topic-1', phase: 'practice' as const,
+        title: 'Practice: Graph algorithms', minutes: 45, cascadesTo: [],
+      }],
+    };
+    studyPlanActions.previewStudyPlanRecovery
+      .mockResolvedValueOnce(shortfall)
+      .mockResolvedValueOnce({
+        ...shortfall,
+        canConfirm: true,
+        requiredOmissionMinutes: 0,
+        shortfallMinutes: 0,
+        additionalMinutesPerDay: 720,
+        capacityChanges: [
+          { date: '2099-07-27', beforeMinutes: 60, afterMinutes: 75, addedMinutes: 15 },
+          { date: '2099-07-28', beforeMinutes: 60, afterMinutes: 75, addedMinutes: 15 },
+          { date: '2099-07-29', beforeMinutes: 60, afterMinutes: 75, addedMinutes: 15 },
+        ],
+        totals: {
+          ...shortfall.totals,
+          after: { ...shortfall.totals.after, unscheduledMinutes: 0 },
+        },
+      });
+
+    renderRoute(
+      '/courses/:courseId/study-plans/:planId',
+      <StudyPlanPage />,
+      '/courses/1/study-plans/plan-1'
+    );
+    await user.click(screen.getByRole('button', { name: /start recovery mode/i }));
+    await screen.findByRole('button', { name: /add time needed/i });
+    await user.click(screen.getByRole('button', { name: /add time needed/i }));
+    await waitFor(() => expect(studyPlanActions.previewStudyPlanRecovery).toHaveBeenLastCalledWith(
+      'plan-1', [], 720, mockUser.id
+    ));
+    expect(await screen.findByText(/45 min added across 3 study days/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /confirm recovery/i }));
+    await waitFor(() => expect(studyPlanActions.confirmStudyPlanRecovery).toHaveBeenCalledWith(
+      'plan-1', 'c'.repeat(64), [], 720, mockUser.id
+    ));
   });
 
   it('links the plan summary to the full editor', () => {

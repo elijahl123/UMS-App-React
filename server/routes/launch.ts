@@ -27,13 +27,20 @@ const launchEventNames = new Set([
   'google_calendar_connected',
   'study_plan_created',
   'study_task_completed',
+  'study_recovery_previewed',
+  'study_recovery_applied',
+  'study_recovery_undone',
   'waitlist_requested',
   'waitlist_confirmed',
   'pwa_installed',
   'account_exported',
 ]);
 
-const countPropertyNames = new Set(['savedCount', 'rejectedCount', 'correctedCount', 'errorCount']);
+const countPropertyNames = new Set([
+  'savedCount', 'rejectedCount', 'correctedCount', 'errorCount',
+  'movedCount', 'shortfallMinutes', 'unscheduledMinutes',
+  'addedCapacityMinutes',
+]);
 const propertyEnums: Record<string, Set<string>> = {
   sourceType: new Set(['google_calendar', 'brightspace_pdf', 'canvas_ics']),
   targetType: new Set(['exam', 'assignment', 'project']),

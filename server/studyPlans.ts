@@ -856,6 +856,28 @@ async function queryStudyPlanSummaries(
         FROM study_topics topic
         JOIN owned_plans plan ON plan.id = topic.plan_id
         GROUP BY topic.plan_id
+      ),
+      daily_work AS (
+        SELECT task.plan_id, task.scheduled_date,
+               SUM(task.estimated_minutes)::integer AS scheduled_minutes,
+               COALESCE(capacity_override.minutes, availability.minutes, 0)::integer AS capacity_minutes
+        FROM study_tasks task
+        JOIN owned_plans plan ON plan.id = task.plan_id
+        LEFT JOIN study_plan_availability availability
+          ON availability.plan_id = task.plan_id
+         AND availability.weekday = EXTRACT(DOW FROM task.scheduled_date)::integer
+        LEFT JOIN study_plan_capacity_overrides capacity_override
+          ON capacity_override.plan_id = task.plan_id
+         AND capacity_override.study_date = task.scheduled_date
+        WHERE task.completed_at IS NULL AND task.scheduled_date >= plan.local_today
+        GROUP BY task.plan_id, task.scheduled_date, capacity_override.minutes, availability.minutes
+      ),
+      recovery_stats AS (
+        SELECT plan_id,
+               SUM(GREATEST(0, scheduled_minutes - capacity_minutes))::integer AS over_capacity_minutes,
+               COUNT(*) FILTER (WHERE scheduled_minutes > capacity_minutes)::integer AS over_capacity_days
+        FROM daily_work
+        GROUP BY plan_id
       )
       SELECT
         p.id,
@@ -885,6 +907,12 @@ async function queryStudyPlanSummaries(
         COALESCE(task_stats.total_tasks, 0) AS total_tasks,
         COALESCE(task_stats.completed_tasks, 0) AS completed_tasks,
         COALESCE(task_stats.overdue_tasks, 0) AS overdue_tasks,
+        COALESCE(recovery_stats.over_capacity_minutes, 0) AS over_capacity_minutes,
+        COALESCE(recovery_stats.over_capacity_days, 0) AS over_capacity_days,
+        (
+          COALESCE(task_stats.overdue_tasks, 0) > 0
+          OR COALESCE(recovery_stats.over_capacity_minutes, 0) > 0
+        ) AS recovery_needed,
         COALESCE(task_stats.study_days_left, 0) AS study_days_left,
         task_stats.next_study_date,
         COALESCE(topic_stats.active_topics, 0) AS active_topics,
@@ -893,6 +921,7 @@ async function queryStudyPlanSummaries(
       FROM owned_plans p
       LEFT JOIN task_stats ON task_stats.plan_id = p.id
       LEFT JOIN topic_stats ON topic_stats.plan_id = p.id
+      LEFT JOIN recovery_stats ON recovery_stats.plan_id = p.id
       LEFT JOIN LATERAL (
         SELECT ${taskTitleSql('task', 'topic')} AS title
         FROM study_tasks task
@@ -1081,7 +1110,11 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
   );
   const upcomingPlans = activePlans
     .filter((plan) => String(plan.exam_date) >= String(plan.local_today));
-  const overduePlans = activePlans.filter((plan) => Number(plan.overdue_tasks) > 0);
+  const recoveryPlans = activePlans.filter((plan) =>
+    Boolean(plan.recovery_needed)
+      || Number(plan.overdue_tasks) > 0
+      || Number(plan.over_capacity_minutes) > 0
+  );
   const nextStudyDate = activePlans
     .map((plan) => plan.next_study_date ? String(plan.next_study_date) : '')
     .filter(Boolean)
@@ -1090,9 +1123,12 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
     plans: upcomingPlans,
     tasks: tasks.rows,
     activePlanCount: activePlans.length,
-    overduePlanCount: overduePlans.length,
-    urgentPlan: overduePlans.sort(
-      (a, b) => Number(b.overdue_tasks) - Number(a.overdue_tasks) || String(a.exam_date).localeCompare(String(b.exam_date))
+    overduePlanCount: activePlans.filter((plan) => Number(plan.overdue_tasks) > 0).length,
+    recoveryPlanCount: recoveryPlans.length,
+    urgentPlan: recoveryPlans.sort(
+      (a, b) => Number(b.overdue_tasks) - Number(a.overdue_tasks)
+        || Number(b.over_capacity_minutes) - Number(a.over_capacity_minutes)
+        || String(a.exam_date).localeCompare(String(b.exam_date))
     )[0] ?? null,
     nextStudyDate,
   };

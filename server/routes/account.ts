@@ -87,7 +87,7 @@ function readableBody(body: unknown): Readable {
 accountRouter.get('/export', async (req, res) => {
   try {
     const userId = req.auth!.uid;
-    const [courses, assignments, events, classes, plans, planTasks, notes, noteImages] = await Promise.all([
+    const [courses, assignments, events, classes, plans, planTasks, capacityOverrides, recoveryRevisions, notes, noteImages] = await Promise.all([
       pool.query(`SELECT code, name, color, homepage_url FROM courses WHERE user_id = $1 ORDER BY code`, [userId]),
       pool.query(`
         SELECT c.code AS course_code, a.name, a.due_date::text AS due_date,
@@ -141,6 +141,27 @@ accountRouter.get('/export', async (req, res) => {
         ORDER BY t.scheduled_date, c.code, t.sequence
       `, [userId]),
       pool.query(`
+        SELECT c.code AS course_code, p.target_title,
+               capacity.study_date::text AS study_date, capacity.minutes
+        FROM study_plan_capacity_overrides capacity
+        JOIN study_plans p ON p.id = capacity.plan_id
+        JOIN courses c ON c.id = p.course_id
+        WHERE c.user_id = $1
+        ORDER BY capacity.study_date, c.code
+      `, [userId]),
+      pool.query(`
+        SELECT revision.id, c.code AS course_code, p.target_title,
+               revision.before_tasks, revision.after_tasks,
+               revision.before_capacity_overrides, revision.after_capacity_overrides,
+               revision.before_unscheduled_minutes, revision.after_unscheduled_minutes,
+               revision.summary, revision.applied_at::text, revision.undone_at::text
+        FROM study_plan_recovery_revisions revision
+        JOIN study_plans p ON p.id = revision.plan_id
+        JOIN courses c ON c.id = p.course_id
+        WHERE c.user_id = $1
+        ORDER BY revision.applied_at, revision.id
+      `, [userId]),
+      pool.query(`
         SELECT n.id, n.title, n.content, n.updated_at::text AS updated_at, c.code AS course_code
         FROM notes n LEFT JOIN courses c ON c.id = n.course_id
         WHERE n.user_id = $1 ORDER BY n.updated_at DESC
@@ -170,6 +191,8 @@ accountRouter.get('/export', async (req, res) => {
       { name: 'classes.csv', data: toCsv(classes.rows, ['course_code', 'title', 'source', 'event_date', 'day', 'start_time', 'end_time', 'location']) },
       { name: 'plans.csv', data: toCsv(plans.rows, ['course_code', 'target_type', 'target_title', 'target_date', 'exam_type', 'exam_date', 'start_date', 'timezone', 'estimated_minutes', 'daily_cap_minutes', 'unscheduled_minutes', 'scheduler_version', 'scheduler_explanation', 'archived']) },
       { name: 'plan-tasks.csv', data: toCsv(planTasks.rows, ['course_code', 'target_type', 'target_title', 'custom_title', 'topic', 'phase', 'scheduled_date', 'estimated_minutes', 'completed_at', 'manually_edited_at']) },
+      { name: 'plan-capacity-overrides.csv', data: toCsv(capacityOverrides.rows, ['course_code', 'target_title', 'study_date', 'minutes']) },
+      { name: 'recovery-revisions.json', data: JSON.stringify(recoveryRevisions.rows, null, 2) },
       { name: 'notes.html', data: notesHtml(notes.rows, imageExports) },
     ];
     await pool.query(

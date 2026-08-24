@@ -13,8 +13,14 @@ import {
   normalizeStudyTaskRange,
   openStudyTaskNote,
   rebuildStudyPlan,
-  refreshStudyPlan,
 } from '../studyPlans';
+import {
+  confirmStudyPlanRecovery,
+  legacyRefreshStudyPlan,
+  loadStudyPlanRecoveryStatus,
+  previewStudyPlanRecovery,
+  undoStudyPlanRecovery,
+} from '../studyPlanRecovery';
 import { requireContentReadAccess, requireFullWriteAccess } from '../access';
 
 export const studyPlansRouter = Router();
@@ -65,6 +71,62 @@ studyPlansRouter.get('/calendar', async (req: Request, res: Response) => {
     return res.json(await loadStudyPlanCalendar(pool, userId, range));
   } catch (err) {
     return errorResponse(err, res);
+  }
+});
+
+studyPlansRouter.get('/:planId/recovery', async (req: Request<{ planId: string }>, res: Response) => {
+  try {
+    const userId = requestUserId(req, req.query as Record<string, unknown>);
+    return res.json(await loadStudyPlanRecoveryStatus(pool, userId, req.params.planId));
+  } catch (err) {
+    return errorResponse(err, res);
+  }
+});
+
+studyPlansRouter.post('/:planId/recovery/preview', async (req: Request<{ planId: string }>, res: Response) => {
+  try {
+    const userId = requestUserId(req, req.body ?? {});
+    return res.json(await previewStudyPlanRecovery(
+      pool,
+      userId,
+      req.params.planId,
+      req.body?.omittedGroupIds,
+      req.body?.additionalMinutesPerDay
+    ));
+  } catch (err) {
+    return errorResponse(err, res);
+  }
+});
+
+studyPlansRouter.post('/:planId/recovery/confirm', async (req: Request<{ planId: string }>, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const userId = requestUserId(req, req.body ?? {});
+    await client.query('BEGIN');
+    const result = await confirmStudyPlanRecovery(client, userId, req.params.planId, req.body ?? {});
+    await client.query('COMMIT');
+    return res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    return errorResponse(err, res);
+  } finally {
+    client.release();
+  }
+});
+
+studyPlansRouter.post('/:planId/recovery/undo', async (req: Request<{ planId: string }>, res: Response) => {
+  const client = await pool.connect();
+  try {
+    const userId = requestUserId(req, req.body ?? {});
+    await client.query('BEGIN');
+    const result = await undoStudyPlanRecovery(client, userId, req.params.planId);
+    await client.query('COMMIT');
+    return res.json(result);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    return errorResponse(err, res);
+  } finally {
+    client.release();
   }
 });
 
@@ -145,7 +207,7 @@ studyPlansRouter.post('/:planId/refresh', async (req: Request<{ planId: string }
   try {
     const userId = requestUserId(req, req.body ?? {});
     await client.query('BEGIN');
-    await refreshStudyPlan(client, userId, req.params.planId);
+    await legacyRefreshStudyPlan(client, userId, req.params.planId);
     await client.query('COMMIT');
     return res.json({ planId: req.params.planId, refreshed: true });
   } catch (err) {

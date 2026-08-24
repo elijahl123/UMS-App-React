@@ -236,3 +236,453 @@ export function scheduleEvenWork(params: {
     schedulerVersion: 2,
   };
 }
+
+export type RecoveryTaskInput = {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  topicPosition: number;
+  phase: StudyPhase;
+  title: string;
+  titleOverride: string | null;
+  scheduledDate: string;
+  minutes: number;
+  sequence: number;
+  manuallyEdited: boolean;
+};
+
+export type RecoveryScheduledTask = {
+  groupId: string;
+  topicId: string;
+  phase: StudyPhase;
+  title: string;
+  titleOverride: string | null;
+  scheduledDate: string;
+  minutes: number;
+  sequence: number;
+};
+
+export type RecoveryOmissionGroup = {
+  id: string;
+  topicId: string;
+  phase: StudyPhase;
+  title: string;
+  minutes: number;
+  cascadesTo: string[];
+};
+
+export type RecoveryUnresolvedTask = {
+  id: string;
+  title: string;
+  scheduledDate: string;
+  minutes: number;
+  reason: 'pinned_overdue' | 'pinned_over_capacity';
+};
+
+export type RecoveryDayChange = {
+  date: string;
+  capacityMinutes: number;
+  beforeMinutes: number;
+  afterMinutes: number;
+};
+
+export type RecoveryCapacityChange = {
+  date: string;
+  beforeMinutes: number;
+  afterMinutes: number;
+  addedMinutes: number;
+};
+
+export type RecoveryTaskChange = {
+  groupId: string;
+  title: string;
+  minutes: number;
+  fromDates: string[];
+  toDates: string[];
+  status: 'moved' | 'unchanged' | 'unscheduled';
+};
+
+export type StudyRecoveryPlan = {
+  needsRecovery: boolean;
+  canConfirm: boolean;
+  reasons: Array<'overdue' | 'over_capacity' | 'unscheduled'>;
+  requiredOmissionMinutes: number;
+  shortfallMinutes: number;
+  selectedOmissionMinutes: number;
+  additionalMinutesPerDay: number;
+  effectiveOmittedGroupIds: string[];
+  recommendedOmittedGroupIds: string[];
+  omissionGroups: RecoveryOmissionGroup[];
+  scheduledTasks: RecoveryScheduledTask[];
+  unresolvedTasks: RecoveryUnresolvedTask[];
+  capacityChanges: RecoveryCapacityChange[];
+  dayChanges: RecoveryDayChange[];
+  taskChanges: RecoveryTaskChange[];
+  totals: {
+    before: {
+      scheduledMinutes: number;
+      overdueMinutes: number;
+      overCapacityMinutes: number;
+      unscheduledMinutes: number;
+    };
+    after: {
+      scheduledMinutes: number;
+      overdueMinutes: number;
+      overCapacityMinutes: number;
+      unscheduledMinutes: number;
+    };
+    movedMinutes: number;
+  };
+};
+
+type RecoveryGroup = {
+  id: string;
+  topicId: string;
+  topicPosition: number;
+  phase: StudyPhase;
+  title: string;
+  titleOverride: string | null;
+  minutes: number;
+  beforeByDate: Map<string, number>;
+};
+
+function recoveryGroupId(topicId: string, phase: StudyPhase): string {
+  return `${topicId}:${phase}`;
+}
+
+function recoveryPhaseOrder(phase: StudyPhase): number {
+  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : 2;
+}
+
+function recoveryQuotas(capacities: number[], requestedMinutes: number): number[] {
+  const available = capacities.reduce((sum, value) => sum + value, 0);
+  const scheduled = Math.min(available, requestedMinutes);
+  if (available === 0 || scheduled === 0) return capacities.map(() => 0);
+  let allocated = 0;
+  let cumulativeCapacity = 0;
+  return capacities.map((capacity, index) => {
+    cumulativeCapacity += capacity;
+    const isLast = index === capacities.length - 1;
+    const target = isLast
+      ? scheduled
+      : Math.round(((scheduled * cumulativeCapacity) / available) / 15) * 15;
+    const quota = Math.min(capacity, Math.max(0, target - allocated));
+    allocated += quota;
+    return quota;
+  });
+}
+
+function minutesByDate(tasks: Array<{ scheduledDate: string; minutes: number }>): Map<string, number> {
+  const result = new Map<string, number>();
+  tasks.forEach((task) => result.set(task.scheduledDate, (result.get(task.scheduledDate) ?? 0) + task.minutes));
+  return result;
+}
+
+/**
+ * Builds a deterministic, previewable recovery schedule. Completed work is intentionally
+ * absent from the input; manually edited work is present and treated as pinned.
+ */
+export function planStudyRecovery(params: {
+  today: string;
+  targetDate: string;
+  availability: ScheduleAvailability[];
+  tasks: RecoveryTaskInput[];
+  unscheduledMinutes: number;
+  omittedGroupIds?: string[];
+  capacityOverrides?: Array<{ date: string; minutes: number }>;
+  additionalMinutesPerDay?: number;
+}): StudyRecoveryPlan {
+  const availabilityByWeekday = new Map(params.availability.map((entry) => [entry.weekday, entry.minutes]));
+  const pinned = params.tasks.filter((task) => task.manuallyEdited);
+  const flexible = params.tasks.filter((task) => !task.manuallyEdited);
+  const groupsById = new Map<string, RecoveryGroup>();
+
+  flexible.forEach((task) => {
+    const id = recoveryGroupId(task.topicId, task.phase);
+    const current = groupsById.get(id) ?? {
+      id,
+      topicId: task.topicId,
+      topicPosition: task.topicPosition,
+      phase: task.phase,
+      title: task.title,
+      titleOverride: task.titleOverride,
+      minutes: 0,
+      beforeByDate: new Map<string, number>(),
+    };
+    current.minutes += task.minutes;
+    current.beforeByDate.set(task.scheduledDate, (current.beforeByDate.get(task.scheduledDate) ?? 0) + task.minutes);
+    groupsById.set(id, current);
+  });
+
+  const groups = [...groupsById.values()].sort(
+    (a, b) => recoveryPhaseOrder(a.phase) - recoveryPhaseOrder(b.phase)
+      || a.topicPosition - b.topicPosition
+      || a.id.localeCompare(b.id)
+  );
+  if (params.unscheduledMinutes > 0 && groups.length > 0) {
+    groups[groups.length - 1].minutes += params.unscheduledMinutes;
+  }
+
+  const omissionGroups: RecoveryOmissionGroup[] = groups.map((group) => ({
+    id: group.id,
+    topicId: group.topicId,
+    phase: group.phase,
+    title: group.title,
+    minutes: group.minutes,
+    cascadesTo: groups
+      .filter((candidate) => candidate.topicId === group.topicId && recoveryPhaseOrder(candidate.phase) > recoveryPhaseOrder(group.phase))
+      .map((candidate) => candidate.id),
+  }));
+  const validIds = new Set(groups.map((group) => group.id));
+  const requestedOmissions = new Set((params.omittedGroupIds ?? []).filter((id) => validIds.has(id)));
+  const effectiveOmissions = new Set(requestedOmissions);
+  groups.forEach((group) => {
+    if (!requestedOmissions.has(group.id)) return;
+    groups.forEach((candidate) => {
+      if (candidate.topicId === group.topicId && recoveryPhaseOrder(candidate.phase) > recoveryPhaseOrder(group.phase)) {
+        effectiveOmissions.add(candidate.id);
+      }
+    });
+  });
+
+  const overrideByDate = new Map((params.capacityOverrides ?? []).map((entry) => [entry.date, entry.minutes]));
+  const additionalMinutesPerDay = Math.max(0, Math.min(720, params.additionalMinutesPerDay ?? 0));
+  const dates: Array<{
+    date: string;
+    beforeCapacityMinutes: number;
+    capacityMinutes: number;
+    pinnedMinutes: number;
+    remainingMinutes: number;
+  }> = [];
+  const cursor = parseIsoDate(params.today);
+  const target = parseIsoDate(params.targetDate);
+  while (cursor < target) {
+    const date = toIsoDate(cursor);
+    const weeklyMinutes = availabilityByWeekday.get(cursor.getUTCDay()) ?? 0;
+    const capacityMinutes = overrideByDate.get(date) ?? weeklyMinutes;
+    const pinnedMinutes = pinned
+      .filter((task) => task.scheduledDate === date)
+      .reduce((sum, task) => sum + task.minutes, 0);
+    dates.push({
+      date,
+      beforeCapacityMinutes: capacityMinutes,
+      capacityMinutes,
+      pinnedMinutes,
+      remainingMinutes: Math.max(0, capacityMinutes - pinnedMinutes),
+    });
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const totalFlexibleMinutes = groups.reduce((sum, group) => sum + group.minutes, 0);
+  const selectedOmissionMinutes = groups
+    .filter((group) => effectiveOmissions.has(group.id))
+    .reduce((sum, group) => sum + group.minutes, 0);
+  const remainingGroups = groups.filter((group) => !effectiveOmissions.has(group.id));
+  const remainingMinutes = remainingGroups.reduce((sum, group) => sum + group.minutes, 0);
+  let extraNeeded = Math.max(0, remainingMinutes - dates.reduce((sum, day) => sum + day.remainingMinutes, 0));
+  const capacityChanges: RecoveryCapacityChange[] = [];
+  if (additionalMinutesPerDay > 0 && extraNeeded > 0) {
+    const eligibleDays = dates
+      .filter((day) => day.beforeCapacityMinutes > 0 && day.beforeCapacityMinutes < 720)
+      .map((day) => ({
+        day,
+        addedMinutes: 0,
+        maximumAddedMinutes: Math.min(additionalMinutesPerDay, 720 - day.beforeCapacityMinutes),
+      }));
+
+    // Add one scheduler-sized block to each study day per pass. This keeps the
+    // extra time balanced while retaining chronological, deterministic output.
+    let addedInPass = true;
+    while (extraNeeded > 0 && addedInPass) {
+      addedInPass = false;
+      eligibleDays.forEach((entry) => {
+        if (extraNeeded <= 0 || entry.addedMinutes >= entry.maximumAddedMinutes) return;
+        const addedMinutes = Math.min(
+          15,
+          extraNeeded,
+          entry.maximumAddedMinutes - entry.addedMinutes,
+        );
+        entry.addedMinutes += addedMinutes;
+        extraNeeded -= addedMinutes;
+        addedInPass = true;
+      });
+    }
+
+    eligibleDays.forEach(({ day, addedMinutes }) => {
+      if (addedMinutes <= 0) return;
+      day.capacityMinutes += addedMinutes;
+      day.remainingMinutes = Math.max(0, day.capacityMinutes - day.pinnedMinutes);
+      capacityChanges.push({
+        date: day.date,
+        beforeMinutes: day.beforeCapacityMinutes,
+        afterMinutes: day.capacityMinutes,
+        addedMinutes,
+      });
+    });
+  }
+  const availableFlexibleMinutes = dates.reduce((sum, day) => sum + day.remainingMinutes, 0);
+  const requiredOmissionMinutes = Math.max(0, totalFlexibleMinutes - availableFlexibleMinutes);
+  const shortfallMinutes = Math.max(0, remainingMinutes - availableFlexibleMinutes);
+  const scheduledMinuteTarget = Math.min(remainingMinutes, availableFlexibleMinutes);
+  const quotas = recoveryQuotas(dates.map((day) => day.remainingMinutes), scheduledMinuteTarget);
+  const scheduledTasks: RecoveryScheduledTask[] = [];
+  let groupIndex = 0;
+  let groupRemaining = remainingGroups[0]?.minutes ?? 0;
+  let sequence = 0;
+  dates.forEach((day, dateIndex) => {
+    let dayRemaining = quotas[dateIndex];
+    while (dayRemaining > 0 && groupIndex < remainingGroups.length) {
+      const group = remainingGroups[groupIndex];
+      const minutes = Math.min(dayRemaining, groupRemaining);
+      scheduledTasks.push({
+        groupId: group.id,
+        topicId: group.topicId,
+        phase: group.phase,
+        title: group.title,
+        titleOverride: group.titleOverride,
+        scheduledDate: day.date,
+        minutes,
+        sequence,
+      });
+      sequence += 1;
+      dayRemaining -= minutes;
+      groupRemaining -= minutes;
+      if (groupRemaining === 0) {
+        groupIndex += 1;
+        groupRemaining = remainingGroups[groupIndex]?.minutes ?? 0;
+      }
+    }
+  });
+
+  const beforeByDate = minutesByDate(params.tasks);
+  const afterByDate = minutesByDate([
+    ...pinned.map((task) => ({ scheduledDate: task.scheduledDate, minutes: task.minutes })),
+    ...scheduledTasks,
+  ]);
+  const overCapacityFor = (byDate: Map<string, number>, useBeforeCapacity = false) => dates.reduce(
+    (sum, day) => sum + Math.max(0, (byDate.get(day.date) ?? 0) - (useBeforeCapacity ? day.beforeCapacityMinutes : day.capacityMinutes)),
+    0
+  );
+  const beforeOverCapacityMinutes = overCapacityFor(beforeByDate, true);
+  const afterOverCapacityMinutes = overCapacityFor(afterByDate);
+  const beforeOverdueMinutes = params.tasks
+    .filter((task) => task.scheduledDate < params.today)
+    .reduce((sum, task) => sum + task.minutes, 0);
+  const afterOverdueMinutes = pinned
+    .filter((task) => task.scheduledDate < params.today)
+    .reduce((sum, task) => sum + task.minutes, 0);
+
+  const unresolvedByKey = new Map<string, RecoveryUnresolvedTask>();
+  pinned.filter((task) => task.scheduledDate < params.today).forEach((task) => {
+    unresolvedByKey.set(`${task.id}:overdue`, {
+      id: task.id, title: task.title, scheduledDate: task.scheduledDate, minutes: task.minutes, reason: 'pinned_overdue',
+    });
+  });
+  dates.forEach((day) => {
+    const dayPinned = pinned.filter((task) => task.scheduledDate === day.date);
+    if (dayPinned.reduce((sum, task) => sum + task.minutes, 0) <= day.capacityMinutes) return;
+    dayPinned.forEach((task) => unresolvedByKey.set(`${task.id}:capacity`, {
+      id: task.id, title: task.title, scheduledDate: task.scheduledDate, minutes: task.minutes, reason: 'pinned_over_capacity',
+    }));
+  });
+
+  const afterByGroup = new Map<string, Map<string, number>>();
+  scheduledTasks.forEach((task) => {
+    const byDate = afterByGroup.get(task.groupId) ?? new Map<string, number>();
+    byDate.set(task.scheduledDate, (byDate.get(task.scheduledDate) ?? 0) + task.minutes);
+    afterByGroup.set(task.groupId, byDate);
+  });
+  let unchangedFlexibleMinutes = 0;
+  groups.forEach((group) => {
+    const after = afterByGroup.get(group.id) ?? new Map<string, number>();
+    group.beforeByDate.forEach((minutes, date) => {
+      unchangedFlexibleMinutes += Math.min(minutes, after.get(date) ?? 0);
+    });
+  });
+  const movedMinutes = Math.max(0, scheduledTasks.reduce((sum, task) => sum + task.minutes, 0) - unchangedFlexibleMinutes);
+  const taskChanges: RecoveryTaskChange[] = groups.map((group) => {
+    const after = afterByGroup.get(group.id) ?? new Map<string, number>();
+    const omitted = effectiveOmissions.has(group.id);
+    const unchanged = !omitted
+      && group.minutes === [...after.values()].reduce((sum, value) => sum + value, 0)
+      && [...new Set([...group.beforeByDate.keys(), ...after.keys()])].every(
+        (date) => (group.beforeByDate.get(date) ?? 0) === (after.get(date) ?? 0)
+      );
+    return {
+      groupId: group.id,
+      title: group.title,
+      minutes: group.minutes,
+      fromDates: [...group.beforeByDate.keys()].sort(),
+      toDates: [...after.keys()].sort(),
+      status: omitted ? 'unscheduled' : unchanged ? 'unchanged' : 'moved',
+    };
+  });
+
+  const allDates = [...new Set([...dates.map((day) => day.date), ...beforeByDate.keys(), ...afterByDate.keys()])].sort();
+  const capacityByDate = new Map(dates.map((day) => [day.date, day.capacityMinutes]));
+  const dayChanges = allDates
+    .map((date) => ({
+      date,
+      capacityMinutes: capacityByDate.get(date) ?? 0,
+      beforeMinutes: beforeByDate.get(date) ?? 0,
+      afterMinutes: afterByDate.get(date) ?? 0,
+    }))
+    .filter((day) => day.beforeMinutes !== day.afterMinutes || day.beforeMinutes > day.capacityMinutes || day.afterMinutes > day.capacityMinutes);
+
+  const reasons: StudyRecoveryPlan['reasons'] = [];
+  if (beforeOverdueMinutes > 0) reasons.push('overdue');
+  if (beforeOverCapacityMinutes > 0) reasons.push('over_capacity');
+  if (params.unscheduledMinutes > 0) reasons.push('unscheduled');
+  const needsRecovery = beforeOverdueMinutes > 0 || beforeOverCapacityMinutes > 0;
+  const hasUsefulChange = taskChanges.some((change) => change.status !== 'unchanged')
+    || params.unscheduledMinutes !== selectedOmissionMinutes + shortfallMinutes
+    || capacityChanges.length > 0;
+
+  const recommendedOmittedGroupIds: string[] = [];
+  const recommendedEffective = new Set<string>();
+  let recommendedMinutes = 0;
+  for (const group of [...groups].reverse()) {
+    if (recommendedMinutes >= requiredOmissionMinutes) break;
+    if (recommendedEffective.has(group.id)) continue;
+    recommendedOmittedGroupIds.push(group.id);
+    recommendedEffective.add(group.id);
+    omissionGroups.find((candidate) => candidate.id === group.id)?.cascadesTo.forEach((id) => recommendedEffective.add(id));
+    recommendedMinutes = groups
+      .filter((candidate) => recommendedEffective.has(candidate.id))
+      .reduce((sum, candidate) => sum + candidate.minutes, 0);
+  }
+
+  return {
+    needsRecovery,
+    canConfirm: needsRecovery && shortfallMinutes === 0 && hasUsefulChange,
+    reasons,
+    requiredOmissionMinutes,
+    shortfallMinutes,
+    selectedOmissionMinutes,
+    additionalMinutesPerDay,
+    effectiveOmittedGroupIds: [...effectiveOmissions].sort(),
+    recommendedOmittedGroupIds,
+    omissionGroups,
+    scheduledTasks,
+    unresolvedTasks: [...unresolvedByKey.values()],
+    capacityChanges,
+    dayChanges,
+    taskChanges,
+    totals: {
+      before: {
+        scheduledMinutes: params.tasks.reduce((sum, task) => sum + task.minutes, 0),
+        overdueMinutes: beforeOverdueMinutes,
+        overCapacityMinutes: beforeOverCapacityMinutes,
+        unscheduledMinutes: params.unscheduledMinutes,
+      },
+      after: {
+        scheduledMinutes: pinned.reduce((sum, task) => sum + task.minutes, 0)
+          + scheduledTasks.reduce((sum, task) => sum + task.minutes, 0),
+        overdueMinutes: afterOverdueMinutes,
+        overCapacityMinutes: afterOverCapacityMinutes,
+        unscheduledMinutes: selectedOmissionMinutes + shortfallMinutes,
+      },
+      movedMinutes,
+    },
+  };
+}

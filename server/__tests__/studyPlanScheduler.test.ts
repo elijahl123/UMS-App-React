@@ -4,6 +4,7 @@ import {
   buildStudyJobs,
   enumerateStudyDates,
   PHASE_MINUTES,
+  planStudyRecovery,
   scheduleStudyJobs,
   scheduleEvenWork,
   StudyPlanCapacityError,
@@ -75,6 +76,174 @@ describe('study plan scheduling', () => {
     const now = new Date('2026-07-25T01:00:00.000Z');
     expect(todayInTimeZone('America/Los_Angeles', now)).toBe('2026-07-24');
     expect(todayInTimeZone('Europe/Dublin', now)).toBe('2026-07-25');
+  });
+
+  it('recovers overdue flexible work without moving pinned tasks or using the target date', () => {
+    const result = planStudyRecovery({
+      today: '2026-08-24',
+      targetDate: '2026-08-28',
+      availability: [1, 2, 3, 4].map((weekday) => ({ weekday, minutes: 60 })),
+      unscheduledMinutes: 0,
+      tasks: [
+        {
+          id: 'flex', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn',
+          title: 'Learn & review: Graphs', titleOverride: null, scheduledDate: '2026-08-22',
+          minutes: 60, sequence: 0, manuallyEdited: false,
+        },
+        {
+          id: 'pinned', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'practice',
+          title: 'Practice: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+          minutes: 30, sequence: 1, manuallyEdited: true,
+        },
+      ],
+    });
+
+    expect(result.needsRecovery).toBe(true);
+    expect(result.canConfirm).toBe(true);
+    expect(result.scheduledTasks.every((task) => task.scheduledDate >= '2026-08-24' && task.scheduledDate < '2026-08-28')).toBe(true);
+    expect(result.totals.after.overdueMinutes).toBe(30);
+    expect(result.unresolvedTasks).toEqual([expect.objectContaining({ id: 'pinned', reason: 'pinned_overdue' })]);
+  });
+
+  it('subtracts pinned work from capacity and reports pinned overloads', () => {
+    const result = planStudyRecovery({
+      today: '2026-08-24',
+      targetDate: '2026-08-25',
+      availability: [{ weekday: 1, minutes: 60 }],
+      unscheduledMinutes: 0,
+      tasks: [
+        {
+          id: 'pinned', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn',
+          title: 'Pinned Graphs', titleOverride: 'Pinned Graphs', scheduledDate: '2026-08-24',
+          minutes: 90, sequence: 0, manuallyEdited: true,
+        },
+        {
+          id: 'flex', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'practice',
+          title: 'Practice: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+          minutes: 30, sequence: 1, manuallyEdited: false,
+        },
+      ],
+    });
+
+    expect(result.requiredOmissionMinutes).toBe(30);
+    expect(result.unresolvedTasks).toContainEqual(expect.objectContaining({ id: 'pinned', reason: 'pinned_over_capacity' }));
+    expect(result.totals.after.overCapacityMinutes).toBe(30);
+  });
+
+  it('requires dependency-safe omissions and cascades later phases', () => {
+    const tasks = [
+      ['learn', 60], ['practice', 45], ['recall', 15],
+    ].map(([phase, minutes], sequence) => ({
+      id: String(sequence + 1), topicId: '1', topicTitle: 'Graphs', topicPosition: 0,
+      phase: phase as 'learn' | 'practice' | 'recall', title: `${phase}: Graphs`, titleOverride: null,
+      scheduledDate: '2026-08-23', minutes: Number(minutes), sequence, manuallyEdited: false,
+    }));
+    const initial = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-26',
+      availability: [{ weekday: 1, minutes: 30 }, { weekday: 2, minutes: 30 }],
+      unscheduledMinutes: 0, tasks,
+    });
+    const selected = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-26',
+      availability: [{ weekday: 1, minutes: 30 }, { weekday: 2, minutes: 30 }],
+      unscheduledMinutes: 0, tasks, omittedGroupIds: ['1:practice'],
+    });
+
+    expect(initial.requiredOmissionMinutes).toBe(60);
+    expect(initial.canConfirm).toBe(false);
+    expect(selected.effectiveOmittedGroupIds).toEqual(['1:practice', '1:recall']);
+    expect(selected.selectedOmissionMinutes).toBe(60);
+    expect(selected.shortfallMinutes).toBe(0);
+    expect(selected.canConfirm).toBe(true);
+  });
+
+  it('adds only the per-day capacity needed to schedule a recovery shortfall', () => {
+    const tasks = [{
+      id: '1', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn' as const,
+      title: 'Learn & review: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+      minutes: 120, sequence: 0, manuallyEdited: false,
+    }];
+    const initial = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-25',
+      availability: [{ weekday: 1, minutes: 60 }], unscheduledMinutes: 0, tasks,
+    });
+    const expanded = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-25',
+      availability: [{ weekday: 1, minutes: 60 }], unscheduledMinutes: 0, tasks,
+      additionalMinutesPerDay: 720,
+    });
+
+    expect(initial.shortfallMinutes).toBe(60);
+    expect(initial.recommendedOmittedGroupIds).toEqual(['1:learn']);
+    expect(expanded.shortfallMinutes).toBe(0);
+    expect(expanded.canConfirm).toBe(true);
+    expect(expanded.capacityChanges).toEqual([{
+      date: '2026-08-24', beforeMinutes: 60, afterMinutes: 120, addedMinutes: 60,
+    }]);
+    expect(expanded.scheduledTasks.reduce((sum, task) => sum + task.minutes, 0)).toBe(120);
+  });
+
+  it('evenly distributes added capacity across the remaining study days', () => {
+    const expanded = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-28',
+      availability: [
+        { weekday: 1, minutes: 30 },
+        { weekday: 2, minutes: 30 },
+        { weekday: 3, minutes: 30 },
+        { weekday: 4, minutes: 30 },
+      ],
+      unscheduledMinutes: 0,
+      additionalMinutesPerDay: 720,
+      tasks: [{
+        id: '1', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn',
+        title: 'Learn & review: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+        minutes: 240, sequence: 0, manuallyEdited: false,
+      }],
+    });
+
+    expect(expanded.shortfallMinutes).toBe(0);
+    expect(expanded.canConfirm).toBe(true);
+    expect(expanded.capacityChanges).toEqual([
+      { date: '2026-08-24', beforeMinutes: 30, afterMinutes: 60, addedMinutes: 30 },
+      { date: '2026-08-25', beforeMinutes: 30, afterMinutes: 60, addedMinutes: 30 },
+      { date: '2026-08-26', beforeMinutes: 30, afterMinutes: 60, addedMinutes: 30 },
+      { date: '2026-08-27', beforeMinutes: 30, afterMinutes: 60, addedMinutes: 30 },
+    ]);
+  });
+
+  it('honors persisted per-date recovery capacity on later previews', () => {
+    const result = planStudyRecovery({
+      today: '2026-08-24', targetDate: '2026-08-25',
+      availability: [{ weekday: 1, minutes: 60 }],
+      capacityOverrides: [{ date: '2026-08-24', minutes: 105 }],
+      unscheduledMinutes: 0,
+      tasks: [{
+        id: '1', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn',
+        title: 'Learn & review: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+        minutes: 105, sequence: 0, manuallyEdited: false,
+      }],
+    });
+
+    expect(result.requiredOmissionMinutes).toBe(0);
+    expect(result.capacityChanges).toEqual([]);
+    expect(result.totals.after.scheduledMinutes).toBe(105);
+  });
+
+  it('keeps recovery deterministic when no days remain before the target', () => {
+    const params = {
+      today: '2026-08-24',
+      targetDate: '2026-08-24',
+      availability: [{ weekday: 1, minutes: 120 }],
+      unscheduledMinutes: 0,
+      tasks: [{
+        id: '1', topicId: '1', topicTitle: 'Graphs', topicPosition: 0, phase: 'learn' as const,
+        title: 'Learn & review: Graphs', titleOverride: null, scheduledDate: '2026-08-23',
+        minutes: 60, sequence: 0, manuallyEdited: false,
+      }],
+    };
+    expect(planStudyRecovery(params)).toEqual(planStudyRecovery(params));
+    expect(planStudyRecovery(params).shortfallMinutes).toBe(60);
+    expect(planStudyRecovery(params).scheduledTasks).toEqual([]);
   });
 
   it('spreads assignment work evenly and gives 15-minute rounding remainder to earlier days', () => {
@@ -320,6 +489,7 @@ describe('study plan scheduling', () => {
       tasks: [],
       activePlanCount: 0,
       overduePlanCount: 0,
+      recoveryPlanCount: 0,
       urgentPlan: null,
       nextStudyDate: null,
     });
@@ -499,5 +669,25 @@ describe('study plan scheduling', () => {
     expect(migration).toContain('DROP COLUMN title');
     expect(migration).toContain('DROP COLUMN created_at');
     expect(migration).toContain('DROP INDEX IF EXISTS idx_study_tasks_plan_date');
+  });
+
+  it('stores recovery snapshots under the study plan ownership cascade', () => {
+    const revisionMigration = readFileSync(
+      `${process.cwd()}/migrations/1783940000_add_study_plan_recovery.sql`,
+      'utf8'
+    );
+    const capacityMigration = readFileSync(
+      `${process.cwd()}/migrations/1783950000_add_study_plan_recovery_capacity.sql`,
+      'utf8'
+    );
+
+    expect(revisionMigration).toContain('CREATE TABLE study_plan_recovery_revisions');
+    expect(revisionMigration).toContain('REFERENCES study_plans (id) ON DELETE CASCADE');
+    expect(revisionMigration).toContain('before_tasks JSONB NOT NULL');
+    expect(revisionMigration).toContain('after_state_hash TEXT NOT NULL');
+    expect(revisionMigration).toContain('WHERE undone_at IS NULL');
+    expect(capacityMigration).toContain('CREATE TABLE IF NOT EXISTS study_plan_capacity_overrides');
+    expect(capacityMigration).toContain('ADD COLUMN IF NOT EXISTS before_capacity_overrides');
+    expect(capacityMigration).toContain('ADD COLUMN IF NOT EXISTS after_capacity_overrides');
   });
 });
