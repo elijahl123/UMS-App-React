@@ -336,7 +336,7 @@ function StudyPlanPage() {
       )}
 
       {plan.unscheduledMinutes > 0 && (
-        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-700 dark:bg-amber-950/55 dark:text-amber-100">
+        <div role="status" className="mobile-list-item flex min-h-12 shrink-0 gap-3 border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))] p-3 text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <div><p className="font-bold">Partial plan saved</p><p className="mt-1 text-sm">{formatStudyMinutes(plan.unscheduledMinutes)} remains unscheduled because the selected days do not have enough capacity.</p></div>
         </div>

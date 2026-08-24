@@ -191,7 +191,7 @@ export default function CanvasIcsImportCard() {
         </div>
 
         {warnings.length > 0 && (
-          <details className="rounded-md border border-amber-300/70 bg-amber-50/70 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
+          <details className="rounded-md border border-[color-mix(in_srgb,var(--course-yellow)_50%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_24%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">
             <summary className="cursor-pointer font-semibold">{warnings.length} file warning{warnings.length === 1 ? '' : 's'}</summary>
             <div className="mt-2 max-h-32 space-y-2 overflow-auto">
               {warnings.map((warning) => <p key={warning} className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{warning}</p>)}
@@ -255,7 +255,7 @@ export default function CanvasIcsImportCard() {
                         <TableCell className="min-w-44 font-medium">
                           <span className="flex items-start gap-2">
                             <span className="min-w-0 break-words">{row.title}</span>
-                            {row.warning && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-label="Needs review" />}
+                            {row.warning && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]" aria-label="Needs review" />}
                           </span>
                           <span className="mt-1 block text-xs font-normal text-muted-foreground md:hidden">{row.courseCode || row.courseName || 'No course'}</span>
                         </TableCell>
@@ -282,7 +282,7 @@ export default function CanvasIcsImportCard() {
                               <label className="grid gap-1 text-xs font-medium">Course code {row.entryKind === 'homework' ? '(required)' : '(optional)'}<Input value={row.courseCode} onChange={(event) => updateRow(index, { courseCode: event.target.value.toUpperCase() })} placeholder="ENG100" /></label>
                               <label className="grid gap-1 text-xs font-medium">Course name<Input value={row.courseName} onChange={(event) => updateRow(index, { courseName: event.target.value })} placeholder="English Composition" /></label>
                             </div>
-                            {row.warning && <p className="mt-3 flex gap-2 text-xs text-amber-700 dark:text-amber-300"><AlertTriangle className="h-4 w-4 shrink-0" />{row.warning}</p>}
+                            {row.warning && <p className="mt-3 flex gap-2 text-xs text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]"><AlertTriangle className="h-4 w-4 shrink-0" />{row.warning}</p>}
                           </TableCell>
                         </TableRow>
                       )}
@@ -311,7 +311,7 @@ export default function CanvasIcsImportCard() {
         )}
 
         {result && (
-          <div role="status" className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950/55 dark:text-emerald-100">
+          <div role="status" className="rounded-lg border border-[color-mix(in_srgb,var(--course-green)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-green)_34%,var(--surface))] p-3 text-sm text-[color-mix(in_srgb,var(--course-green)_68%,var(--secondary-accent))]">
             <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" />Canvas import complete</p>
             <p>Created {result.createdCourses} course{result.createdCourses === 1 ? '' : 's'}, {result.createdAssignments} homework item{result.createdAssignments === 1 ? '' : 's'}, and {result.createdEvents} event{result.createdEvents === 1 ? '' : 's'}. Skipped {result.skippedDuplicates} duplicate{result.skippedDuplicates === 1 ? '' : 's'}.</p>
             {result.errors.map((message) => <p key={message}>{message}</p>)}

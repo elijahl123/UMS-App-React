@@ -653,13 +653,13 @@ function AccountPage() {
       </div>
 
       {!user.emailVerified && (
-        <Card className="border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/55">
+        <Card className="border-[color-mix(in_srgb,var(--course-yellow)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-yellow)_34%,var(--surface))]">
           <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" />
+              <MailWarning className="mt-0.5 h-5 w-5 shrink-0 text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]" />
               <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-100">Your email address is not verified</p>
-                <p className="text-sm text-amber-700 dark:text-amber-200">
+                <p className="text-sm font-semibold text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))]">Your email address is not verified</p>
+                <p className="text-sm text-[color-mix(in_srgb,var(--course-yellow)_62%,var(--secondary-accent))]">
                   {resendSuccess
                     ? "We've sent a new verification link. Please check your inbox."
                     : 'Please verify your email to secure your account.'}
@@ -670,7 +670,7 @@ function AccountPage() {
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 gap-2 border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900"
+              className="shrink-0 gap-2 border-[color-mix(in_srgb,var(--course-yellow)_70%,var(--surface))] text-[color-mix(in_srgb,var(--course-yellow)_68%,var(--secondary-accent))] hover:bg-[color-mix(in_srgb,var(--course-yellow)_24%,var(--surface))]"
               onClick={handleResendVerification}
               disabled={resendSubmitting || resendSuccess}
             >
