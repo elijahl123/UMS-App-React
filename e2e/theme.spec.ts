@@ -26,6 +26,8 @@ test('toggles dark mode from Account', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await page.goto('/#/account');
 
+  await page.getByRole('tab', { name: /preferences & support/i }).click();
+
   const toggle = page.getByRole('switch', { name: 'Dark mode', exact: true });
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await toggle.click();
