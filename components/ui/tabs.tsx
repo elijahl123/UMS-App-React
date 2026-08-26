@@ -26,11 +26,11 @@ const TabsList = React.forwardRef<
     if (!el) return
     updateScrollState()
     el.addEventListener("scroll", updateScrollState, { passive: true })
-    const resizeObserver = new ResizeObserver(updateScrollState)
-    resizeObserver.observe(el)
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState)
+    resizeObserver?.observe(el)
     return () => {
       el.removeEventListener("scroll", updateScrollState)
-      resizeObserver.disconnect()
+      resizeObserver?.disconnect()
     }
   }, [updateScrollState])
 
