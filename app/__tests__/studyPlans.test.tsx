@@ -307,41 +307,50 @@ describe('study plans', () => {
   });
 
   it('replaces the visible plan tasks when navigating four-week windows', async () => {
-    const user = userEvent.setup();
-    studyPlanState.plans = [{
-      ...plan,
-      examDate: '2026-10-01',
-      targetDate: '2026-10-01',
-      overdueTasks: 0,
-      totalTasks: 2,
-      studyDaysLeft: 2,
-      tasks: [
-        {
-          ...plan.tasks[0],
-          id: 'task-today',
-          title: 'Current window topic',
-          scheduledDate: '2026-07-29',
-        },
-        {
-          ...plan.tasks[0],
-          id: 'task-later',
-          title: 'Next window topic',
-          scheduledDate: '2026-08-27',
-          sequence: 1,
-        },
-      ],
-    }];
-    renderRoute(
-      '/courses/:courseId/study-plans/:planId',
-      <StudyPlanPage />,
-      '/courses/1/study-plans/plan-1'
-    );
+    // The initial 4-week window is anchored to the real current date, so it's fixed
+    // here (well inside the 2026-07-29 – 2026-08-25 window the fixture dates below
+    // assume) rather than left to drift as the calendar moves past that window.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-08-05T12:00:00.000Z'));
+    try {
+      const user = userEvent.setup();
+      studyPlanState.plans = [{
+        ...plan,
+        examDate: '2026-10-01',
+        targetDate: '2026-10-01',
+        overdueTasks: 0,
+        totalTasks: 2,
+        studyDaysLeft: 2,
+        tasks: [
+          {
+            ...plan.tasks[0],
+            id: 'task-today',
+            title: 'Current window topic',
+            scheduledDate: '2026-07-29',
+          },
+          {
+            ...plan.tasks[0],
+            id: 'task-later',
+            title: 'Next window topic',
+            scheduledDate: '2026-08-27',
+            sequence: 1,
+          },
+        ],
+      }];
+      renderRoute(
+        '/courses/:courseId/study-plans/:planId',
+        <StudyPlanPage />,
+        '/courses/1/study-plans/plan-1'
+      );
 
-    expect(await screen.findByText('Current window topic')).toBeInTheDocument();
-    expect(screen.queryByText('Next window topic')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /next 4 weeks/i }));
-    expect(await screen.findByText('Next window topic')).toBeInTheDocument();
-    expect(screen.queryByText('Current window topic')).not.toBeInTheDocument();
+      expect(await screen.findByText('Current window topic')).toBeInTheDocument();
+      expect(screen.queryByText('Next window topic')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /next 4 weeks/i }));
+      expect(await screen.findByText('Next window topic')).toBeInTheDocument();
+      expect(screen.queryByText('Current window topic')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders a themed study focus and completes a Dashboard task inline', async () => {

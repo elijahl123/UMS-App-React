@@ -58,6 +58,10 @@ export async function runRetentionCleanup() {
     WHERE CURRENT_DATE >= DATE '2027-04-01'
        OR unsubscribed_at IS NOT NULL;
   `);
+  // Consent evidence outlives the underlying waitlist row (it's the audit trail for
+  // that consent) but is not kept forever — purge once it's no longer plausibly needed
+  // to defend a consent or billing dispute.
+  await pool.query(`DELETE FROM consent_events WHERE occurred_at < NOW() - INTERVAL '3 years';`);
 }
 
 export function startRetentionCleanup() {

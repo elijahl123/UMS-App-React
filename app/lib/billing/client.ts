@@ -106,6 +106,13 @@ export function createSubscription(params: {
   });
 }
 
+export function acknowledgeWithdrawalWaiver(params: { userId: string; email: string; subscriptionId?: string }) {
+  return billingRequest<void>('/withdrawal-acknowledgment', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 export function cancelSubscription(userId: string) {
   return billingRequest<BillingStatus>('/cancel-subscription', {
     method: 'POST',

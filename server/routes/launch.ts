@@ -4,6 +4,11 @@ import { config } from '../config';
 import { pool } from '../db';
 import { sendWaitlistConfirmationEmail } from '../mail';
 import { limited } from '../rateLimit';
+import {
+  recordConsentEvent,
+  WAITLIST_LIST_CONSENT_COPY,
+  WAITLIST_MARKETING_CONSENT_COPY,
+} from '../consentLog';
 
 const launchEventNames = new Set([
   'landing_cta_clicked',
@@ -268,6 +273,26 @@ launchRouter.post('/waitlist', limited(60 * 60 * 1000, 10, 'launch-waitlist'), a
     );
     await sendWaitlistConfirmation({ email, list, source: attribution.source, confirmationToken, unsubscribeToken });
     await recordProductEvent({ ...req.body, event: 'waitlist_requested', occurredAt: new Date().toISOString(), properties: { list } });
+    try {
+      await recordConsentEvent({
+        email,
+        consentType: 'waitlist_list_consent',
+        copy: WAITLIST_LIST_CONSENT_COPY[list],
+        granted: true,
+        metadata: { list },
+      });
+      if (req.body?.marketingConsent === true) {
+        await recordConsentEvent({
+          email,
+          consentType: 'waitlist_marketing_consent',
+          copy: WAITLIST_MARKETING_CONSENT_COPY,
+          granted: true,
+          metadata: { list },
+        });
+      }
+    } catch (err) {
+      console.error('[launch] consent event logging failed', err);
+    }
     return res.status(202).json({ status: 'pending_confirmation' });
   } catch (err) {
     console.error('[launch] waitlist request failed', {
@@ -341,6 +366,17 @@ launchRouter.get('/waitlist/unsubscribe', limited(60 * 60 * 1000, 30, 'launch-wa
       await suppressLaunchMarketing(row.email, row.list_key);
     } catch (err) {
       console.error('[launch] SendGrid group suppression failed; local consent remains withdrawn', err);
+    }
+    try {
+      await recordConsentEvent({
+        email: row.email,
+        consentType: 'waitlist_withdrawn',
+        copy: WAITLIST_LIST_CONSENT_COPY[row.list_key],
+        granted: false,
+        metadata: { list: row.list_key },
+      });
+    } catch (err) {
+      console.error('[launch] consent event logging failed', err);
     }
     await pool.query(`DELETE FROM waitlist_subscriptions WHERE id = $1::bigint`, [row.id]);
     return redirectToWaitlistResult(res, 'unsubscribed', row.source);
