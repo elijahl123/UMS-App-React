@@ -6,6 +6,7 @@ import type {
   StudyDashboardTask,
   StudyDifficulty,
   StudyPlanDefinition,
+  StudyPlanMode,
   StudyPlanSummary,
   StudyRecoveryPreview,
   StudyRecoveryStatus,
@@ -33,6 +34,7 @@ export type StudyPlanInput = {
   timeZone: string;
   availability: StudyAvailability[];
   topics: Array<{ id?: string; title: string; difficulty: StudyDifficulty }>;
+  topicMode?: StudyPlanMode;
 };
 
 async function studyPlanRequest<T>(path = '', init?: RequestInit): Promise<T> {
@@ -97,6 +99,7 @@ export function mapStudyPlanSummary(row: Record<string, unknown>): StudyPlanSumm
     schedulerExplanation: row.scheduler_explanation ? String(row.scheduler_explanation) : null,
     unscheduledMinutes: Number(row.unscheduled_minutes ?? 0),
     partialPlanAcknowledged: Boolean(row.partial_plan_acknowledged),
+    topicMode: (row.topic_mode ?? 'phases') as StudyPlanSummary['topicMode'],
     startDate: String(row.start_date).slice(0, 10),
     timeZone: String(row.timezone),
     archived: Boolean(row.archived),

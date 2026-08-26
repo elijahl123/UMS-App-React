@@ -32,6 +32,7 @@ const plan: StudyPlan = {
   schedulerExplanation: null,
   unscheduledMinutes: 0,
   partialPlanAcknowledged: false,
+  topicMode: 'phases',
   startDate: '2026-07-01',
   timeZone: 'America/Los_Angeles',
   archived: false,

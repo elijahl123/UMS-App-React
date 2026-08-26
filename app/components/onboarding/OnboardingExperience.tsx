@@ -817,6 +817,7 @@ export default function OnboardingExperience() {
           <p className="font-bold">One note per topic</p>
           <p className="mt-1 text-muted-foreground">All three phases for a topic share the same note. What you write during Learn &amp; Review carries forward as your Practice reference and Recall cheat sheet.</p>
         </div>
+        <p className="text-xs text-muted-foreground">Prefer one task per topic instead? Switch to single pass-through when you create a plan.</p>
         <Button className="w-full gap-2" onClick={() => void advance()} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Continue</Button>
       </div>
     );

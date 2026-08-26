@@ -143,6 +143,7 @@ describe('data mappers and calendar utilities', () => {
       schedulerExplanation: null,
       unscheduledMinutes: 0,
       partialPlanAcknowledged: false,
+      topicMode: 'phases' as const,
       startDate: '2026-07-01',
       timeZone: 'America/Los_Angeles',
       archived: false,

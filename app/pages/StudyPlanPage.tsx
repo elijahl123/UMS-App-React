@@ -572,27 +572,41 @@ function StudyPlanPage() {
       />
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>How to use Learn &amp; Review, Practice, and Recall</DialogTitle>
-            <DialogDescription>Each topic moves through three phases. Here's how to approach each one.</DialogDescription>
-          </DialogHeader>
-          <ol className="grid gap-3">
-            <li className="rounded-md border bg-muted/20 p-3">
-              <strong className="block text-sm">1. Learn &amp; Review</strong>
-              <span className="text-sm text-muted-foreground">First exposure to the material. Read the chapter, rewatch the lecture, or work through examples. Use the task's note to jot down key ideas, definitions, and anything confusing.</span>
-            </li>
-            <li className="rounded-md border bg-muted/20 p-3">
-              <strong className="block text-sm">2. Practice</strong>
-              <span className="text-sm text-muted-foreground">Apply what you learned with problem sets, past assignments, or practice questions. Add worked examples or common mistakes to the same note so it becomes a working reference.</span>
-            </li>
-            <li className="rounded-md border bg-muted/20 p-3">
-              <strong className="block text-sm">3. Recall</strong>
-              <span className="text-sm text-muted-foreground">Test yourself without looking anything up, then check against the note. This is where gaps show up. The closer this is to your exam, the more it tells you what still needs review.</span>
-            </li>
-          </ol>
-          <p className="text-sm text-muted-foreground">
-            The notebook icon on each task opens the <strong>same note</strong> for that topic across all three phases. Treat it as one running document instead of three separate ones. Tasks aren't locked to this order. You can complete them whenever, but the schedule places Learn tasks earliest and Recall tasks closest to your target date for spaced repetition.
-          </p>
+          {plan.topicMode === 'single' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>How this plan works</DialogTitle>
+                <DialogDescription>This plan uses a single review task per topic instead of three phases.</DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Each topic gets one task. Read the material, work through examples, and test yourself in one sitting. Use the task's note to record what you covered and anything you want to revisit before your exam.
+              </p>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>How to use Learn &amp; Review, Practice, and Recall</DialogTitle>
+                <DialogDescription>Each topic moves through three phases. Here's how to approach each one.</DialogDescription>
+              </DialogHeader>
+              <ol className="grid gap-3">
+                <li className="rounded-md border bg-muted/20 p-3">
+                  <strong className="block text-sm">1. Learn &amp; Review</strong>
+                  <span className="text-sm text-muted-foreground">First exposure to the material. Read the chapter, rewatch the lecture, or work through examples. Use the task's note to jot down key ideas, definitions, and anything confusing.</span>
+                </li>
+                <li className="rounded-md border bg-muted/20 p-3">
+                  <strong className="block text-sm">2. Practice</strong>
+                  <span className="text-sm text-muted-foreground">Apply what you learned with problem sets, past assignments, or practice questions. Add worked examples or common mistakes to the same note so it becomes a working reference.</span>
+                </li>
+                <li className="rounded-md border bg-muted/20 p-3">
+                  <strong className="block text-sm">3. Recall</strong>
+                  <span className="text-sm text-muted-foreground">Test yourself without looking anything up, then check against the note. This is where gaps show up. The closer this is to your exam, the more it tells you what still needs review.</span>
+                </li>
+              </ol>
+              <p className="text-sm text-muted-foreground">
+                The notebook icon on each task opens the <strong>same note</strong> for that topic across all three phases. Treat it as one running document instead of three separate ones. Tasks aren't locked to this order. You can complete them whenever, but the schedule places Learn tasks earliest and Recall tasks closest to your target date for spaced repetition.
+              </p>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
