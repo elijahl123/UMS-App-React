@@ -36,6 +36,7 @@ test('uses mobile bottom navigation with global add and more sheets', async ({ p
   await page.getByRole('button', { name: 'Account' }).click();
   await expect(page).toHaveURL(/#\/account$/);
   await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: /notifications/i }).click();
   await expect(page.getByText('Scheduled reminders', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Notifications' })).toHaveCount(0);
 

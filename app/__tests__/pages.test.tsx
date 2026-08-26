@@ -230,23 +230,29 @@ describe('page rendering', () => {
   });
 
   it('renders the account page', async () => {
+    const user = userEvent.setup();
     renderWithRouter(<AccountPage />);
 
     expect(screen.getByRole('heading', { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByText(/your email address is not verified/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /^connected accounts$/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /^appearance$/i })).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('radiogroup', { name: /school calendar software/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /view walkthrough/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument();
     await waitFor(() => expect(accountEmailActions.listAccountEmails).toHaveBeenCalled());
+
+    await user.click(screen.getByRole('tab', { name: /calendar & imports/i }));
+    expect(screen.getByRole('radiogroup', { name: /school calendar software/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /preferences & support/i }));
+    expect(screen.getByRole('heading', { name: /^appearance$/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByRole('button', { name: /view walkthrough/i })).not.toBeInTheDocument();
   });
 
   it('toggles dark mode from the account appearance setting', async () => {
     const user = userEvent.setup();
     renderWithRouter(<AccountPage />);
 
+    await user.click(screen.getByRole('tab', { name: /preferences & support/i }));
     await user.click(screen.getByRole('switch', { name: /dark mode/i }));
 
     expect(screen.getByRole('switch', { name: /dark mode/i })).toHaveAttribute('aria-checked', 'true');
@@ -281,6 +287,7 @@ describe('page rendering', () => {
 
     renderWithRouter(<AccountPage />);
 
+    await user.click(screen.getByRole('tab', { name: /calendar & imports/i }));
     expect(await screen.findByText(/jane@gmail\.com/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /sync now/i }));
 
@@ -305,6 +312,7 @@ describe('page rendering', () => {
 
     renderWithRouter(<AccountPage />);
 
+    await user.click(screen.getByRole('tab', { name: /calendar & imports/i }));
     await user.selectOptions(await screen.findByLabelText(/import history/i), '12');
     await user.click(screen.getByRole('button', { name: /preview import/i }));
     expect(await screen.findByText(/nothing is saved until you confirm/i)).toBeInTheDocument();
@@ -319,6 +327,7 @@ describe('page rendering', () => {
     const user = userEvent.setup();
     renderWithRouter(<AccountPage />);
 
+    await user.click(screen.getByRole('tab', { name: /privacy & data/i }));
     await user.type(screen.getByLabelText(/type jane@example\.com to confirm/i), 'jane@example.com');
     await user.click(screen.getByRole('button', { name: /^delete account$/i }));
 
