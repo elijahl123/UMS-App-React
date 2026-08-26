@@ -28,8 +28,6 @@ test('new users can set up essentials and enter the live feature tour', async ({
     { heading: 'Build your weekly rhythm', path: 'class-schedule' },
     { heading: 'Write notes where they belong', path: 'notes' },
     { heading: 'Courses connect everything', path: 'courses' },
-    { heading: 'Move quickly and add from anywhere', path: '' },
-    { heading: 'Connections and preferences', path: 'account' },
   ];
 
   for (const stage of remainingStages) {
@@ -37,6 +35,23 @@ test('new users can set up essentials and enter the live feature tour', async ({
     await expect(page).toHaveURL(new RegExp(`#/${stage.path}$`));
     await expect(page.getByRole('heading', { name: stage.heading })).toBeVisible();
     await expect(page.getByTestId('onboarding-spotlight')).toHaveAttribute('data-spotlight-status', 'target');
+  }
+
+  // "How Study Plans work" is an informational dialog step, not a page spotlight.
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'How Study Plans work' })).toBeVisible();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  const finalStages = [
+    { heading: 'Move quickly and add from anywhere', path: '' },
+    { heading: 'Connections and preferences', path: 'account' },
+  ];
+
+  for (const [index, stage] of finalStages.entries()) {
+    await expect(page).toHaveURL(new RegExp(`#/${stage.path}$`));
+    await expect(page.getByRole('heading', { name: stage.heading })).toBeVisible();
+    await expect(page.getByTestId('onboarding-spotlight')).toHaveAttribute('data-spotlight-status', 'target');
+    if (index < finalStages.length - 1) await page.getByRole('button', { name: 'Next', exact: true }).click();
   }
 
   await page.getByRole('button', { name: 'Complete tour' }).click();

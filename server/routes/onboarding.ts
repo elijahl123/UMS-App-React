@@ -15,6 +15,7 @@ export const ONBOARDING_STEPS = [
   'class_schedule',
   'notes',
   'courses',
+  'study_plan',
   'navigation',
   'account',
   'complete',
