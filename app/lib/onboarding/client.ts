@@ -2,7 +2,7 @@ import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 
 export const ONBOARDING_STEPS = [
   'welcome', 'course', 'coursework', 'schedule', 'services', 'dashboard', 'calendar',
-  'homework', 'class_schedule', 'notes', 'courses', 'navigation', 'account', 'complete',
+  'homework', 'class_schedule', 'notes', 'courses', 'study_plan', 'navigation', 'account', 'complete',
 ] as const;
 
 export type OnboardingStep = typeof ONBOARDING_STEPS[number];

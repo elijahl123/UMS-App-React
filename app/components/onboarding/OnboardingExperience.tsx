@@ -4,6 +4,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import {
   BellRing,
   BookOpen,
+  BookOpenCheck,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -122,13 +123,14 @@ const nextStep: Record<OnboardingStep, OnboardingStep> = {
   homework: 'class_schedule',
   class_schedule: 'notes',
   notes: 'courses',
-  courses: 'navigation',
+  courses: 'study_plan',
+  study_plan: 'navigation',
   navigation: 'account',
   account: 'complete',
   complete: 'complete',
 };
 
-const setupSteps = new Set<OnboardingStep>(['welcome', 'course', 'coursework', 'schedule', 'services', 'complete']);
+const setupSteps = new Set<OnboardingStep>(['welcome', 'course', 'coursework', 'schedule', 'services', 'study_plan', 'complete']);
 
 function tomorrowIso() {
   const date = new Date();
@@ -793,6 +795,30 @@ export default function OnboardingExperience() {
         {serviceMessage && <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{serviceMessage}</p>}
         <Button className="w-full" onClick={() => void advance()} disabled={busy}>Continue to app tour</Button>
         <Button variant="ghost" className="w-full" onClick={() => void advance('defer_step')} disabled={busy}>Set up later</Button>
+      </div>
+    );
+
+    if (activeStep === 'study_plan') return shell(
+      'How Study Plans work',
+      'Each course can build a schedule that breaks exam or project prep into three phases.',
+      BookOpenCheck,
+      <div className="space-y-3">
+        {[
+          ['1. Learn & Review', 'A first pass over the material. Read, watch lectures, or build understanding.'],
+          ['2. Practice', 'Apply it with problems, practice sets, or past work to build fluency.'],
+          ['3. Recall', 'Test yourself close to the exam without notes to check retention.'],
+        ].map(([title, text]) => (
+          <div key={title} className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-sm font-bold">{title}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{text}</p>
+          </div>
+        ))}
+        <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
+          <p className="font-bold">One note per topic</p>
+          <p className="mt-1 text-muted-foreground">All three phases for a topic share the same note. What you write during Learn &amp; Review carries forward as your Practice reference and Recall cheat sheet.</p>
+        </div>
+        <p className="text-xs text-muted-foreground">Prefer one task per topic instead? Switch to single pass-through when you create a plan.</p>
+        <Button className="w-full gap-2" onClick={() => void advance()} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Continue</Button>
       </div>
     );
 

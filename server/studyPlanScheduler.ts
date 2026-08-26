@@ -1,5 +1,6 @@
 export type StudyDifficulty = 'light' | 'medium' | 'heavy';
-export type StudyPhase = 'learn' | 'practice' | 'recall';
+export type StudyPhase = 'learn' | 'practice' | 'recall' | 'review';
+export type StudyPlanMode = 'phases' | 'single';
 
 export type ScheduleTopic = {
   id: string;
@@ -37,15 +38,16 @@ export class StudyPlanCapacityError extends Error {
 }
 
 export const PHASE_MINUTES: Record<StudyDifficulty, Record<StudyPhase, number>> = {
-  light: { learn: 30, practice: 15, recall: 15 },
-  medium: { learn: 60, practice: 45, recall: 15 },
-  heavy: { learn: 90, practice: 60, recall: 30 },
+  light: { learn: 30, practice: 15, recall: 15, review: 60 },
+  medium: { learn: 60, practice: 45, recall: 15, review: 120 },
+  heavy: { learn: 90, practice: 60, recall: 30, review: 180 },
 };
 
 const PHASE_LABELS: Record<StudyPhase, string> = {
   learn: 'Learn & review',
   practice: 'Practice',
   recall: 'Recall',
+  review: 'Review',
 };
 
 function parseIsoDate(value: string): Date {
@@ -77,8 +79,8 @@ export function enumerateStudyDates(
   return dates;
 }
 
-export function buildStudyJobs(topics: ScheduleTopic[]): ScheduleJob[] {
-  const phases: StudyPhase[] = ['learn', 'practice', 'recall'];
+export function buildStudyJobs(topics: ScheduleTopic[], mode: StudyPlanMode = 'phases'): ScheduleJob[] {
+  const phases: StudyPhase[] = mode === 'single' ? ['review'] : ['learn', 'practice', 'recall'];
   return phases.flatMap((phase) =>
     topics.map((topic) => ({
       topicId: topic.id,
@@ -351,7 +353,7 @@ function recoveryGroupId(topicId: string, phase: StudyPhase): string {
 }
 
 function recoveryPhaseOrder(phase: StudyPhase): number {
-  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : 2;
+  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : phase === 'recall' ? 2 : 3;
 }
 
 function recoveryQuotas(capacities: number[], requestedMinutes: number): number[] {

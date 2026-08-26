@@ -1,9 +1,9 @@
 import type { StudyDay, StudyPlanSummary, StudyTask } from './types';
 
 export const STUDY_PHASE_MINUTES = {
-  light: { learn: 30, practice: 15, recall: 15 },
-  medium: { learn: 60, practice: 45, recall: 15 },
-  heavy: { learn: 90, practice: 60, recall: 30 },
+  light: { learn: 30, practice: 15, recall: 15, review: 60 },
+  medium: { learn: 60, practice: 45, recall: 15, review: 120 },
+  heavy: { learn: 90, practice: 60, recall: 30, review: 180 },
 } as const;
 
 export function todayForTimeZone(timeZone: string, now = new Date()): string {

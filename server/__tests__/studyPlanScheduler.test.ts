@@ -34,7 +34,22 @@ describe('study plan scheduling', () => {
     expect(jobs.filter((job) => job.topicId === '1').reduce((sum, job) => sum + job.minutes, 0)).toBe(60);
     expect(jobs.filter((job) => job.topicId === '2').reduce((sum, job) => sum + job.minutes, 0)).toBe(120);
     expect(jobs.filter((job) => job.topicId === '3').reduce((sum, job) => sum + job.minutes, 0)).toBe(180);
-    expect(PHASE_MINUTES.medium).toEqual({ learn: 60, practice: 45, recall: 15 });
+    expect(PHASE_MINUTES.medium).toEqual({ learn: 60, practice: 45, recall: 15, review: 120 });
+  });
+
+  it('builds a single review task per topic in single pass-through mode', () => {
+    const jobs = buildStudyJobs(
+      [
+        { id: '1', title: 'Light topic', difficulty: 'light' },
+        { id: '2', title: 'Medium topic', difficulty: 'medium' },
+      ],
+      'single'
+    );
+
+    expect(jobs).toHaveLength(2);
+    expect(jobs.every((job) => job.phase === 'review')).toBe(true);
+    expect(jobs.find((job) => job.topicId === '1')?.minutes).toBe(60);
+    expect(jobs.find((job) => job.topicId === '2')?.minutes).toBe(120);
   });
 
   it('spreads work over available days without using exam day or exceeding capacity', () => {

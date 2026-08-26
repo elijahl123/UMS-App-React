@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLoadAction } from '@/app/lib/api/hooks';
 import { getCourseColor } from '@/app/data/courseColors';
 import { mapCourse } from '@/app/data/mappers';
-import type { ExamType, StudyAvailability, StudyDifficulty, StudyTargetType } from '@/app/data/types';
+import type { ExamType, StudyAvailability, StudyDifficulty, StudyPlanMode, StudyTargetType } from '@/app/data/types';
 import { availableStudyMinutes, formatStudyMinutes, STUDY_PHASE_MINUTES, todayForTimeZone } from '@/app/data/studyPlans';
 import { parseStudyTopics, saveStudyPlan, studyPlanErrorMessage } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDefinition } from '@/app/lib/studyPlans/useStudyPlans';
@@ -75,6 +75,7 @@ function StudyPlanSetupPage() {
   const [timeZone, setTimeZone] = useState(browserTimeZone);
   const [topicText, setTopicText] = useState('');
   const [topics, setTopics] = useState<TopicDraft[]>([]);
+  const [topicMode, setTopicMode] = useState<StudyPlanMode>('phases');
   const [availability, setAvailability] = useState<StudyAvailability[]>(
     DAYS.map((_, weekday) => ({ weekday, minutes: weekday >= 1 && weekday <= 5 ? 60 : 0 }))
   );
@@ -91,6 +92,7 @@ function StudyPlanSetupPage() {
     setEstimatedMinutes(existing.estimatedMinutes ?? 180);
     setDailyCapMinutes(existing.dailyCapMinutes ?? 60);
     setPartialPlanAcknowledged(existing.partialPlanAcknowledged);
+    setTopicMode(existing.topicMode);
     setStartDate(existing.startDate);
     setExamDate(existing.examDate);
     setTimeZone(existing.timeZone);
@@ -110,10 +112,10 @@ function StudyPlanSetupPage() {
     () => targetType === 'exam'
       ? topics.reduce((total, topic) => {
         const phases = STUDY_PHASE_MINUTES[topic.difficulty];
-        return total + phases.learn + phases.practice + phases.recall;
+        return total + (topicMode === 'single' ? phases.review : phases.learn + phases.practice + phases.recall);
       }, 0)
       : estimatedMinutes,
-    [estimatedMinutes, targetType, topics]
+    [estimatedMinutes, targetType, topicMode, topics]
   );
   const availableMinutes = useMemo(
     () => (startDate < examDate
@@ -175,6 +177,7 @@ function StudyPlanSetupPage() {
           examType, examDate, startDate, timeZone,
           availability: targetType === 'exam' ? availability : availability.map((entry) => ({ ...entry, minutes: entry.minutes > 0 ? dailyCapMinutes : 0 })),
           topics: targetType === 'exam' ? topics : [{ title: targetTitle.trim(), difficulty: 'light' }],
+          topicMode,
         },
         planId,
         user?.id
@@ -295,6 +298,27 @@ function StudyPlanSetupPage() {
               />
             </div>
             <div className="space-y-4 p-4 pt-1 sm:p-5 sm:pt-2">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-[var(--secondary-accent)]">Task style</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { value: 'phases' as const, label: 'Three phases', hint: 'Learn & Review, Practice, Recall' },
+                    { value: 'single' as const, label: 'Single pass-through', hint: 'One task per topic' },
+                  ]).map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={Boolean(planId)}
+                      onClick={() => setTopicMode(option.value)}
+                      className={`rounded-lg border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60 ${topicMode === option.value ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}
+                    >
+                      <span className="block text-sm font-bold text-[var(--secondary-accent)]">{option.label}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{option.hint}</span>
+                    </button>
+                  ))}
+                </div>
+                {planId && <p className="text-xs text-muted-foreground">Task style is set when a plan is created and can't be changed here.</p>}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="topic-list" className="text-xs font-bold text-[var(--secondary-accent)]">One topic per line</Label>
                 <Textarea

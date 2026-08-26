@@ -10,6 +10,7 @@ import {
   type ScheduleTopic,
   type StudyDifficulty,
   type StudyPhase,
+  type StudyPlanMode,
   scheduleEvenWork,
 } from './studyPlanScheduler';
 
@@ -32,6 +33,7 @@ export type StudyPlanInput = {
   timeZone: string;
   availability: ScheduleAvailability[];
   topics: Array<{ id?: string; title: string; difficulty: StudyDifficulty }>;
+  topicMode?: StudyPlanMode;
 };
 
 export type StudyTaskRange = {
@@ -43,6 +45,7 @@ const PHASE_CODES: Record<StudyPhase, number> = {
   learn: 0,
   practice: 1,
   recall: 2,
+  review: 3,
 };
 
 function phaseCode(phase: StudyPhase): number {
@@ -50,7 +53,7 @@ function phaseCode(phase: StudyPhase): number {
 }
 
 function phaseTextSql(taskAlias: string): string {
-  return `CASE ${taskAlias}.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' ELSE 'recall' END`;
+  return `CASE ${taskAlias}.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' WHEN 2 THEN 'recall' ELSE 'review' END`;
 }
 
 function taskTitleSql(taskAlias: string, topicAlias: string): string {
@@ -59,9 +62,16 @@ function taskTitleSql(taskAlias: string, topicAlias: string): string {
     CASE ${taskAlias}.phase
       WHEN 0 THEN 'Learn & review'
       WHEN 1 THEN 'Practice'
-      ELSE 'Recall'
+      WHEN 2 THEN 'Recall'
+      ELSE 'Review'
     END || ': ' || ${topicAlias}.title
   )`;
+}
+
+function schedulerExplanationFor(mode: StudyPlanMode): string {
+  return mode === 'single'
+    ? 'Topic work is scheduled as a single review task per topic across the available days.'
+    : 'Topic work is scheduled in learn, practice, and recall phases across the available days.';
 }
 
 function normalizeDate(value: unknown, label: string): string {
@@ -110,6 +120,11 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
   const estimatedMinutes = targetType === 'exam' ? null : Number(source.estimatedMinutes);
   const dailyCapMinutes = targetType === 'exam' ? null : Number(source.dailyCapMinutes);
   const partialPlanAcknowledged = source.partialPlanAcknowledged === true;
+  const requestedTopicMode = source.topicMode ?? 'phases';
+  if (requestedTopicMode !== 'phases' && requestedTopicMode !== 'single') {
+    throw new ApiError('topicMode must be phases or single', 400);
+  }
+  const topicMode = requestedTopicMode as StudyPlanMode;
 
   if (!courseId) throw new ApiError('courseId is required', 400);
   if (examType !== 'midterm' && examType !== 'final') {
@@ -171,6 +186,7 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
     courseId, targetType, targetTitle, targetDate, targetTime, targetAssignmentId,
     estimatedMinutes, dailyCapMinutes, partialPlanAcknowledged,
     examType: examType as 'midterm' | 'final', examDate, startDate, timeZone, availability, topics,
+    topicMode,
   };
 }
 
@@ -269,17 +285,18 @@ async function writeAvailability(client: Queryable, planId: string, availability
 }
 
 function phaseOrder(phase: StudyPhase): number {
-  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : 2;
+  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : phase === 'recall' ? 2 : 3;
 }
 
 function remainingJobs(
   topics: ScheduleTopic[],
-  completedRows: Array<{ topic_id: string | number; phase: StudyPhase; completed_minutes: number }>
+  completedRows: Array<{ topic_id: string | number; phase: StudyPhase; completed_minutes: number }>,
+  mode: StudyPlanMode
 ): ScheduleJob[] {
   const completed = new Map(
     completedRows.map((row) => [`${row.topic_id}:${row.phase}`, Number(row.completed_minutes)])
   );
-  return buildStudyJobs(topics)
+  return buildStudyJobs(topics, mode)
     .map((job) => ({
       ...job,
       minutes: Math.max(0, job.minutes - (completed.get(`${job.topicId}:${job.phase}`) ?? 0)),
@@ -396,20 +413,21 @@ async function createGeneralizedStudyPlan(client: Queryable, userId: string, inp
 
 export async function createStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
   if ((input.targetType ?? 'exam') !== 'exam') return createGeneralizedStudyPlan(client, userId, input);
+  const topicMode: StudyPlanMode = input.topicMode ?? 'phases';
   const inserted = await client.query<{ id: string }>(
     `
       INSERT INTO study_plans (
         course_id, exam_type, exam_date, start_date, timezone,
-        target_type, target_title, target_date, scheduler_version, scheduler_explanation
+        target_type, target_title, target_date, scheduler_version, scheduler_explanation, topic_mode
       )
       SELECT c.id, $2, $3::date, $4::date, $5, 'exam',
              CASE WHEN $2 = 'midterm' THEN 'Midterm exam' ELSE 'Final exam' END,
-             $3::date, 1, 'Topic work is scheduled in learn, practice, and recall phases across the available days.'
+             $3::date, 1, $7, $8
       FROM courses c
       WHERE c.id = $1::bigint AND c.user_id = $6
       RETURNING id;
     `,
-    [input.courseId, input.examType, input.examDate, input.startDate, input.timeZone, userId]
+    [input.courseId, input.examType, input.examDate, input.startDate, input.timeZone, userId, schedulerExplanationFor(topicMode), topicMode]
   );
   const planId = inserted.rows[0]?.id;
   if (!planId) throw new ApiError('Course not found', 404);
@@ -422,7 +440,7 @@ export async function createStudyPlan(client: Queryable, userId: string, input: 
   );
 
   try {
-    const tasks = scheduleStudyJobs(input.startDate, input.examDate, input.availability, buildStudyJobs(topics));
+    const tasks = scheduleStudyJobs(input.startDate, input.examDate, input.availability, buildStudyJobs(topics, topicMode));
     await writeTasks(client, planId, tasks);
   } catch (err) {
     rethrowCapacity(err);
@@ -446,6 +464,7 @@ async function ownedPlan(
   estimated_minutes?: number | null;
   daily_cap_minutes?: number | null;
   partial_plan_acknowledged?: boolean;
+  topic_mode: StudyPlanMode;
 }> {
   const result = await client.query<{
     id: string;
@@ -459,11 +478,12 @@ async function ownedPlan(
     estimated_minutes: number | null;
     daily_cap_minutes: number | null;
     partial_plan_acknowledged: boolean;
+    topic_mode: StudyPlanMode;
   }>(
     `
       SELECT p.id, p.course_id, p.exam_date::text, p.start_date::text, p.timezone,
              p.target_type, p.target_title, p.target_date::text,
-             p.estimated_minutes, p.daily_cap_minutes, p.partial_plan_acknowledged
+             p.estimated_minutes, p.daily_cap_minutes, p.partial_plan_acknowledged, p.topic_mode
       FROM study_plans p
       JOIN courses c ON c.id = p.course_id
       WHERE p.id = $1::bigint AND c.user_id = $2;
@@ -554,12 +574,12 @@ export async function rebuildStudyPlan(
           target_date = $2::date, target_time = NULL,
           estimated_minutes = NULL, daily_cap_minutes = NULL,
           scheduler_version = 1,
-          scheduler_explanation = 'Topic work is scheduled in learn, practice, and recall phases across the available days.',
+          scheduler_explanation = $6,
           unscheduled_minutes = 0, partial_plan_acknowledged = FALSE,
           updated_at = NOW()
       WHERE id = $5::bigint;
     `,
-    [input.examType, input.examDate, input.startDate, input.timeZone, planId]
+    [input.examType, input.examDate, input.startDate, input.timeZone, planId, schedulerExplanationFor(plan.topic_mode)]
   );
   await writeAvailability(client, planId, input.availability);
 
@@ -679,7 +699,7 @@ export async function rebuildStudyPlan(
       scheduleStart,
       input.examDate,
       input.availability,
-      remainingJobs(topics, completed.rows)
+      remainingJobs(topics, completed.rows, plan.topic_mode)
     );
     await writeTasks(client, planId, tasks);
   } catch (err) {
@@ -816,6 +836,7 @@ async function queryStudyPlanSummaries(
           p.scheduler_explanation,
           p.unscheduled_minutes,
           p.partial_plan_acknowledged,
+          p.topic_mode,
           p.start_date,
           p.timezone,
           p.archived,
@@ -895,6 +916,7 @@ async function queryStudyPlanSummaries(
         p.scheduler_explanation,
         p.unscheduled_minutes,
         p.partial_plan_acknowledged,
+        p.topic_mode,
         p.start_date::text,
         p.timezone,
         p.archived,

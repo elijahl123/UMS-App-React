@@ -66,7 +66,8 @@ export interface CalendarEvent {
 export type ExamType = 'midterm' | 'final';
 export type StudyTargetType = 'exam' | 'assignment' | 'project';
 export type StudyDifficulty = 'light' | 'medium' | 'heavy';
-export type StudyPhase = 'learn' | 'practice' | 'recall';
+export type StudyPhase = 'learn' | 'practice' | 'recall' | 'review';
+export type StudyPlanMode = 'phases' | 'single';
 
 export interface StudyAvailability {
   weekday: number; // 0 = Sunday
@@ -116,6 +117,7 @@ export interface StudyPlanSummary {
   schedulerExplanation: string | null;
   unscheduledMinutes: number;
   partialPlanAcknowledged: boolean;
+  topicMode: StudyPlanMode;
   startDate: string;
   timeZone: string;
   archived: boolean;

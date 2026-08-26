@@ -49,7 +49,7 @@ type RecoverySnapshotTask = {
 };
 
 function phaseCode(phase: StudyPhase): number {
-  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : 2;
+  return phase === 'learn' ? 0 : phase === 'practice' ? 1 : phase === 'recall' ? 2 : 3;
 }
 
 function recoveryError(code: string, status: number, details: Record<string, unknown> = {}): ApiError {
@@ -104,10 +104,10 @@ async function loadRecoveryState(
       `
         SELECT task.id::text, task.topic_id::text, topic.title AS topic_title,
                topic.position AS topic_position,
-               CASE task.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' ELSE 'recall' END AS phase,
+               CASE task.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' WHEN 2 THEN 'recall' ELSE 'review' END AS phase,
                COALESCE(
                  task.title_override,
-                 CASE task.phase WHEN 0 THEN 'Learn & review' WHEN 1 THEN 'Practice' ELSE 'Recall' END
+                 CASE task.phase WHEN 0 THEN 'Learn & review' WHEN 1 THEN 'Practice' WHEN 2 THEN 'Recall' ELSE 'Review' END
                    || ': ' || topic.title
                ) AS title,
                task.title_override,
