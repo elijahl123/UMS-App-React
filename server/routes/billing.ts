@@ -5,6 +5,7 @@ import { getAccessStatus, shouldSuppressInstitutionTrial } from '../access';
 import { config } from '../config';
 import { pool } from '../db';
 import { ApiError, required } from '../errors';
+import { recordConsentEvent, EU_SUBSCRIPTION_WITHDRAWAL_WAIVER_COPY } from '../consentLog';
 import {
   formatPaymentMethod,
   getBillingReference,
@@ -340,6 +341,29 @@ billingRouter.post('/payment-method', async (req, res) => {
 
     const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
     return res.json({ paymentMethod: formatPaymentMethod(paymentMethod) });
+  } catch (err) {
+    return errorResponse(res, err);
+  }
+});
+
+// EU consumers get a 14-day right to withdraw from an online purchase. Starting a
+// subscription grants immediate access, which means giving that up — so this
+// records the explicit waiver a user checks at the moment they confirm payment,
+// as evidence for a future dispute.
+billingRouter.post('/withdrawal-acknowledgment', async (req, res) => {
+  try {
+    const userId = requestUserId(req, req.body);
+    const email = req.auth?.email ?? (required(req.body, 'email') as string);
+    const subscriptionId = req.body.subscriptionId as string | undefined;
+    await recordConsentEvent({
+      userId,
+      email,
+      consentType: 'eu_subscription_withdrawal_waiver',
+      copy: EU_SUBSCRIPTION_WITHDRAWAL_WAIVER_COPY,
+      granted: true,
+      metadata: subscriptionId ? { subscriptionId } : {},
+    });
+    return res.status(204).end();
   } catch (err) {
     return errorResponse(res, err);
   }
