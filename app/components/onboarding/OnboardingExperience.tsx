@@ -800,13 +800,13 @@ export default function OnboardingExperience() {
 
     if (activeStep === 'study_plan') return shell(
       'How Study Plans work',
-      'Each course can build an adaptive schedule that breaks exam or project prep into three phases.',
+      'Each course can build a schedule that breaks exam or project prep into three phases.',
       BookOpenCheck,
       <div className="space-y-3">
         {[
-          ['1. Learn & Review', 'A first pass over the material — read, watch lectures, build initial understanding.'],
+          ['1. Learn & Review', 'A first pass over the material. Read, watch lectures, or build understanding.'],
           ['2. Practice', 'Apply it with problems, practice sets, or past work to build fluency.'],
-          ['3. Recall', 'Active recall close to the exam — test yourself without notes to check retention.'],
+          ['3. Recall', 'Test yourself close to the exam without notes to check retention.'],
         ].map(([title, text]) => (
           <div key={title} className="rounded-lg border bg-muted/30 p-3">
             <p className="text-sm font-bold">{title}</p>
@@ -815,7 +815,7 @@ export default function OnboardingExperience() {
         ))}
         <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
           <p className="font-bold">One note per topic</p>
-          <p className="mt-1 text-muted-foreground">All three phases for a topic share the same note — what you write during Learn &amp; Review carries forward as your Practice reference and Recall cheat sheet.</p>
+          <p className="mt-1 text-muted-foreground">All three phases for a topic share the same note. What you write during Learn &amp; Review carries forward as your Practice reference and Recall cheat sheet.</p>
         </div>
         <Button className="w-full gap-2" onClick={() => void advance()} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Continue</Button>
       </div>
