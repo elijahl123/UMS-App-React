@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import crypto from 'node:crypto';
 import { getBillingReference, stripeClient } from './billing';
 import { pool } from './db';
+import { revokeGoogleCalendarGrant } from './googleCalendarSync';
 
 function isMissingStripeResource(err: unknown): boolean {
   const stripeError = err as { code?: string; statusCode?: number };
@@ -39,6 +40,8 @@ async function deleteStripeBillingForUser(userId: string) {
 async function deleteRows(client: PoolClient, userId: string, emails: string[], recordTombstone = true) {
   const normalizedEmails = emails.map((email) => email.trim().toLowerCase()).filter(Boolean);
   const digest = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
+
+  await revokeGoogleCalendarGrant(userId);
 
   if (recordTombstone) {
     await client.query(

@@ -12,6 +12,7 @@ import { getApiBaseUrl } from '@/app/lib/api/client';
 import { isIOSNativeApp } from '@/app/lib/billing/revenuecat';
 import AppleBillingPanel from '@/app/pages/billing/AppleBillingPanel';
 import {
+  acknowledgeWithdrawalWaiver,
   cancelSubscription,
   createPaymentMethodSetupIntent,
   createSubscription,
@@ -45,15 +46,26 @@ const planCopy: Record<BillingInterval, { title: string; price: string; cadence:
   },
 };
 
-function CheckoutForm({ onComplete }: { onComplete: () => Promise<void> }) {
+function CheckoutForm({
+  userId,
+  email,
+  subscriptionId,
+  onComplete,
+}: {
+  userId: string;
+  email: string;
+  subscriptionId: string | null;
+  onComplete: () => Promise<void>;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [withdrawalAcknowledged, setWithdrawalAcknowledged] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || !withdrawalAcknowledged) return;
 
     setSubmitting(true);
     setError(null);
@@ -71,6 +83,12 @@ function CheckoutForm({ onComplete }: { onComplete: () => Promise<void> }) {
         return;
       }
 
+      try {
+        await acknowledgeWithdrawalWaiver({ userId, email, subscriptionId: subscriptionId ?? undefined });
+      } catch (err) {
+        console.error('Unable to record withdrawal-right acknowledgment', err);
+      }
+
       await onComplete();
     } finally {
       setSubmitting(false);
@@ -80,8 +98,20 @@ function CheckoutForm({ onComplete }: { onComplete: () => Promise<void> }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <PaymentElement />
+      <label className="flex items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={withdrawalAcknowledged}
+          onChange={(event) => setWithdrawalAcknowledged(event.target.checked)}
+        />
+        <span>
+          I want immediate access to my UMS subscription and understand I am giving up my 14-day right to
+          withdraw once my subscription starts.
+        </span>
+      </label>
       {error && <p className="text-sm font-semibold text-destructive">{error}</p>}
-      <Button type="submit" className="gap-2" disabled={!stripe || submitting}>
+      <Button type="submit" className="gap-2" disabled={!stripe || submitting || !withdrawalAcknowledged}>
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
         {submitting ? 'Confirming...' : 'Subscribe'}
       </Button>
@@ -214,6 +244,7 @@ function BillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<BillingPaymentMethod | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<BillingInterval>('monthly');
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [pendingSubscriptionId, setPendingSubscriptionId] = useState<string | null>(null);
   const [paymentMethodClientSecret, setPaymentMethodClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -301,6 +332,7 @@ function BillingPage() {
       }
 
       setClientSecret(result.clientSecret);
+      setPendingSubscriptionId(result.subscriptionId ?? null);
     } catch (err) {
       const message = (err as { error?: { message?: string } })?.error?.message ?? 'Unable to start subscription.';
       setError(message);
@@ -644,7 +676,12 @@ function BillingPage() {
                 {clientSecret && stripePromise && elementsOptions && (
                   <div className="rounded-lg border border-[var(--border-light)] bg-card p-5">
                     <Elements stripe={stripePromise} options={elementsOptions}>
-                      <CheckoutForm onComplete={refreshStatus} />
+                      <CheckoutForm
+                        userId={user.id}
+                        email={user.email}
+                        subscriptionId={pendingSubscriptionId}
+                        onComplete={refreshStatus}
+                      />
                     </Elements>
                   </div>
                 )}

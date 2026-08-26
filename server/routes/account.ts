@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { pool } from '../db';
 import { extractNoteImageIds } from '../notes';
 import { getNoteImageObject } from '../noteImageStorage';
+import { getAccountEmails } from '../accountEmails';
 
 export const accountRouter = Router();
 
@@ -84,10 +85,18 @@ function readableBody(body: unknown): Readable {
   throw new Error('Spaces returned an unreadable image body');
 }
 
-accountRouter.get('/export', async (req, res) => {
-  try {
-    const userId = req.auth!.uid;
-    const [courses, assignments, events, classes, plans, planTasks, capacityOverrides, recoveryRevisions, notes, noteImages] = await Promise.all([
+export type AccountExportResult = {
+  files: { name: string; data: Buffer }[];
+  noteImages: { id: string; object_key: string; original_filename: string }[];
+  imageExports: Map<string, { path: string; filename: string }>;
+};
+
+export async function buildAccountExport(userId: string): Promise<AccountExportResult> {
+  const emails = await getAccountEmails(userId);
+  const [
+      courses, assignments, events, classes, plans, planTasks, capacityOverrides, recoveryRevisions, notes, noteImages,
+      accountEmailRows, subscriptionRows, calendarConnectionRows, entitlementRows, waitlistRows, consentEventRows,
+    ] = await Promise.all([
       pool.query(`SELECT code, name, color, homepage_url FROM courses WHERE user_id = $1 ORDER BY code`, [userId]),
       pool.query(`
         SELECT c.code AS course_code, a.name, a.due_date::text AS due_date,
@@ -176,6 +185,42 @@ accountRouter.get('/export', async (req, res) => {
         WHERE user_id = $1 AND status = 'ready' AND note_id IS NOT NULL
         ORDER BY created_at;
       `, [userId]),
+      pool.query(`
+        SELECT email, verified_at::text, source, created_at::text
+        FROM account_email_addresses WHERE firebase_uid = $1
+        UNION ALL
+        SELECT email, created_at::text AS verified_at, 'primary' AS source, created_at::text
+        FROM account_primary_emails WHERE firebase_uid = $1
+        ORDER BY created_at;
+      `, [userId]),
+      pool.query(`
+        SELECT email, stripe_customer_id, stripe_subscription_id, stripe_price_id, status,
+               current_period_end::text, cancel_at_period_end, created_at::text, updated_at::text
+        FROM user_subscriptions WHERE user_id = $1;
+      `, [userId]),
+      pool.query(`
+        SELECT google_email, calendar_id, last_synced_at::text, last_error, sync_in_progress,
+               history_months, setup_completed, calendar_list_scope_granted, shared_calendar_scope_granted,
+               created_at::text, updated_at::text
+        FROM google_calendar_connections WHERE user_id = $1;
+      `, [userId]),
+      pool.query(`
+        SELECT entitlement_key, qualifying_email, grant_source, starts_at::text, ends_at::text,
+               grace_ends_at::text, granted_at::text, revoked_at::text
+        FROM access_entitlements WHERE user_id = $1;
+      `, [userId]),
+      emails.length > 0
+        ? pool.query(`
+            SELECT email, list_key, consent, marketing_consent, confirmed_at::text, unsubscribed_at::text,
+                   source, campaign, ambassador, society, referral, requested_at::text
+            FROM waitlist_subscriptions WHERE lower(email) = ANY($1::text[]);
+          `, [emails.map((email) => email.toLowerCase())])
+        : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+      pool.query(`
+        SELECT consent_type, consent_version, granted, occurred_at::text, metadata
+        FROM consent_events WHERE user_id = $1 OR lower(email) = ANY($2::text[])
+        ORDER BY occurred_at;
+      `, [userId, emails.map((email) => email.toLowerCase())]),
     ]);
 
     const imageExports = new Map(
@@ -192,9 +237,44 @@ accountRouter.get('/export', async (req, res) => {
       { name: 'plans.csv', data: toCsv(plans.rows, ['course_code', 'target_type', 'target_title', 'target_date', 'exam_type', 'exam_date', 'start_date', 'timezone', 'estimated_minutes', 'daily_cap_minutes', 'unscheduled_minutes', 'scheduler_version', 'scheduler_explanation', 'archived']) },
       { name: 'plan-tasks.csv', data: toCsv(planTasks.rows, ['course_code', 'target_type', 'target_title', 'custom_title', 'topic', 'phase', 'scheduled_date', 'estimated_minutes', 'completed_at', 'manually_edited_at']) },
       { name: 'plan-capacity-overrides.csv', data: toCsv(capacityOverrides.rows, ['course_code', 'target_title', 'study_date', 'minutes']) },
-      { name: 'recovery-revisions.json', data: JSON.stringify(recoveryRevisions.rows, null, 2) },
+      { name: 'recovery-revisions.json', data: Buffer.from(JSON.stringify(recoveryRevisions.rows, null, 2)) },
       { name: 'notes.html', data: notesHtml(notes.rows, imageExports) },
+      { name: 'account.json', data: Buffer.from(JSON.stringify({ emails: accountEmailRows.rows }, null, 2)) },
+      { name: 'billing.json', data: Buffer.from(JSON.stringify(subscriptionRows.rows, null, 2)) },
+      { name: 'calendar-connection.json', data: Buffer.from(JSON.stringify(calendarConnectionRows.rows, null, 2)) },
+      { name: 'entitlements.json', data: Buffer.from(JSON.stringify(entitlementRows.rows, null, 2)) },
+      { name: 'waitlist-and-consent.json', data: Buffer.from(JSON.stringify({ waitlist: waitlistRows.rows, consentEvents: consentEventRows.rows }, null, 2)) },
     ];
+
+  return { files, noteImages: noteImages.rows, imageExports };
+}
+
+// Shared by the HTTP export route and the offline data-subject-request CLI
+// (server/dataSubjectRequest.ts) so both ship the exact same archive contents.
+export async function streamAccountExportZip(userId: string, output: NodeJS.WritableStream): Promise<void> {
+  const { files, noteImages, imageExports } = await buildAccountExport(userId);
+  const archive = new ZipArchive({ zlib: { level: 6 } });
+  const finished = new Promise<void>((resolve, reject) => {
+    output.on('close', resolve);
+    output.on('finish', resolve);
+    output.on('error', reject);
+    archive.on('error', reject);
+  });
+  archive.on('warning', (err: ArchiverError) => console.warn('[account] export archive warning', err));
+  archive.pipe(output);
+  for (const file of files) archive.append(file.data, { name: file.name });
+  for (const image of noteImages) {
+    const object = await getNoteImageObject(image.object_key);
+    if (!object.Body) throw new Error(`Missing image body for ${image.id}`);
+    archive.append(readableBody(object.Body), { name: imageExports.get(image.id)!.path });
+  }
+  await archive.finalize();
+  await finished;
+}
+
+accountRouter.get('/export', async (req, res) => {
+  try {
+    const userId = req.auth!.uid;
     await pool.query(
       `INSERT INTO product_events (event_name, user_id, occurred_at, properties) VALUES ('account_exported', $1, NOW(), '{}'::jsonb)`,
       [userId]
@@ -202,17 +282,7 @@ accountRouter.get('/export', async (req, res) => {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="ums-export-${new Date().toISOString().slice(0, 10)}.zip"`);
     res.setHeader('Cache-Control', 'no-store');
-    const archive = new ZipArchive({ zlib: { level: 6 } });
-    archive.on('warning', (err: ArchiverError) => console.warn('[account] export archive warning', err));
-    archive.on('error', (err: ArchiverError) => res.destroy(err));
-    archive.pipe(res);
-    for (const file of files) archive.append(file.data, { name: file.name });
-    for (const image of noteImages.rows) {
-      const object = await getNoteImageObject(image.object_key);
-      if (!object.Body) throw new Error(`Missing image body for ${image.id}`);
-      archive.append(readableBody(object.Body), { name: imageExports.get(image.id)!.path });
-    }
-    await archive.finalize();
+    await streamAccountExportZip(userId, res);
     return undefined;
   } catch (err) {
     console.error('[account] export failed', err);

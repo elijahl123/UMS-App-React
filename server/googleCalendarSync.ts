@@ -11,6 +11,7 @@ export const GOOGLE_CALENDAR_SOURCE_PROVIDER = 'google_calendar';
 const OWNED_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events.owned';
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
 const GOOGLE_CALENDAR_API_URL = 'https://www.googleapis.com/calendar/v3';
 const DEFAULT_CALENDAR_ID = 'primary';
@@ -1343,7 +1344,31 @@ export async function mutateRecurringGoogleOccurrence(
   return [];
 }
 
+// Revokes the stored Google grant at Google (not just locally) so disconnecting or
+// deleting an account actually withdraws UMS's calendar access, rather than leaving
+// a live token Google still honors after we stop using it. Best-effort: a revoke
+// failure (network blip, already-revoked token) must never block local cleanup.
+export async function revokeGoogleCalendarGrant(userId: string): Promise<void> {
+  const result = await pool.query<{ encrypted_refresh_token: string | null }>(
+    'SELECT encrypted_refresh_token FROM google_calendar_connections WHERE user_id = $1',
+    [userId]
+  );
+  const encrypted = result.rows[0]?.encrypted_refresh_token;
+  if (!encrypted) return;
+  try {
+    const token = decryptGoogleToken(encrypted);
+    await fetch(GOOGLE_REVOKE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+    });
+  } catch (err) {
+    console.error('[google-calendar] failed to revoke grant at Google; continuing with local cleanup', err);
+  }
+}
+
 export async function disconnectGoogleCalendar(userId: string) {
+  await revokeGoogleCalendarGrant(userId);
   await pool.query(
     `DELETE FROM events WHERE user_id = $1 AND source_provider = $2`,
     [userId, GOOGLE_CALENDAR_SOURCE_PROVIDER]
