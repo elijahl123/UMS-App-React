@@ -89,8 +89,8 @@ function formatItemSchedule(item: CalendarItem): string {
 function itemTypeLabel(type: CalendarItem['type']): string {
   if (type === 'assignment') return 'Assignment';
   if (type === 'class') return 'Course time';
-  if (type === 'study') return 'Study plan';
-  if (type === 'exam') return 'Exam';
+  if (type === 'study') return 'Plan work';
+  if (type === 'exam') return 'Target date';
   return 'Event';
 }
 

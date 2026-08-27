@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { ApiError } from './errors';
 import {
   buildStudyJobs,
+  PHASE_LABELS,
   scheduleStudyJobs,
   StudyPlanCapacityError,
   todayInTimeZone,
@@ -11,15 +12,19 @@ import {
   type StudyDifficulty,
   type StudyPhase,
   type StudyPlanMode,
+  type PhasePreset,
   scheduleEvenWork,
 } from './studyPlanScheduler';
 
 type Queryable = Pick<PoolClient, 'query'>;
 export const TASK_NOTE_INITIAL_CONTENT = '<ul><li><p></p></li></ul>';
 
+export type StudyTargetType = 'exam' | 'assignment' | 'project' | 'general';
+const TARGET_TYPES: StudyTargetType[] = ['exam', 'assignment', 'project', 'general'];
+
 export type StudyPlanInput = {
   courseId: string;
-  targetType?: 'exam' | 'assignment' | 'project';
+  targetType?: StudyTargetType;
   targetTitle?: string;
   targetDate?: string;
   targetTime?: string | null;
@@ -34,6 +39,7 @@ export type StudyPlanInput = {
   availability: ScheduleAvailability[];
   topics: Array<{ id?: string; title: string; difficulty: StudyDifficulty }>;
   topicMode?: StudyPlanMode;
+  phasePreset?: PhasePreset;
 };
 
 export type StudyTaskRange = {
@@ -56,22 +62,32 @@ function phaseTextSql(taskAlias: string): string {
   return `CASE ${taskAlias}.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' WHEN 2 THEN 'recall' ELSE 'review' END`;
 }
 
-function taskTitleSql(taskAlias: string, topicAlias: string): string {
+/**
+ * Task titles are derived rather than stored, so the phase preset chosen at
+ * creation has to reach every read query. `presetExpr` is either a joined
+ * `study_plans.phase_preset` column or a bind parameter.
+ */
+function taskTitleSql(taskAlias: string, topicAlias: string, presetExpr: string): string {
+  const labels = (preset: PhasePreset) => `CASE ${taskAlias}.phase
+        WHEN 0 THEN '${PHASE_LABELS[preset].learn.replace(/'/g, "''")}'
+        WHEN 1 THEN '${PHASE_LABELS[preset].practice.replace(/'/g, "''")}'
+        WHEN 2 THEN '${PHASE_LABELS[preset].recall.replace(/'/g, "''")}'
+        ELSE '${PHASE_LABELS[preset].review.replace(/'/g, "''")}'
+      END`;
   return `COALESCE(
     ${taskAlias}.title_override,
-    CASE ${taskAlias}.phase
-      WHEN 0 THEN 'Learn & review'
-      WHEN 1 THEN 'Practice'
-      WHEN 2 THEN 'Recall'
-      ELSE 'Review'
+    CASE WHEN ${presetExpr} = 'general'
+      THEN ${labels('general')}
+      ELSE ${labels('study')}
     END || ': ' || ${topicAlias}.title
   )`;
 }
 
-function schedulerExplanationFor(mode: StudyPlanMode): string {
+function schedulerExplanationFor(mode: StudyPlanMode, preset: PhasePreset): string {
+  const phases = preset === 'general' ? 'first pass, deepen, and review' : 'learn, practice, and recall';
   return mode === 'single'
-    ? 'Topic work is scheduled as a single review task per topic across the available days.'
-    : 'Topic work is scheduled in learn, practice, and recall phases across the available days.';
+    ? 'Topic work is scheduled as a single task per topic across the available days.'
+    : `Topic work is scheduled in ${phases} phases across the available days.`;
 }
 
 function normalizeDate(value: unknown, label: string): string {
@@ -101,10 +117,10 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
   const source = (value ?? {}) as Record<string, unknown>;
   const courseId = String(source.courseId ?? '').trim();
   const requestedType = source.targetType ?? 'exam';
-  if (requestedType !== 'exam' && requestedType !== 'assignment' && requestedType !== 'project') {
-    throw new ApiError('targetType must be exam, assignment, or project', 400);
+  if (!TARGET_TYPES.includes(requestedType as StudyTargetType)) {
+    throw new ApiError('targetType must be exam, assignment, project, or general', 400);
   }
-  const targetType = requestedType as StudyPlanInput['targetType'];
+  const targetType = requestedType as StudyTargetType;
   const examType = targetType === 'exam' ? source.examType : 'final';
   const targetDate = normalizeDate(targetType === 'exam' ? source.examDate : (source.targetDate ?? source.examDate), 'targetDate');
   const examDate = targetDate;
@@ -117,34 +133,28 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
   const targetTime = rawTargetTime ? (/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(rawTargetTime) ? rawTargetTime : null) : null;
   if (rawTargetTime && !targetTime) throw new ApiError('targetTime must use HH:MM', 400);
   const targetAssignmentId = source.targetAssignmentId ? String(source.targetAssignmentId) : null;
-  const estimatedMinutes = targetType === 'exam' ? null : Number(source.estimatedMinutes);
-  const dailyCapMinutes = targetType === 'exam' ? null : Number(source.dailyCapMinutes);
   const partialPlanAcknowledged = source.partialPlanAcknowledged === true;
   const requestedTopicMode = source.topicMode ?? 'phases';
   if (requestedTopicMode !== 'phases' && requestedTopicMode !== 'single') {
     throw new ApiError('topicMode must be phases or single', 400);
   }
   const topicMode = requestedTopicMode as StudyPlanMode;
+  const requestedPreset = source.phasePreset ?? 'study';
+  if (requestedPreset !== 'study' && requestedPreset !== 'general') {
+    throw new ApiError('phasePreset must be study or general', 400);
+  }
+  const phasePreset = requestedPreset as PhasePreset;
 
   if (!courseId) throw new ApiError('courseId is required', 400);
-  if (examType !== 'midterm' && examType !== 'final') {
+  if (targetType === 'exam' && examType !== 'midterm' && examType !== 'final') {
     throw new ApiError('examType must be midterm or final', 400);
   }
-  if (targetType === 'exam' && startDate >= examDate) throw new ApiError('The study plan must start before the exam date', 400);
-  if (targetType !== 'exam' && startDate > targetDate) throw new ApiError('The plan cannot start after its due date', 400);
-  if (!targetTitle || targetTitle.length > 200) throw new ApiError('targetTitle must be between 1 and 200 characters', 400);
-  if (targetType !== 'exam') {
-    if (!Number.isInteger(estimatedMinutes) || (estimatedMinutes as number) < 15 || (estimatedMinutes as number) > 10080 || (estimatedMinutes as number) % 15 !== 0) {
-      throw new ApiError('estimatedMinutes must be a multiple of 15 between 15 and 10080', 400);
-    }
-    if (!Number.isInteger(dailyCapMinutes) || (dailyCapMinutes as number) < 15 || (dailyCapMinutes as number) > 720 || (dailyCapMinutes as number) % 15 !== 0) {
-      throw new ApiError('dailyCapMinutes must be a multiple of 15 between 15 and 720', 400);
-    }
+  if (startDate >= targetDate) {
+    throw new ApiError('A plan needs at least one day between its start and its target date', 400);
   }
+  if (!targetTitle || targetTitle.length > 200) throw new ApiError('targetTitle must be between 1 and 200 characters', 400);
 
-  const availabilitySource = targetType !== 'exam' && Array.isArray(source.availableWeekdays)
-    ? source.availableWeekdays.map((weekday) => ({ weekday, minutes: dailyCapMinutes }))
-    : source.availability;
+  const availabilitySource = source.availability;
   if (!Array.isArray(availabilitySource)) throw new ApiError('availability must be an array', 400);
   const availabilityByDay = new Map<number, number>();
   availabilitySource.forEach((entry) => {
@@ -163,10 +173,10 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
     .map(([weekday, minutes]) => ({ weekday, minutes }))
     .sort((a, b) => a.weekday - b.weekday);
   if (!availability.some((entry) => entry.minutes > 0)) {
-    throw new ApiError('At least one study day needs available time', 400);
+    throw new ApiError('At least one day needs available time', 400);
   }
 
-  const topicSource = targetType === 'exam' ? source.topics : [{ title: targetTitle, difficulty: 'light' }];
+  const topicSource = source.topics;
   if (!Array.isArray(topicSource) || topicSource.length < 1 || topicSource.length > 100) {
     throw new ApiError('A plan needs between 1 and 100 topics', 400);
   }
@@ -184,9 +194,9 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
 
   return {
     courseId, targetType, targetTitle, targetDate, targetTime, targetAssignmentId,
-    estimatedMinutes, dailyCapMinutes, partialPlanAcknowledged,
+    estimatedMinutes: null, dailyCapMinutes: null, partialPlanAcknowledged,
     examType: examType as 'midterm' | 'final', examDate, startDate, timeZone, availability, topics,
-    topicMode,
+    topicMode, phasePreset,
   };
 }
 
@@ -304,6 +314,22 @@ function remainingJobs(
     .filter((job) => job.minutes > 0);
 }
 
+function unscheduledMinutesFor(
+  jobs: ScheduleJob[],
+  tasks: Array<{ minutes: number }>
+): number {
+  const required = jobs.reduce((sum, job) => sum + job.minutes, 0);
+  const scheduled = tasks.reduce((sum, task) => sum + task.minutes, 0);
+  return Math.max(0, required - scheduled);
+}
+
+async function writeUnscheduledMinutes(client: Queryable, planId: string, minutes: number) {
+  await client.query(
+    'UPDATE study_plans SET unscheduled_minutes = $2, updated_at = NOW() WHERE id = $1::bigint',
+    [planId, minutes]
+  );
+}
+
 function rethrowCapacity(err: unknown): never {
   if (err instanceof StudyPlanCapacityError) {
     throw new ApiError(
@@ -373,61 +399,40 @@ function assertPartialPlanAcknowledged(input: StudyPlanInput, schedule: ReturnTy
   }
 }
 
-async function createGeneralizedStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
-  const schedule = evenScheduleForInput(input);
-  assertPartialPlanAcknowledged(input, schedule);
+/**
+ * Every plan is scheduled from its topics. `allowPartial` lets a plan save with
+ * a visible shortfall instead of failing outright, which the setup page offers
+ * behind an explicit acknowledgement.
+ */
+export async function createStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
+  const topicMode: StudyPlanMode = input.topicMode ?? 'phases';
+  const phasePreset: PhasePreset = input.phasePreset ?? 'study';
+  const targetType = input.targetType ?? 'exam';
   const inserted = await client.query<{ id: string }>(
     `
       INSERT INTO study_plans (
         course_id, exam_type, exam_date, start_date, timezone,
         target_type, target_assignment_id, target_title, target_date, target_time,
-        estimated_minutes, daily_cap_minutes, scheduler_version, scheduler_explanation,
-        unscheduled_minutes, partial_plan_acknowledged
+        scheduler_version, scheduler_explanation, topic_mode, phase_preset,
+        partial_plan_acknowledged
       )
-      SELECT c.id, 'final', $3::date, $4::date, $5,
-             $2, owned_assignment.id, $6, $3::date, $7::time,
-             $8, $9, $10, $11, $12, $13
+      SELECT c.id, $2, $3::date, $4::date, $5,
+             $9, owned_assignment.id, $10, $3::date, $11::time,
+             1, $7, $8, $13, $14
       FROM courses c
       LEFT JOIN LATERAL (
         SELECT a.id FROM assignments a
-        WHERE a.id = NULLIF($14, '')::bigint AND a.course_id = c.id
+        WHERE a.id = NULLIF($12, '')::bigint AND a.course_id = c.id
       ) owned_assignment ON TRUE
-      WHERE c.id = $1::bigint AND c.user_id = $15
-      RETURNING id::text;
-    `,
-    [
-      input.courseId, input.targetType, input.targetDate, input.startDate, input.timeZone,
-      input.targetTitle, input.targetTime, input.estimatedMinutes, input.dailyCapMinutes,
-      schedule.schedulerVersion, schedule.explanation, schedule.unscheduledMinutes,
-      Boolean(input.partialPlanAcknowledged), input.targetAssignmentId ?? null, userId,
-    ]
-  );
-  const planId = inserted.rows[0]?.id;
-  if (!planId) throw new ApiError('Course not found', 404);
-  await writeAvailability(client, planId, input.availability);
-  const topic = await insertTopics(client, planId, [{ title: input.targetTitle ?? 'Study target', difficulty: 'light', position: 0 }]);
-  if (!topic[0]) throw new ApiError('Unable to create work-plan target', 500);
-  await writeEvenWorkTasks(client, planId, topic[0].id, input.targetTitle ?? 'Study target', schedule.tasks);
-  return planId;
-}
-
-export async function createStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
-  if ((input.targetType ?? 'exam') !== 'exam') return createGeneralizedStudyPlan(client, userId, input);
-  const topicMode: StudyPlanMode = input.topicMode ?? 'phases';
-  const inserted = await client.query<{ id: string }>(
-    `
-      INSERT INTO study_plans (
-        course_id, exam_type, exam_date, start_date, timezone,
-        target_type, target_title, target_date, scheduler_version, scheduler_explanation, topic_mode
-      )
-      SELECT c.id, $2, $3::date, $4::date, $5, 'exam',
-             CASE WHEN $2 = 'midterm' THEN 'Midterm exam' ELSE 'Final exam' END,
-             $3::date, 1, $7, $8
-      FROM courses c
       WHERE c.id = $1::bigint AND c.user_id = $6
       RETURNING id;
     `,
-    [input.courseId, input.examType, input.examDate, input.startDate, input.timeZone, userId, schedulerExplanationFor(topicMode), topicMode]
+    [
+      input.courseId, input.examType, input.examDate, input.startDate, input.timeZone, userId,
+      schedulerExplanationFor(topicMode, phasePreset), topicMode,
+      targetType, input.targetTitle, input.targetTime, input.targetAssignmentId ?? null,
+      phasePreset, Boolean(input.partialPlanAcknowledged),
+    ]
   );
   const planId = inserted.rows[0]?.id;
   if (!planId) throw new ApiError('Course not found', 404);
@@ -440,8 +445,13 @@ export async function createStudyPlan(client: Queryable, userId: string, input: 
   );
 
   try {
-    const tasks = scheduleStudyJobs(input.startDate, input.examDate, input.availability, buildStudyJobs(topics, topicMode));
+    const jobs = buildStudyJobs(topics, topicMode);
+    const tasks = scheduleStudyJobs(input.startDate, input.examDate, input.availability, jobs, {
+      preset: phasePreset,
+      allowPartial: Boolean(input.partialPlanAcknowledged),
+    });
     await writeTasks(client, planId, tasks);
+    await writeUnscheduledMinutes(client, planId, unscheduledMinutesFor(jobs, tasks));
   } catch (err) {
     rethrowCapacity(err);
   }
@@ -458,13 +468,15 @@ async function ownedPlan(
   exam_date: string;
   start_date: string;
   timezone: string;
-  target_type?: 'exam' | 'assignment' | 'project';
+  target_type?: StudyTargetType;
   target_title?: string | null;
   target_date?: string | null;
   estimated_minutes?: number | null;
   daily_cap_minutes?: number | null;
   partial_plan_acknowledged?: boolean;
   topic_mode: StudyPlanMode;
+  phase_preset: PhasePreset;
+  scheduler_version: number;
 }> {
   const result = await client.query<{
     id: string;
@@ -472,84 +484,29 @@ async function ownedPlan(
     exam_date: string;
     start_date: string;
     timezone: string;
-    target_type: 'exam' | 'assignment' | 'project';
+    target_type: StudyTargetType;
     target_title: string | null;
     target_date: string | null;
     estimated_minutes: number | null;
     daily_cap_minutes: number | null;
     partial_plan_acknowledged: boolean;
     topic_mode: StudyPlanMode;
+    phase_preset: PhasePreset;
+    scheduler_version: number;
   }>(
     `
       SELECT p.id, p.course_id, p.exam_date::text, p.start_date::text, p.timezone,
              p.target_type, p.target_title, p.target_date::text,
-             p.estimated_minutes, p.daily_cap_minutes, p.partial_plan_acknowledged, p.topic_mode
+             p.estimated_minutes, p.daily_cap_minutes, p.partial_plan_acknowledged, p.topic_mode,
+             p.phase_preset, p.scheduler_version
       FROM study_plans p
       JOIN courses c ON c.id = p.course_id
       WHERE p.id = $1::bigint AND c.user_id = $2;
     `,
     [planId, userId]
   );
-  if (!result.rows[0]) throw new ApiError('Study plan not found', 404);
+  if (!result.rows[0]) throw new ApiError('Plan not found', 404);
   return result.rows[0];
-}
-
-async function rebuildGeneralizedStudyPlan(
-  client: Queryable,
-  userId: string,
-  planId: string,
-  input: StudyPlanInput
-) {
-  const plan = await ownedPlan(client, userId, planId);
-  if (plan.course_id !== input.courseId) throw new ApiError('A study plan cannot be moved to another course', 400);
-  const completed = await client.query<{ minutes: number }>(
-    `SELECT COALESCE(SUM(estimated_minutes), 0)::integer AS minutes FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NOT NULL`,
-    [planId]
-  );
-  const remainingMinutes = Math.max(0, (input.estimatedMinutes ?? 0) - Number(completed.rows[0]?.minutes ?? 0));
-  const scheduleStart = [input.startDate, todayInTimeZone(input.timeZone)].sort().at(-1) as string;
-  const schedule = evenScheduleForInput({ ...input, estimatedMinutes: remainingMinutes }, scheduleStart);
-  assertPartialPlanAcknowledged(input, schedule);
-
-  await client.query(
-    `
-      UPDATE study_plans p
-      SET exam_type = 'final', exam_date = $2::date, start_date = $3::date, timezone = $4,
-          target_type = $5, target_assignment_id = owned_assignment.id,
-          target_title = $6, target_date = $2::date, target_time = $7::time,
-          estimated_minutes = $8, daily_cap_minutes = $9,
-          scheduler_version = $10, scheduler_explanation = $11,
-          unscheduled_minutes = $12, partial_plan_acknowledged = $13,
-          updated_at = NOW()
-      FROM courses c
-      LEFT JOIN LATERAL (
-        SELECT a.id FROM assignments a
-        WHERE a.id = NULLIF($14, '')::bigint AND a.course_id = c.id
-      ) owned_assignment ON TRUE
-      WHERE p.id = $1::bigint AND p.course_id = c.id AND c.user_id = $15;
-    `,
-    [
-      planId, input.targetDate, input.startDate, input.timeZone, input.targetType,
-      input.targetTitle, input.targetTime, input.estimatedMinutes, input.dailyCapMinutes,
-      schedule.schedulerVersion, schedule.explanation, schedule.unscheduledMinutes,
-      Boolean(input.partialPlanAcknowledged), input.targetAssignmentId ?? null, userId,
-    ]
-  );
-  await writeAvailability(client, planId, input.availability);
-  await client.query('DELETE FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NULL', [planId]);
-  let topic = await client.query<{ id: string }>(
-    `
-      UPDATE study_topics SET title = $2, difficulty = 'light', active = TRUE
-      WHERE id = (SELECT id FROM study_topics WHERE plan_id = $1::bigint ORDER BY position, id LIMIT 1)
-      RETURNING id::text;
-    `,
-    [planId, input.targetTitle]
-  );
-  if (!topic.rows[0]) {
-    const inserted = await insertTopics(client, planId, [{ title: input.targetTitle ?? 'Study target', difficulty: 'light', position: 0 }]);
-    topic = { rows: inserted.map((item) => ({ id: item.id })) } as typeof topic;
-  }
-  await writeEvenWorkTasks(client, planId, topic.rows[0].id, input.targetTitle ?? 'Study target', schedule.tasks);
 }
 
 export async function rebuildStudyPlan(
@@ -558,28 +515,32 @@ export async function rebuildStudyPlan(
   planId: string,
   input: StudyPlanInput
 ) {
-  if ((input.targetType ?? 'exam') !== 'exam') {
-    await rebuildGeneralizedStudyPlan(client, userId, planId, input);
-    return;
-  }
   const plan = await ownedPlan(client, userId, planId);
-  if (plan.course_id !== input.courseId) throw new ApiError('A study plan cannot be moved to another course', 400);
+  if (plan.course_id !== input.courseId) throw new ApiError('A plan cannot be moved to another course', 400);
+  const phasePreset = plan.phase_preset ?? 'study';
 
+  // Saving a legacy even-split plan (scheduler_version 2) converts it to the
+  // topic path. The editor warns before this happens.
   await client.query(
     `
       UPDATE study_plans
       SET exam_type = $1, exam_date = $2::date, start_date = $3::date, timezone = $4,
-          target_type = 'exam', target_assignment_id = NULL,
-          target_title = CASE WHEN $1 = 'midterm' THEN 'Midterm exam' ELSE 'Final exam' END,
-          target_date = $2::date, target_time = NULL,
+          target_type = $7, target_assignment_id = NULL,
+          target_title = $8,
+          target_date = $2::date, target_time = $9::time,
           estimated_minutes = NULL, daily_cap_minutes = NULL,
           scheduler_version = 1,
           scheduler_explanation = $6,
-          unscheduled_minutes = 0, partial_plan_acknowledged = FALSE,
+          unscheduled_minutes = 0, partial_plan_acknowledged = $10,
           updated_at = NOW()
       WHERE id = $5::bigint;
     `,
-    [input.examType, input.examDate, input.startDate, input.timeZone, planId, schedulerExplanationFor(plan.topic_mode)]
+    [
+      input.examType, input.examDate, input.startDate, input.timeZone, planId,
+      schedulerExplanationFor(plan.topic_mode, phasePreset),
+      input.targetType ?? 'exam', input.targetTitle, input.targetTime,
+      Boolean(input.partialPlanAcknowledged),
+    ]
   );
   await writeAvailability(client, planId, input.availability);
 
@@ -614,7 +575,7 @@ export async function rebuildStudyPlan(
         ),
         preserved_titles AS (
           UPDATE study_tasks task
-          SET title_override = ${taskTitleSql('task', 'existing_topic')}
+          SET title_override = ${taskTitleSql('task', 'existing_topic', '$3')}
           FROM study_topics existing_topic
           JOIN retained_topics item ON item.id::bigint = existing_topic.id
           WHERE task.topic_id = existing_topic.id
@@ -634,7 +595,7 @@ export async function rebuildStudyPlan(
           AND topic.plan_id = $2::bigint
           AND (SELECT COUNT(*) FROM preserved_titles) >= 0;
       `,
-      [JSON.stringify(retained), planId]
+      [JSON.stringify(retained), planId, phasePreset]
     );
   }
 
@@ -695,13 +656,13 @@ export async function rebuildStudyPlan(
 
   const scheduleStart = [input.startDate, todayInTimeZone(input.timeZone)].sort().at(-1) as string;
   try {
-    const tasks = scheduleStudyJobs(
-      scheduleStart,
-      input.examDate,
-      input.availability,
-      remainingJobs(topics, completed.rows, plan.topic_mode)
-    );
+    const jobs = remainingJobs(topics, completed.rows, plan.topic_mode);
+    const tasks = scheduleStudyJobs(scheduleStart, input.examDate, input.availability, jobs, {
+      preset: phasePreset,
+      allowPartial: Boolean(input.partialPlanAcknowledged),
+    });
     await writeTasks(client, planId, tasks);
+    await writeUnscheduledMinutes(client, planId, unscheduledMinutesFor(jobs, tasks));
   } catch (err) {
     rethrowCapacity(err);
   }
@@ -713,7 +674,7 @@ export async function refreshStudyPlan(client: Queryable, userId: string, planId
     'SELECT weekday, minutes FROM study_plan_availability WHERE plan_id = $1::bigint ORDER BY weekday',
     [planId]
   );
-  if ((plan.target_type ?? 'exam') !== 'exam') {
+  if (Number(plan.scheduler_version) === 2) {
     const completed = await client.query<{ minutes: number }>(
       `SELECT COALESCE(SUM(estimated_minutes), 0)::integer AS minutes FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NOT NULL`,
       [planId]
@@ -785,7 +746,9 @@ export async function refreshStudyPlan(client: Queryable, userId: string, planId
   const scheduleStart = [plan.start_date, todayInTimeZone(plan.timezone)].sort().at(-1) as string;
 
   try {
-    const tasks = scheduleStudyJobs(scheduleStart, plan.exam_date, availability.rows, jobs);
+    const tasks = scheduleStudyJobs(scheduleStart, plan.exam_date, availability.rows, jobs, {
+      preset: plan.phase_preset ?? 'study',
+    });
     await client.query('DELETE FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NULL', [planId]);
     await writeTasks(client, planId, tasks);
     await client.query('UPDATE study_plans SET updated_at = NOW() WHERE id = $1::bigint', [planId]);
@@ -837,6 +800,7 @@ async function queryStudyPlanSummaries(
           p.unscheduled_minutes,
           p.partial_plan_acknowledged,
           p.topic_mode,
+          p.phase_preset,
           p.start_date,
           p.timezone,
           p.archived,
@@ -945,7 +909,7 @@ async function queryStudyPlanSummaries(
       LEFT JOIN topic_stats ON topic_stats.plan_id = p.id
       LEFT JOIN recovery_stats ON recovery_stats.plan_id = p.id
       LEFT JOIN LATERAL (
-        SELECT ${taskTitleSql('task', 'topic')} AS title
+        SELECT ${taskTitleSql('task', 'topic', 'p.phase_preset')} AS title
         FROM study_tasks task
         JOIN study_topics topic ON topic.id = task.topic_id
         WHERE task.plan_id = p.id AND task.completed_at IS NULL
@@ -1007,13 +971,14 @@ export async function loadStudyPlanTasks(
         task.plan_id,
         task.topic_id,
         ${phaseTextSql('task')} AS phase,
-        ${taskTitleSql('task', 'topic')} AS title,
+        ${taskTitleSql('task', 'topic', 'plan.phase_preset')} AS title,
         task.scheduled_date::text,
         task.estimated_minutes,
         task.completed_at,
         task.sequence
       FROM study_tasks task
       JOIN study_topics topic ON topic.id = task.topic_id
+      JOIN study_plans plan ON plan.id = task.plan_id
       WHERE task.plan_id = $1::bigint
         AND task.scheduled_date >= $2::date
         AND task.scheduled_date < $3::date
@@ -1108,7 +1073,7 @@ export async function loadStudyPlanDashboard(client: Queryable, userId: string) 
         task.plan_id,
         task.topic_id,
         ${phaseTextSql('task')} AS phase,
-        ${taskTitleSql('task', 'topic')} AS title,
+        ${taskTitleSql('task', 'topic', 'plan.phase_preset')} AS title,
         task.scheduled_date::text,
         task.estimated_minutes,
         task.completed_at,
@@ -1213,7 +1178,7 @@ export async function loadStudyPlanCalendar(
         task.plan_id,
         task.topic_id,
         ${phaseTextSql('task')} AS phase,
-        ${taskTitleSql('task', 'topic')} AS title,
+        ${taskTitleSql('task', 'topic', 'plan.phase_preset')} AS title,
         task.scheduled_date::text,
         task.estimated_minutes,
         task.completed_at,

@@ -29,7 +29,7 @@ import { formatAssignmentDue, formatIsoDate, normalizeDateString } from '@/app/d
 import type { Course, CourseLink } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { useStudyPlanSummaries } from '@/app/lib/studyPlans/useStudyPlans';
-import { formatStudyDate, isStudyPlanBehind, studyPlanProgress } from '@/app/data/studyPlans';
+import { formatStudyDate, isStudyPlanBehind, studyPlanProgress, targetDateLabel } from '@/app/data/studyPlans';
 import { openExternalUrl } from '@/app/lib/externalLinks';
 
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -347,7 +347,7 @@ function CoursePage() {
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4" style={{ color: colors.text }} />
-            <CardTitle className="text-base">Study Plans</CardTitle>
+            <CardTitle className="text-base">Plans</CardTitle>
           </div>
           <Button size="sm" className="gap-1.5" onClick={() => navigate(`/courses/${course.id}/study-plans/new`)}>
             <Plus className="h-3.5 w-3.5" />
@@ -357,8 +357,8 @@ function CoursePage() {
         <CardContent>
           {studyPlans.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm font-semibold">No study plan yet.</p>
-              <p className="mt-1 text-xs text-muted-foreground">Plan an exam, assignment, or project into a realistic daily schedule.</p>
+              <p className="text-sm font-semibold">No plans yet.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Break a topic list into a realistic day by day schedule.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -376,7 +376,7 @@ function CoursePage() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-bold">{plan.targetTitle}</p>
-                        <p className="text-xs opacity-80">{plan.targetType === 'exam' ? 'Exam' : 'Due'} {formatStudyDate(plan.targetDate)}</p>
+                        <p className="text-xs opacity-80">{targetDateLabel(plan.targetType)} {formatStudyDate(plan.targetDate)}</p>
                       </div>
                       <Badge variant="secondary" className={behind ? 'bg-destructive/10 text-destructive' : ''}>
                         {plan.archived ? 'Archived' : behind ? 'Refresh' : `${progress.percent}%`}
@@ -386,7 +386,7 @@ function CoursePage() {
                       <div className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: colors.border }} />
                     </div>
                     <p className="mt-2 truncate text-xs opacity-80">
-                      {plan.nextTaskTitle ? `Next: ${plan.nextTaskTitle}` : 'All study tasks complete'}
+                      {plan.nextTaskTitle ? `Next: ${plan.nextTaskTitle}` : 'All tasks complete'}
                     </p>
                   </button>
                 );

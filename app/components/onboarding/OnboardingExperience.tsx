@@ -56,7 +56,7 @@ const tourSteps: Partial<Record<OnboardingStep, {
 }>> = {
   dashboard: {
     title: 'Your day at a glance',
-    body: 'Dashboard brings together deadlines, classes, upcoming events, and focused study tasks so you know what needs attention first.',
+    body: 'Dashboard brings together deadlines, classes, upcoming events, and today\'s plan tasks so you know what needs attention first.',
     path: '/',
     selector: '[data-tour="dashboard"]',
     icon: Gauge,
@@ -91,7 +91,7 @@ const tourSteps: Partial<Record<OnboardingStep, {
   },
   courses: {
     title: 'Courses connect everything',
-    body: 'Each course collects assignments, classes, notes, quick links, and adaptive study plans for exams, projects, or assignments.',
+    body: 'Each course collects assignments, classes, notes, quick links, and plans that break any topic list into a daily schedule.',
     path: '/courses',
     selector: '[data-tour="courses"]',
     icon: GraduationCap,
@@ -697,7 +697,7 @@ export default function OnboardingExperience() {
 
     if (activeStep === 'course') return shell(
       'Add your first course',
-      'Courses tie assignments, class times, notes, links, and study plans together.',
+      'Courses tie assignments, class times, notes, links, and plans together.',
       GraduationCap,
       currentCourse ? (
         <div className="space-y-4">
@@ -799,14 +799,14 @@ export default function OnboardingExperience() {
     );
 
     if (activeStep === 'study_plan') return shell(
-      'How Study Plans work',
-      'Each course can build a schedule that breaks exam or project prep into three phases.',
+      'How Plans work',
+      'List your topics, say how much time you have each day, and a plan spreads the work up to your target date.',
       BookOpenCheck,
       <div className="space-y-3">
         {[
-          ['1. Learn & Review', 'A first pass over the material. Read, watch lectures, or build understanding.'],
-          ['2. Practice', 'Apply it with problems, practice sets, or past work to build fluency.'],
-          ['3. Recall', 'Test yourself close to the exam without notes to check retention.'],
+          ['1. First pass', 'Get through the material once. Read, watch lectures, or build understanding.'],
+          ['2. Deepen', 'Go back over what did not land with problems, examples, or your own notes.'],
+          ['3. Review', 'Check what you can reconstruct on your own, close to your target date.'],
         ].map(([title, text]) => (
           <div key={title} className="rounded-lg border bg-muted/30 p-3">
             <p className="text-sm font-bold">{title}</p>
@@ -815,9 +815,9 @@ export default function OnboardingExperience() {
         ))}
         <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm">
           <p className="font-bold">One note per topic</p>
-          <p className="mt-1 text-muted-foreground">All three phases for a topic share the same note. What you write during Learn &amp; Review carries forward as your Practice reference and Recall cheat sheet.</p>
+          <p className="mt-1 text-muted-foreground">All three passes for a topic share the same note. What you write on the first pass carries forward as your reference later.</p>
         </div>
-        <p className="text-xs text-muted-foreground">Prefer one task per topic instead? Switch to single pass-through when you create a plan.</p>
+        <p className="text-xs text-muted-foreground">Studying for an exam? Pick the Learn, Practice, Recall style instead. Prefer one task per topic? Pick single pass. You choose when you create a plan.</p>
         <Button className="w-full gap-2" onClick={() => void advance()} disabled={busy}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Continue</Button>
       </div>
     );

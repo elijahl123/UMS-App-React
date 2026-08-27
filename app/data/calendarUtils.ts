@@ -19,8 +19,8 @@ export const CALENDAR_TYPE_LABELS: Record<CalendarItemType, string> = {
   assignment: 'Assignment',
   class: 'Course time',
   event: 'Event',
-  study: 'Study plan',
-  exam: 'Exam',
+  study: 'Plan work',
+  exam: 'Target date',
 };
 
 export interface CalendarItem {
@@ -197,7 +197,7 @@ export function buildCalendarItems(
           rangeStart,
           rangeEnd,
           type: 'study',
-          title: `${course?.code ?? plan.courseCode}: Study plan`,
+          title: `${course?.code ?? plan.courseCode}: Plan work`,
           color: colors.bg,
           textColor: colors.text,
           borderColor: colors.border,
@@ -212,6 +212,7 @@ export function buildCalendarItems(
       const targetLabel = plan.targetType === 'exam'
         ? (plan.examType === 'final' ? 'Final exam' : 'Midterm exam')
         : plan.targetTitle;
+
       addItem(plan.targetDate, {
         sourceId: plan.id,
         rangeId: `target-${plan.id}`,

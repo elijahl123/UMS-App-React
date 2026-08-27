@@ -2,12 +2,26 @@ import crypto from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { ApiError } from './errors';
 import {
+  PHASE_LABELS,
   planStudyRecovery,
   todayInTimeZone,
+  type PhasePreset,
   type RecoveryTaskInput,
   type StudyPhase,
   type StudyRecoveryPlan,
 } from './studyPlanScheduler';
+
+// Task titles are derived from the plan's phase preset, so recovery has to read
+// them the same way the plan page does.
+function phaseLabelCaseSql(presetParam: string): string {
+  const labels = (preset: PhasePreset) => `CASE task.phase
+                   WHEN 0 THEN '${PHASE_LABELS[preset].learn.replace(/'/g, "''")}'
+                   WHEN 1 THEN '${PHASE_LABELS[preset].practice.replace(/'/g, "''")}'
+                   WHEN 2 THEN '${PHASE_LABELS[preset].recall.replace(/'/g, "''")}'
+                   ELSE '${PHASE_LABELS[preset].review.replace(/'/g, "''")}'
+                 END`;
+  return `CASE WHEN ${presetParam} = 'general' THEN ${labels('general')} ELSE ${labels('study')} END`;
+}
 
 type Queryable = Pick<PoolClient, 'query'>;
 
@@ -16,6 +30,7 @@ type RecoveryPlanRow = {
   target_date: string;
   timezone: string;
   unscheduled_minutes: number;
+  phase_preset: PhasePreset;
 };
 
 type RecoveryTaskRow = {
@@ -81,7 +96,7 @@ async function loadRecoveryState(
   const plan = await client.query<RecoveryPlanRow>(
     `
       SELECT p.id::text, COALESCE(p.target_date, p.exam_date)::text AS target_date,
-             p.timezone, p.unscheduled_minutes
+             p.timezone, p.unscheduled_minutes, p.phase_preset
       FROM study_plans p
       JOIN courses c ON c.id = p.course_id
       WHERE p.id = $1::bigint AND c.user_id = $2
@@ -89,7 +104,8 @@ async function loadRecoveryState(
     `,
     [planId, userId]
   );
-  if (!plan.rows[0]) throw new ApiError('Study plan not found', 404);
+  if (!plan.rows[0]) throw new ApiError('Plan not found', 404);
+  const phasePreset: PhasePreset = plan.rows[0].phase_preset ?? 'study';
 
   const [availability, capacityOverrides, taskRows, fallbackTopic] = await Promise.all([
     client.query<{ weekday: number; minutes: number }>(
@@ -107,8 +123,7 @@ async function loadRecoveryState(
                CASE task.phase WHEN 0 THEN 'learn' WHEN 1 THEN 'practice' WHEN 2 THEN 'recall' ELSE 'review' END AS phase,
                COALESCE(
                  task.title_override,
-                 CASE task.phase WHEN 0 THEN 'Learn & review' WHEN 1 THEN 'Practice' WHEN 2 THEN 'Recall' ELSE 'Review' END
-                   || ': ' || topic.title
+                 ${phaseLabelCaseSql('$2')} || ': ' || topic.title
                ) AS title,
                task.title_override,
                task.scheduled_date::text,
@@ -121,7 +136,7 @@ async function loadRecoveryState(
         ORDER BY task.scheduled_date, task.sequence, task.id
         ${lock ? 'FOR UPDATE OF task' : ''};
       `,
-      [planId]
+      [planId, phasePreset]
     ),
     client.query<{ id: string; title: string; position: number }>(
       `SELECT id::text, title, position FROM study_topics WHERE plan_id = $1::bigint AND active ORDER BY position, id LIMIT 1`,

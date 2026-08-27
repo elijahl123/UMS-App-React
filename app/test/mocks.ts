@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import { dbRows, mockUser } from '@/app/test/fixtures';
+import { parseStudyTopics } from '@/app/data/studyPlans';
 import type { AppUser, StagingAccessUser, StudyPlan, StudyRecoveryPreview } from '@/app/data/types';
 import type { AccountEmailAddress } from '@/app/lib/accountEmails/client';
 import type { BillingConfig, BillingPaymentMethod, BillingStatus } from '@/app/lib/billing/client';
@@ -210,11 +211,8 @@ export const studyPlanActions = {
   setStudyPlanArchived: vi.fn(async (planId: string, archived: boolean) => ({ id: planId, archived })),
   deleteStudyPlan: vi.fn(async () => undefined),
   studyPlanErrorMessage: vi.fn(() => 'Unable to save the study plan.'),
-  parseStudyTopics: (value: string) =>
-    value
-      .split(/\r?\n/)
-      .map((line) => line.trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+|(?:week|topic|module)\s+\d+\s*[:.-]?\s*)/i, '').trim())
-      .filter(Boolean),
+  // Delegates so the mocked client cannot drift from the real parser.
+  parseStudyTopics,
 };
 
 export const onboardingState = {

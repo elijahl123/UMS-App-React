@@ -159,7 +159,7 @@ export async function runStudyPlanRecoveryScenario(page: Page, visualPrefix?: st
     await page.screenshot({ path: `${visualPrefix}-shortfall.png`, fullPage: true });
   }
   await page.getByRole('button', { name: 'Add time needed' }).click();
-  await expect(page.getByText('1h added across 4 study days')).toBeVisible();
+  await expect(page.getByText('1h added across 4 work days')).toBeVisible();
   if (visualPrefix) {
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${visualPrefix}-capacity.png`, fullPage: true });
