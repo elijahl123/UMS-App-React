@@ -170,6 +170,10 @@ function StudyPlanSetupPage() {
   const usesTopics = !topicsOptional || planStyle === 'topics';
   // Switching an existing even-split plan to topics rebuilds it, so warn first.
   const convertsFromEvenSplit = Boolean(planId && existing && existing.schedulerVersion === 2 && usesTopics);
+  // An even-split plan never picked a task style, so converting it is the one
+  // edit that gets to choose. A plan already scheduled by phase keeps its own,
+  // because completed work is tracked per phase.
+  const taskStyleLocked = Boolean(planId) && !convertsFromEvenSplit;
   const requiredMinutes = useMemo(
     () => (usesTopics
       ? topics.reduce((total, topic) => total + topicWorkloadMinutes(topic.difficulty, taskStyle.topicMode), 0)
@@ -190,7 +194,12 @@ function StudyPlanSetupPage() {
     [scheduledAvailability, startDate, targetDate]
   );
   const missingMinutes = Math.max(0, requiredMinutes - availableMinutes);
-  const blocked = (usesTopics && !topics.length)
+  // A plan needs a day it can actually schedule into. Older assignment and
+  // project plans were allowed to start on their due date, so an existing plan
+  // can load in this state and has to say why it will not save.
+  const emptyDateRange = startDate >= targetDate;
+  const blocked = emptyDateRange
+    || (usesTopics && !topics.length)
     || (targetType !== 'exam' && !targetTitle.trim())
     || (missingMinutes > 0 && !partialPlanAcknowledged);
 
@@ -213,8 +222,8 @@ function StudyPlanSetupPage() {
       setError('Add at least one topic.');
       return;
     }
-    if (startDate >= targetDate) {
-      setError('A plan needs at least one day between its start and its target date.');
+    if (emptyDateRange) {
+      setError(`There are no days between the start date and the ${targetDateLabel(targetType).toLowerCase()}. Move one of them so the plan has at least one day to work in.`);
       return;
     }
     if (targetType !== 'exam' && !targetTitle.trim()) {
@@ -438,7 +447,7 @@ function StudyPlanSetupPage() {
                     <button
                       key={option.value}
                       type="button"
-                      disabled={Boolean(planId)}
+                      disabled={taskStyleLocked}
                       onClick={() => setTaskStyle(option)}
                       className={`rounded-lg border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60 ${taskStyle.value === option.value ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}
                     >
@@ -447,7 +456,7 @@ function StudyPlanSetupPage() {
                     </button>
                   ))}
                 </div>
-                {planId && <p className="text-xs text-muted-foreground">Task style is set when a plan is created and can't be changed here.</p>}
+                {taskStyleLocked && <p className="text-xs text-muted-foreground">Task style is set when a plan is created and can't be changed here.</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="topic-list" className="text-xs font-bold text-[var(--secondary-accent)]">One topic per line</Label>
@@ -605,8 +614,10 @@ function StudyPlanSetupPage() {
                   {usesTopics ? topics.length : targetTitle || 'Untitled'}
                 </span>
               </div>
-              <p className={`text-sm leading-relaxed ${missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                {missingMinutes
+              <p className={`text-sm leading-relaxed ${emptyDateRange || missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+                {emptyDateRange
+                  ? `There are no days between the start date and the ${targetDateLabel(targetType).toLowerCase()}. Move one of them so the plan has at least one day to work in.`
+                  : missingMinutes
                   ? `${formatStudyMinutes(missingMinutes)} cannot be scheduled within the selected capacity.`
                   : !usesTopics
                     ? 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'
@@ -614,7 +625,7 @@ function StudyPlanSetupPage() {
                       ? 'Your topics fit within the available time.'
                       : 'Add your topics to calculate the workload.'}
               </p>
-              {missingMinutes > 0 && (
+              {missingMinutes > 0 && !emptyDateRange && (
                 <label className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] p-3 text-xs text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
                   <input type="checkbox" className="mt-0.5" checked={partialPlanAcknowledged} onChange={(event) => setPartialPlanAcknowledged(event.target.checked)} />
                   <span>Save a partial plan and leave {formatStudyMinutes(missingMinutes)} visibly unscheduled. No work will be silently discarded.</span>
