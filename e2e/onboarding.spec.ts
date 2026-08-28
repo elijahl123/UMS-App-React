@@ -39,7 +39,7 @@ test('new users can set up essentials and enter the live feature tour', async ({
 
   // "How Study Plans work" is an informational dialog step, not a page spotlight.
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'How Study Plans work' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'How Plans work' })).toBeVisible();
   await page.getByRole('button', { name: 'Continue' }).click();
 
   const finalStages = [

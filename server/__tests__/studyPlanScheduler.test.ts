@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   buildStudyJobs,
   enumerateStudyDates,
+  PHASE_LABELS,
   PHASE_MINUTES,
   planStudyRecovery,
   scheduleStudyJobs,
@@ -85,6 +86,78 @@ describe('study plan scheduling', () => {
         buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'heavy' }])
       )
     ).toThrow(StudyPlanCapacityError);
+  });
+
+  it('titles tasks from the phase preset chosen for the plan', () => {
+    const jobs = buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'light' }]);
+    // One Monday of capacity, so each phase lands whole instead of being split.
+    const availability = [{ weekday: 1, minutes: 120 }];
+
+    const study = scheduleStudyJobs('2026-07-20', '2026-07-21', availability, jobs);
+    const general = scheduleStudyJobs('2026-07-20', '2026-07-21', availability, jobs, { preset: 'general' });
+
+    expect(study.map((task) => task.title)).toEqual([
+      'Learn & review: Graphs',
+      'Practice: Graphs',
+      'Recall: Graphs',
+    ]);
+    expect(general.map((task) => task.title)).toEqual([
+      'First pass: Graphs',
+      'Deepen: Graphs',
+      'Review: Graphs',
+    ]);
+    expect(PHASE_LABELS.general.review).toBe('Work through');
+  });
+
+  it('schedules what fits and leaves the rest unscheduled when partial plans are allowed', () => {
+    const jobs = buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'heavy' }]);
+    const availability = [{ weekday: 1, minutes: 30 }];
+
+    expect(() => scheduleStudyJobs('2026-07-20', '2026-07-22', availability, jobs)).toThrow(StudyPlanCapacityError);
+
+    const partial = scheduleStudyJobs('2026-07-20', '2026-07-22', availability, jobs, { allowPartial: true });
+    const scheduled = partial.reduce((sum, task) => sum + task.minutes, 0);
+    const required = jobs.reduce((sum, job) => sum + job.minutes, 0);
+
+    expect(scheduled).toBe(30);
+    expect(required - scheduled).toBe(150);
+    expect(partial.every((task) => task.scheduledDate < '2026-07-22')).toBe(true);
+  });
+
+  it('plans a general target from topics without an estimated total', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'general',
+      targetTitle: 'Statistics reading list',
+      targetDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'America/Los_Angeles',
+      phasePreset: 'general',
+      availability: [{ weekday: 1, minutes: 60 }],
+      topics: [{ title: 'Chapter 1', difficulty: 'light' }, { title: 'Chapter 2', difficulty: 'medium' }],
+    });
+
+    expect(normalized.targetType).toBe('general');
+    expect(normalized.phasePreset).toBe('general');
+    expect(normalized.estimatedMinutes).toBeNull();
+    expect(normalized.dailyCapMinutes).toBeNull();
+    expect(normalized.topics.map((topic) => topic.title)).toEqual(['Chapter 1', 'Chapter 2']);
+  });
+
+  it('keeps topics on assignment plans instead of collapsing them to one block', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'assignment',
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      availability: [{ weekday: 1, minutes: 60 }],
+      topics: [{ title: 'Outline', difficulty: 'light' }, { title: 'Draft', difficulty: 'heavy' }],
+    });
+
+    expect(normalized.topics).toHaveLength(2);
+    expect(normalized.targetTitle).toBe('Research essay');
   });
 
   it('uses the plan timezone when deciding today', () => {
@@ -305,8 +378,81 @@ describe('study plan scheduling', () => {
     });
     expect(normalized.topics[0].title).toBe('Graph algorithms');
     expect(() => normalizeStudyPlanInput({ ...normalized, startDate: normalized.examDate })).toThrow(
-      /start before the exam/i
+      /at least one day between its start and its target date/i
     );
+  });
+
+  it('keeps topics optional for assignment, project, and general targets', () => {
+    const estimateOnly = {
+      courseId: '1',
+      targetType: 'assignment' as const,
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      examType: 'final' as const,
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'America/Los_Angeles',
+      estimatedMinutes: 300,
+      dailyCapMinutes: 60,
+      availableWeekdays: [1, 3, 5],
+    };
+
+    for (const targetType of ['assignment', 'project', 'general'] as const) {
+      const normalized = normalizeStudyPlanInput({ ...estimateOnly, targetType });
+      expect(normalized.topics).toEqual([]);
+      expect(normalized.estimatedMinutes).toBe(300);
+      expect(normalized.dailyCapMinutes).toBe(60);
+      // availableWeekdays becomes the per-day budget for the even split.
+      expect(normalized.availability).toEqual([
+        { weekday: 1, minutes: 60 },
+        { weekday: 3, minutes: 60 },
+        { weekday: 5, minutes: 60 },
+      ]);
+    }
+  });
+
+  it('requires an estimate when a plan has no topics, and topics for an exam', () => {
+    const base = {
+      courseId: '1',
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      examType: 'final' as const,
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      availability: [{ weekday: 1, minutes: 60 }],
+    };
+
+    expect(() => normalizeStudyPlanInput({ ...base, targetType: 'assignment' })).toThrow(
+      /estimatedMinutes must be a multiple of 15/i
+    );
+    expect(() => normalizeStudyPlanInput({
+      ...base, targetType: 'assignment', estimatedMinutes: 300,
+    })).toThrow(/dailyCapMinutes must be a multiple of 15/i);
+    expect(() => normalizeStudyPlanInput({ ...base, targetType: 'exam' })).toThrow(
+      /exam plan needs between 1 and 100 topics/i
+    );
+  });
+
+  it('ignores the estimate once a plan has topics', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'project',
+      targetTitle: 'Group project',
+      targetDate: '2026-08-20',
+      examType: 'final',
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      estimatedMinutes: 300,
+      dailyCapMinutes: 60,
+      availability: [{ weekday: 1, minutes: 90 }],
+      topics: [{ title: 'Literature review', difficulty: 'medium' }],
+    });
+
+    expect(normalized.estimatedMinutes).toBeNull();
+    expect(normalized.dailyCapMinutes).toBeNull();
+    expect(normalized.availability).toEqual([{ weekday: 1, minutes: 90 }]);
   });
 
   it('defaults topics without a difficulty to light', () => {
@@ -669,6 +815,128 @@ describe('study plan scheduling', () => {
     expect(rename?.sql).toContain('existing_topic.title IS DISTINCT FROM item.title');
     expect(rename?.sql).toContain('UPDATE study_topics topic');
     expect(rename?.params[0]).toContain('Renamed topic');
+  });
+
+  it('lets a converted even-split plan choose its task style, and locks it afterward', async () => {
+    const rebuildWith = async (schedulerVersion: number) => {
+      const calls: Array<{ sql: string; params: unknown[] }> = [];
+      const client = {
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params });
+          if (sql.includes('SELECT p.id, p.course_id')) {
+            return {
+              rows: [{
+                id: '10',
+                course_id: '2',
+                exam_date: '2027-08-01',
+                start_date: '2026-08-01',
+                timezone: 'UTC',
+                // What the plan was built with before this edit.
+                topic_mode: 'phases',
+                phase_preset: 'study',
+                scheduler_version: schedulerVersion,
+              }],
+            };
+          }
+          if (sql.includes('SELECT t.id, EXISTS')) return { rows: [] };
+          if (sql.includes('INSERT INTO study_topics')) return { rows: [{ id: '1', title: 'Outline', difficulty: 'light', position: 0 }] };
+          return { rows: [] };
+        },
+      };
+      const input: StudyPlanInput = {
+        courseId: '2',
+        targetType: 'assignment',
+        targetTitle: 'Essay',
+        examType: 'final',
+        examDate: '2027-08-01',
+        startDate: '2026-08-01',
+        timeZone: 'UTC',
+        availability: Array.from({ length: 7 }, (_, weekday) => ({ weekday, minutes: 120 })),
+        topics: [{ title: 'Outline', difficulty: 'light' }],
+        // The editor asks for a style other than what the row currently holds.
+        topicMode: 'single',
+        phasePreset: 'general',
+      };
+      await rebuildStudyPlan(client as never, 'owner-1', '10', input);
+      const update = calls.find((call) => call.sql.includes('UPDATE study_plans') && call.sql.includes('topic_mode ='));
+      const stored = calls.find((call) => call.sql.includes('INSERT INTO study_tasks'));
+      // Titles are derived from phase + preset, so the phase encoding is what
+      // the insert actually carries. 3 = the single pass-through task.
+      const phases = [...new Set((JSON.parse(String(stored?.params[1] ?? '[]')) as Array<{ phase: number }>).map((task) => task.phase))];
+      return { update, phases };
+    };
+
+    // An even-split plan never picked a style, so the editor's choice applies.
+    const converted = await rebuildWith(2);
+    expect(converted.update?.params).toContain('single');
+    expect(converted.update?.params).toContain('general');
+    expect(converted.phases).toEqual([3]);
+
+    // A plan already scheduled by phase keeps its own style.
+    const locked = await rebuildWith(1);
+    expect(locked.update?.params).toContain('phases');
+    expect(locked.update?.params).toContain('study');
+    expect(locked.phases).toEqual([0, 1, 2]);
+  });
+
+  it('keeps the assignment link and retires leftover topics when a plan is edited', async () => {
+    const run = async (topics: StudyPlanInput['topics'], targetAssignmentId: string | null) => {
+      const calls: Array<{ sql: string; params: unknown[] }> = [];
+      const client = {
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params });
+          if (sql.includes('SELECT p.id, p.course_id')) {
+            return {
+              rows: [{
+                id: '10', course_id: '2', exam_date: '2027-08-01', start_date: '2026-08-01',
+                timezone: 'UTC', topic_mode: 'phases', phase_preset: 'study', scheduler_version: 1,
+              }],
+            };
+          }
+          if (sql.includes('SELECT t.id, EXISTS')) return { rows: [] };
+          // Two leftover topics: one with completed history, one without.
+          if (sql.includes('SELECT t.id::text, EXISTS')) {
+            return { rows: [{ id: '2', has_completed: true }, { id: '3', has_completed: false }] };
+          }
+          if (sql.includes('UPDATE study_topics SET title')) return { rows: [{ id: '1' }] };
+          if (sql.includes('INSERT INTO study_topics')) return { rows: [{ id: '1', title: 'Draft', difficulty: 'light', position: 0 }] };
+          return { rows: [] };
+        },
+      };
+      const input: StudyPlanInput = {
+        courseId: '2',
+        targetType: 'assignment',
+        targetTitle: 'Essay',
+        targetAssignmentId,
+        estimatedMinutes: topics.length ? null : 300,
+        dailyCapMinutes: topics.length ? null : 60,
+        examType: 'final',
+        examDate: '2027-08-01',
+        targetDate: '2027-08-01',
+        startDate: '2026-08-01',
+        timeZone: 'UTC',
+        availability: Array.from({ length: 7 }, (_, weekday) => ({ weekday, minutes: 120 })),
+        topics,
+      };
+      await rebuildStudyPlan(client as never, 'owner-1', '10', input);
+      return calls;
+    };
+
+    // A topic plan re-links its assignment instead of clearing it.
+    const topicEdit = await run([{ title: 'Draft', difficulty: 'light' }], '77');
+    const update = topicEdit.find((call) => call.sql.includes('UPDATE study_plans') && call.sql.includes('target_assignment_id'));
+    expect(update?.sql).not.toContain('target_assignment_id = NULL');
+    expect(update?.sql).toContain('FROM assignments a');
+    expect(update?.params).toContain('77');
+    // Scoped to the plan's own course, so another course's assignment resolves to NULL.
+    expect(update?.params).toContain('2');
+
+    // Collapsing to a single estimate retires the topics that are left over.
+    const collapsed = await run([], null);
+    const deactivated = collapsed.find((call) => call.sql.includes('UPDATE study_topics SET active = FALSE'));
+    const deleted = collapsed.find((call) => call.sql.includes('DELETE FROM study_topics'));
+    expect(deactivated?.params[1]).toEqual(['2']);
+    expect(deleted?.params[1]).toEqual(['3']);
   });
 
   it('defines a forward compact-storage migration without changing public task semantics', () => {

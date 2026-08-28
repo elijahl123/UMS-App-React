@@ -33,6 +33,7 @@ const plan: StudyPlan = {
   unscheduledMinutes: 0,
   partialPlanAcknowledged: false,
   topicMode: 'phases',
+  phasePreset: 'study',
   startDate: '2026-07-01',
   timeZone: 'America/Los_Angeles',
   archived: false,
@@ -90,7 +91,7 @@ describe('study plans', () => {
     studyPlanState.plans = [plan];
     renderRoute('/courses/:courseId', <CoursePage />, '/courses/1');
 
-    expect(screen.getByRole('heading', { name: /study plans/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^plans$/i })).toBeInTheDocument();
     expect(screen.getByText(/^final exam$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /create plan/i })).toBeInTheDocument();
   });
@@ -99,17 +100,19 @@ describe('study plans', () => {
     const user = userEvent.setup();
     renderRoute('/courses/:courseId/study-plans/new', <StudyPlanSetupPage />, '/courses/1/study-plans/new');
 
-    await user.type(screen.getByLabelText(/paste modules or topics/i), '1. Limits\nWeek 2: Derivatives');
+    await user.type(screen.getByLabelText(/paste your topics/i), '1. Limits\nWeek 2: Derivatives');
     await user.click(screen.getByRole('button', { name: /add topics/i }));
     expect(screen.getByDisplayValue('Limits')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Derivatives')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /create study plan/i }));
+    await user.click(screen.getByRole('button', { name: /^create plan$/i }));
     await waitFor(() =>
       expect(studyPlanActions.saveStudyPlan).toHaveBeenCalledWith(
         expect.objectContaining({
           courseId: '1',
           examType: 'final',
+          topicMode: 'phases',
+          phasePreset: 'study',
           topics: expect.arrayContaining([
             expect.objectContaining({ title: 'Limits', difficulty: 'light' }),
             expect.objectContaining({ title: 'Derivatives', difficulty: 'light' }),
@@ -236,7 +239,7 @@ describe('study plans', () => {
     await waitFor(() => expect(studyPlanActions.previewStudyPlanRecovery).toHaveBeenLastCalledWith(
       'plan-1', [], 720, mockUser.id
     ));
-    expect(await screen.findByText(/45 min added across 3 study days/i)).toBeInTheDocument();
+    expect(await screen.findByText(/45 min added across 3 work days/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /confirm recovery/i }));
     await waitFor(() => expect(studyPlanActions.confirmStudyPlanRecovery).toHaveBeenCalledWith(
       'plan-1', 'c'.repeat(64), [], 720, mockUser.id
@@ -301,7 +304,7 @@ describe('study plans', () => {
     renderWithRouter(<CalendarPage />, { route: '/calendar?date=2026-07-22' });
 
     await user.click(screen.getAllByRole('button', { name: /july 22/i })[0]);
-    expect(await screen.findByText(/math 101: study plan/i)).toBeInTheDocument();
+    expect(await screen.findByText(/math 101: plan work/i)).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: /july 31/i })[0]);
     expect(await screen.findByText(/math 101: final exam/i)).toBeInTheDocument();
   });
@@ -353,7 +356,7 @@ describe('study plans', () => {
     }
   });
 
-  it('renders a themed study focus and completes a Dashboard task inline', async () => {
+  it('renders a themed focus card and completes a Dashboard task inline', async () => {
     const user = userEvent.setup();
     const today = new Date().toISOString().slice(0, 10);
     studyPlanState.plans = [{
@@ -368,7 +371,7 @@ describe('study plans', () => {
     }];
     renderWithRouter(<DashboardPage />);
 
-    expect(screen.getByRole('heading', { name: /study focus/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /^focus$/i })).toBeInTheDocument();
     expect(screen.getByText(/math 101 final/i)).toBeInTheDocument();
     const taskButton = screen.getByRole('button', { name: /complete review graph algorithms for math 101/i });
     await user.click(taskButton);

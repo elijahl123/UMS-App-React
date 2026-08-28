@@ -96,7 +96,7 @@ function CalendarLegend({
 }) {
   const compactLabels: Partial<Record<CalendarItemType, string>> = {
     class: 'Course',
-    study: 'Study',
+    study: 'Plan',
   };
   return (
     <div

@@ -24,7 +24,7 @@ import {
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatStudyDate, formatStudyMinutes, studyPlanProgress } from '@/app/data/studyPlans';
+import { formatStudyDate, formatStudyMinutes, studyPlanProgress, targetTypeLabel } from '@/app/data/studyPlans';
 import { openStudyTaskNote, setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
 import { openExternalUrl } from '@/app/lib/externalLinks';
@@ -249,7 +249,7 @@ function DashboardPage() {
                 <CalendarClock className="h-5 w-5" />
               </span>
               <CardTitle id="study-focus-heading" className="whitespace-nowrap text-[0.98rem] text-primary md:text-lg xl:text-xl">
-                Study Focus
+                Focus
               </CardTitle>
             </div>
             {studyDashboard.activePlanCount > 0 && (
@@ -273,7 +273,7 @@ function DashboardPage() {
                   <span className="block truncate text-xs text-muted-foreground">
                     {studyDashboard.urgentPlan.overdueTasks > 0
                       ? `${studyDashboard.urgentPlan.courseCode} has ${studyDashboard.urgentPlan.overdueTasks} overdue tasks`
-                      : `${studyDashboard.urgentPlan.courseCode} is above its study capacity`}
+                      : `${studyDashboard.urgentPlan.courseCode} is above its daily capacity`}
                   </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-destructive" />
@@ -300,14 +300,14 @@ function DashboardPage() {
                     <p className="mt-2 text-sm font-bold text-[var(--secondary-accent)]">Today is clear</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {studyDashboard.plans[0]
-                        ? `${studyDashboard.plans[0].courseCode} is your nearest exam.`
+                        ? `${studyDashboard.plans[0].courseCode} is your nearest target.`
                         : 'Create a plan from a course when you are ready.'}
                     </p>
                   </div>
                 ) : (
                   <div
                     data-testid="study-task-scroll"
-                    aria-label="Today's study tasks by class"
+                    aria-label="Today's tasks by class"
                     className="max-h-[30rem] space-y-3 overflow-y-auto overscroll-contain pr-1 md:max-h-[24rem]"
                   >
                     {studyTaskGroups.map((group) => {
@@ -409,21 +409,21 @@ function DashboardPage() {
 
               <div className="min-w-0 space-y-2 md:pl-4">
                 <div className="px-1">
-                  <h3 className="text-sm font-bold text-primary">Upcoming exams</h3>
+                  <h3 className="text-sm font-bold text-primary">Upcoming targets</h3>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {studyDashboard.plans.length > 0
                       ? `${studyDashboard.plans.length} active ${studyDashboard.plans.length === 1 ? 'plan' : 'plans'} · nearest first`
-                      : 'All active study plans'}
+                      : 'All active plans'}
                   </p>
                 </div>
                 {studyDashboard.plans.length === 0 ? (
                   <p className="rounded-lg border border-[var(--border-light)] bg-[var(--secondary-color)]/45 px-4 py-5 text-sm text-muted-foreground">
-                    No active exam plans yet.
+                    No active plans yet.
                   </p>
                 ) : (
                   <div
                     data-testid="study-plan-scroll"
-                    aria-label="Upcoming active study plans"
+                    aria-label="Upcoming active plans"
                     className="max-h-[24rem] space-y-2 overflow-y-auto overscroll-contain pr-1 md:max-h-[24rem]"
                   >
                   {studyDashboard.plans.map((plan) => {
@@ -449,10 +449,10 @@ function DashboardPage() {
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="truncate text-sm font-bold text-[var(--secondary-accent)]">
-                              {plan.courseCode} {plan.examType === 'final' ? 'Final' : 'Midterm'}
+                              {plan.courseCode} {plan.targetType === 'exam' ? targetTypeLabel(plan.targetType, plan.examType) : plan.targetTitle}
                             </p>
                             <p className="mt-0.5 text-xs font-semibold text-[var(--focus-course-text)]">
-                              {formatStudyDate(plan.examDate, { month: 'short', day: 'numeric' })}
+                              {formatStudyDate(plan.targetDate, { month: 'short', day: 'numeric' })}
                             </p>
                           </div>
                           <span className="flex shrink-0 items-center gap-2">

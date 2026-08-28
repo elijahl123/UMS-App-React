@@ -1,6 +1,7 @@
 export type StudyDifficulty = 'light' | 'medium' | 'heavy';
 export type StudyPhase = 'learn' | 'practice' | 'recall' | 'review';
 export type StudyPlanMode = 'phases' | 'single';
+export type PhasePreset = 'study' | 'general';
 
 export type ScheduleTopic = {
   id: string;
@@ -43,12 +44,24 @@ export const PHASE_MINUTES: Record<StudyDifficulty, Record<StudyPhase, number>> 
   heavy: { learn: 90, practice: 60, recall: 30, review: 180 },
 };
 
-const PHASE_LABELS: Record<StudyPhase, string> = {
-  learn: 'Learn & review',
-  practice: 'Practice',
-  recall: 'Recall',
-  review: 'Review',
+export const PHASE_LABELS: Record<PhasePreset, Record<StudyPhase, string>> = {
+  study: {
+    learn: 'Learn & review',
+    practice: 'Practice',
+    recall: 'Recall',
+    review: 'Review',
+  },
+  general: {
+    learn: 'First pass',
+    practice: 'Deepen',
+    recall: 'Review',
+    review: 'Work through',
+  },
 };
+
+export function studyTaskTitle(phase: StudyPhase, topicTitle: string, preset: PhasePreset = 'study'): string {
+  return `${PHASE_LABELS[preset][phase]}: ${topicTitle}`;
+}
 
 function parseIsoDate(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
@@ -108,20 +121,32 @@ function dailyQuotas(capacities: number[], requiredMinutes: number): number[] {
   });
 }
 
+export type ScheduleStudyJobsOptions = {
+  preset?: PhasePreset;
+  /**
+   * Schedule as much as fits and leave the rest unscheduled instead of throwing.
+   * The caller reports the shortfall as the plan's unscheduled minutes.
+   */
+  allowPartial?: boolean;
+};
+
 export function scheduleStudyJobs(
   startDate: string,
   examDate: string,
   availability: ScheduleAvailability[],
-  jobs: ScheduleJob[]
+  jobs: ScheduleJob[],
+  options: ScheduleStudyJobsOptions = {}
 ): ScheduledTask[] {
+  const preset = options.preset ?? 'study';
   const studyDates = enumerateStudyDates(startDate, examDate, availability);
-  const requiredMinutes = jobs.reduce((sum, job) => sum + job.minutes, 0);
+  const totalJobMinutes = jobs.reduce((sum, job) => sum + job.minutes, 0);
   const availableMinutes = studyDates.reduce((sum, day) => sum + day.minutes, 0);
 
-  if (requiredMinutes > availableMinutes) {
-    throw new StudyPlanCapacityError(requiredMinutes, availableMinutes);
+  if (totalJobMinutes > availableMinutes && !options.allowPartial) {
+    throw new StudyPlanCapacityError(totalJobMinutes, availableMinutes);
   }
 
+  const requiredMinutes = Math.min(totalJobMinutes, availableMinutes);
   if (requiredMinutes === 0) return [];
 
   const quotas = dailyQuotas(
@@ -153,7 +178,7 @@ export function scheduleStudyJobs(
           ...job,
           minutes: allocated,
           scheduledDate: day.date,
-          title: `${PHASE_LABELS[job.phase]}: ${job.topicTitle}`,
+          title: studyTaskTitle(job.phase, job.topicTitle, preset),
           sequence,
         });
         sequence += 1;

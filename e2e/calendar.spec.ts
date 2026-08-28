@@ -14,8 +14,8 @@ test('renders differentiated connected ranges and the end-date event control', a
   await expect(eventSegments).toHaveCount(4);
   await expect(eventSegments.nth(0)).toHaveCSS('background-color', 'rgb(248, 173, 157)');
 
-  await page.getByRole('button', { name: 'Hide Study plan' }).click();
-  await expect(page.getByRole('button', { name: 'Show Study plan' })).toHaveAttribute('aria-pressed', 'false');
+  await page.getByRole('button', { name: 'Hide Plan work' }).click();
+  await expect(page.getByRole('button', { name: 'Show Plan work' })).toHaveAttribute('aria-pressed', 'false');
 
   await page.getByRole('button', { name: 'Hide Event' }).click();
   await expect(

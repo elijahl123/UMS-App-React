@@ -1,10 +1,86 @@
-import type { StudyDay, StudyPlanSummary, StudyTask } from './types';
+import type {
+  ExamType,
+  PhasePreset,
+  StudyDay,
+  StudyDifficulty,
+  StudyPhase,
+  StudyPlanMode,
+  StudyPlanSummary,
+  StudyTargetType,
+  StudyTask,
+} from './types';
 
 export const STUDY_PHASE_MINUTES = {
   light: { learn: 30, practice: 15, recall: 15, review: 60 },
   medium: { learn: 60, practice: 45, recall: 15, review: 120 },
   heavy: { learn: 90, practice: 60, recall: 30, review: 180 },
 } as const;
+
+// Mirrors PHASE_LABELS in server/studyPlanScheduler.ts, which is where task
+// titles are actually derived. Keep the two in step.
+export const STUDY_PHASE_LABELS: Record<PhasePreset, Record<StudyPhase, string>> = {
+  study: {
+    learn: 'Learn & review',
+    practice: 'Practice',
+    recall: 'Recall',
+    review: 'Review',
+  },
+  general: {
+    learn: 'First pass',
+    practice: 'Deepen',
+    recall: 'Review',
+    review: 'Work through',
+  },
+};
+
+export function studyPhaseLabel(phase: StudyPhase, preset: PhasePreset = 'study'): string {
+  return STUDY_PHASE_LABELS[preset]?.[phase] ?? STUDY_PHASE_LABELS.study[phase];
+}
+
+export const STUDY_DIFFICULTIES: StudyDifficulty[] = ['light', 'medium', 'heavy'];
+
+/** Total time one topic is given, across all of its tasks. */
+export function topicWorkloadMinutes(difficulty: StudyDifficulty, mode: StudyPlanMode = 'phases'): number {
+  const phases = STUDY_PHASE_MINUTES[difficulty];
+  return mode === 'single' ? phases.review : phases.learn + phases.practice + phases.recall;
+}
+
+const TOPIC_LIST_MARKER = /^(?:[-*•]\s+|\d+[.)]\s+)/;
+// A section prefix only counts when something follows it: a separator plus text,
+// a period plus a space, or plain whitespace. "Section 2.1: Limits" therefore
+// stays whole rather than collapsing to "1: Limits".
+const TOPIC_SECTION_PREFIX =
+  /^(?:week|topic|module|chapter|part|section|day|unit)\s+\d+(?:\s*[:\-–—]\s*|\s*\.\s+|\s+)/i;
+
+/**
+ * Turns pasted outlines into topic titles. "Week 1: Graph algorithms" becomes
+ * "Graph algorithms", while a line that is only a section prefix ("Chapter 1")
+ * is kept whole, since that is the name the student meant to use.
+ */
+export function parseStudyTopics(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => {
+      const withoutMarker = line.trim().replace(TOPIC_LIST_MARKER, '').trim();
+      const withoutPrefix = withoutMarker.replace(TOPIC_SECTION_PREFIX, '').trim();
+      return withoutPrefix || withoutMarker;
+    })
+    .filter(Boolean)
+    .slice(0, 100);
+}
+
+export function targetTypeLabel(targetType: StudyTargetType, examType?: ExamType): string {
+  if (targetType === 'exam') return examType === 'midterm' ? 'Midterm' : 'Final exam';
+  if (targetType === 'assignment') return 'Assignment';
+  if (targetType === 'project') return 'Project';
+  return 'Plan';
+}
+
+export function targetDateLabel(targetType: StudyTargetType): string {
+  if (targetType === 'exam') return 'Exam';
+  if (targetType === 'general') return 'Target';
+  return 'Due';
+}
 
 export function todayForTimeZone(timeZone: string, now = new Date()): string {
   try {
@@ -62,12 +138,12 @@ export function formatStudyDate(date: string, options?: Intl.DateTimeFormatOptio
 
 export function availableStudyMinutes(
   startDate: string,
-  examDate: string,
+  targetDate: string,
   availability: Array<{ weekday: number; minutes: number }>
 ): number {
   const byWeekday = new Map(availability.map((item) => [item.weekday, item.minutes]));
   const cursor = new Date(`${startDate}T00:00:00Z`);
-  const end = new Date(`${examDate}T00:00:00Z`);
+  const end = new Date(`${targetDate}T00:00:00Z`);
   let total = 0;
   while (cursor < end) {
     total += byWeekday.get(cursor.getUTCDay()) ?? 0;

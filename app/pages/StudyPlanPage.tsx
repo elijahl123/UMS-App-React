@@ -20,6 +20,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { PhasePreset } from '@/app/data/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,8 +29,12 @@ import {
   formatStudyDate,
   formatStudyMinutes,
   groupStudyDays,
+  studyPhaseLabel,
   studyPlanProgress,
+  targetDateLabel,
+  targetTypeLabel,
   todayForTimeZone,
+  topicWorkloadMinutes,
 } from '@/app/data/studyPlans';
 import {
   deleteStudyPlan,
@@ -47,6 +52,37 @@ import { openExternalUrl } from '@/app/lib/externalLinks';
 import { RecoveryDialog } from '@/app/components/studyPlans/RecoveryDialog';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const PHASE_GUIDE: Record<PhasePreset, Array<{ title: string; body: string }>> = {
+  study: [
+    {
+      title: '1. Learn & Review',
+      body: "First exposure to the material. Read the chapter, rewatch the lecture, or work through examples. Use the task's note to jot down key ideas, definitions, and anything confusing.",
+    },
+    {
+      title: '2. Practice',
+      body: 'Apply what you learned with problem sets, past assignments, or practice questions. Add worked examples or common mistakes to the same note so it becomes a working reference.',
+    },
+    {
+      title: '3. Recall',
+      body: 'Test yourself without looking anything up, then check against the note. This is where gaps show up. The closer this is to your target date, the more it tells you what still needs work.',
+    },
+  ],
+  general: [
+    {
+      title: '1. First pass',
+      body: "Get through the material once without stopping to perfect anything. Use the task's note to capture the shape of it: main ideas, terms, and open questions.",
+    },
+    {
+      title: '2. Deepen',
+      body: 'Go back to the parts that did not land. Work examples, follow references, or draft your own version. Add what you learn to the same note so it becomes a working reference.',
+    },
+    {
+      title: '3. Review',
+      body: 'Go over it once more from your note and check what you can reconstruct without looking. Whatever is still shaky is what to carry forward.',
+    },
+  ],
+};
 const WINDOW_DAYS = 28;
 
 function addIsoDays(date: string, days: number): string {
@@ -197,7 +233,7 @@ function StudyPlanPage() {
   };
 
   const handleDelete = async () => {
-    if (!plan || !confirm('Delete this study plan and its completion history?')) return;
+    if (!plan || !confirm('Delete this plan and its completion history?')) return;
     setError(null);
     try {
       await deleteStudyPlan(plan.id, user?.id);
@@ -207,8 +243,8 @@ function StudyPlanPage() {
     }
   };
 
-  if (loading && !plan) return <div className="p-6 text-center text-muted-foreground">Loading study plan...</div>;
-  if (!plan) return <div className="p-6 text-center text-muted-foreground">Study plan not found.</div>;
+  if (loading && !plan) return <div className="p-6 text-center text-muted-foreground">Loading plan...</div>;
+  if (!plan) return <div className="p-6 text-center text-muted-foreground">Plan not found.</div>;
 
   const courseColors = getCourseColor(plan.courseColor);
   const courseTheme = {
@@ -217,6 +253,12 @@ function StudyPlanPage() {
     '--study-course-text': courseColors.text,
   } as CSSProperties;
   const activeTopics = plan.topics.filter((topic) => topic.active);
+  // An even-split plan carries one synthetic topic named after the target, so
+  // counting topics there would be misleading.
+  const usesTopics = plan.schedulerVersion !== 2;
+  const targetKindNoun = plan.targetType === 'exam'
+    ? `${plan.examType === 'midterm' ? 'midterm' : 'final exam'} plan`
+    : plan.targetType === 'general' ? 'plan' : `${plan.targetType} plan`;
   const editPath = `/courses/${courseId}/study-plans/${plan.id}/edit`;
   const canGoEarlier = windowStart > plan.startDate;
   const canGoLater = windowEnd < plan.targetDate;
@@ -237,7 +279,13 @@ function StudyPlanPage() {
                 {completed}/{total}
               </span>
             </div>
-            <p className="mt-1 text-xs capitalize text-muted-foreground">{topic.difficulty}</p>
+            {usesTopics && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="capitalize">{topic.difficulty}</span>
+                {' · '}
+                {formatStudyMinutes(topicWorkloadMinutes(topic.difficulty, plan.topicMode))}
+              </p>
+            )}
           </div>
         );
       })}
@@ -276,7 +324,7 @@ function StudyPlanPage() {
                 {plan.courseCode}
               </span>
               <Badge className="border-0 bg-[var(--study-course-border)] text-[var(--study-course-text)]">
-                {plan.targetType === 'exam' ? (plan.examType === 'final' ? 'Final exam' : 'Midterm') : plan.targetType}
+                {targetTypeLabel(plan.targetType, plan.examType)}
               </Badge>
               {plan.archived && <Badge variant="secondary">Archived</Badge>}
               {recoveryNeeded && <Badge variant="secondary" className="bg-destructive/10 text-destructive">Needs replanning</Badge>}
@@ -287,7 +335,7 @@ function StudyPlanPage() {
             <p className="mt-1 text-sm font-semibold text-[var(--study-course-text)] sm:text-base">{plan.courseName}</p>
             <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4 shrink-0" />
-              {plan.targetType === 'exam' ? 'Exam' : 'Due'} {formatStudyDate(plan.targetDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}{plan.targetTime ? ` at ${plan.targetTime}` : ''}
+              {targetDateLabel(plan.targetType)} {formatStudyDate(plan.targetDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}{plan.targetTime ? ` at ${plan.targetTime}` : ''}
             </p>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2 lg:mt-0 lg:flex lg:shrink-0">
@@ -295,7 +343,7 @@ function StudyPlanPage() {
               variant="outline"
               size="icon"
               className="h-11 w-11 rounded-lg"
-              aria-label="How study phases work"
+              aria-label="How this plan works"
               onClick={() => setInfoOpen(true)}
             >
               <Info className="h-4 w-4" />
@@ -356,12 +404,14 @@ function StudyPlanPage() {
 
       {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm font-semibold text-destructive">{error}</p>}
 
-      <section aria-label="Study plan progress" className="mobile-surface grid shrink-0 grid-cols-2 divide-x divide-y divide-[var(--border-light)] overflow-hidden sm:grid-cols-4 sm:divide-y-0">
+      <section aria-label="Plan progress" className="mobile-surface grid shrink-0 grid-cols-2 divide-x divide-y divide-[var(--border-light)] overflow-hidden sm:grid-cols-4 sm:divide-y-0">
         {[
           { label: 'Complete', value: `${progress.percent}%`, icon: CheckCircle2 },
           { label: 'Tasks', value: `${progress.completed}/${progress.total}`, icon: ListChecks },
-          { label: plan.targetType === 'exam' ? 'Topics' : 'Work target', value: plan.targetType === 'exam' ? activeTopics.length : 1, icon: BookOpenCheck },
-          { label: 'Study days left', value: plan.studyDaysLeft, icon: CalendarClock },
+          usesTopics
+            ? { label: 'Topics', value: activeTopics.length, icon: BookOpenCheck }
+            : { label: 'Work target', value: 1, icon: BookOpenCheck },
+          { label: 'Work days left', value: plan.studyDaysLeft, icon: CalendarClock },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -380,8 +430,10 @@ function StudyPlanPage() {
         <details className="group rounded-lg border border-[var(--study-course-border)] bg-card">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] px-4 py-3 marker:content-none">
             <span>
-              <span className="block text-sm font-bold text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</span>
-              <span className="block text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</span>
+              <span className="block text-sm font-bold text-[var(--secondary-accent)]">{usesTopics ? 'Topics' : 'Work target'}</span>
+              <span className="block text-xs text-muted-foreground">
+                {usesTopics ? `${activeTopics.length} in this plan` : plan.targetTitle}
+              </span>
             </span>
             <span className="text-xs font-bold text-[var(--study-course-text)] group-open:hidden">Show</span>
             <span className="hidden text-xs font-bold text-[var(--study-course-text)] group-open:inline">Hide</span>
@@ -420,7 +472,7 @@ function StudyPlanPage() {
           </Button>
           <div className="text-center">
             <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-[var(--study-course-text)]">
-              Visible study window
+              Visible window
             </p>
             <p className="mt-1 text-sm font-bold text-[var(--secondary-accent)]">
               {formatStudyDate(windowStart, { month: 'short', day: 'numeric' })}
@@ -444,11 +496,11 @@ function StudyPlanPage() {
       </div>
 
       <div className="grid min-w-0 shrink-0 grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <section aria-label="Daily study schedule" className="min-w-0">
+        <section aria-label="Daily schedule" className="min-w-0">
           {tasksLoading ? (
             <div className="mobile-surface py-10 text-center text-sm text-muted-foreground">Loading this four-week window...</div>
           ) : days.length === 0 ? (
-            <div className="mobile-surface py-10 text-center text-sm text-muted-foreground">No study work is scheduled in this four-week window.</div>
+            <div className="mobile-surface py-10 text-center text-sm text-muted-foreground">Nothing is scheduled in this four-week window.</div>
           ) : (
             <div className="mobile-surface overflow-hidden">
               {days.map((day) => (
@@ -493,7 +545,11 @@ function StudyPlanPage() {
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className={`break-words text-sm font-semibold leading-snug text-[var(--secondary-accent)] ${task.completedAt ? 'line-through opacity-60' : ''}`}>{task.title}</p>
-                      <p className="mt-1 text-xs capitalize text-muted-foreground">{task.phase} · {formatStudyMinutes(task.estimatedMinutes)}</p>
+                      {/* Even-split tasks store phase 0 as a placeholder, so there is no phase to name. */}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {usesTopics ? `${studyPhaseLabel(task.phase, plan.phasePreset)} · ` : ''}
+                        {formatStudyMinutes(task.estimatedMinutes)}
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
@@ -541,8 +597,10 @@ function StudyPlanPage() {
           <Card className="hidden h-auto overflow-hidden rounded-lg border border-[var(--study-course-border)] lg:block">
             <CardHeader className="flex flex-row items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] p-4">
               <div>
-                <CardTitle className="text-base text-[var(--secondary-accent)]">{plan.targetType === 'exam' ? 'Topics' : 'Work target'}</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">{plan.targetType === 'exam' ? `${activeTopics.length} in this plan` : plan.targetTitle}</p>
+                <CardTitle className="text-base text-[var(--secondary-accent)]">{usesTopics ? 'Topics' : 'Work target'}</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {usesTopics ? `${activeTopics.length} in this plan` : plan.targetTitle}
+                </p>
               </div>
               <Button asChild variant="outline" size="sm" className="h-9 rounded-lg bg-[color-mix(in_srgb,var(--card)_80%,transparent)]">
                 <Link to={editPath}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Link>
@@ -572,38 +630,56 @@ function StudyPlanPage() {
       />
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="max-w-lg">
-          {plan.topicMode === 'single' ? (
+          {plan.schedulerVersion === 2 ? (
             <>
               <DialogHeader>
                 <DialogTitle>How this plan works</DialogTitle>
-                <DialogDescription>This plan uses a single review task per topic instead of three phases.</DialogDescription>
+                <DialogDescription>
+                  {`This ${targetKindNoun} is planned as one body of work rather than separate topics.`}
+                </DialogDescription>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Each topic gets one task. Read the material, work through examples, and test yourself in one sitting. Use the task's note to record what you covered and anything you want to revisit before your exam.
+                You estimated {plan.estimatedMinutes ? formatStudyMinutes(plan.estimatedMinutes) : 'the total work'} and it was
+                divided evenly across the days you picked, up to
+                {plan.dailyCapMinutes ? ` ${formatStudyMinutes(plan.dailyCapMinutes)}` : ' your maximum'} per day. Every task is a
+                sitting on the same work, so tick them off as you go. The notebook icon opens one shared note for the whole plan.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Want it broken down instead? Edit the plan and switch to &ldquo;Break it into topics&rdquo;. Completed time is kept.
+              </p>
+            </>
+          ) : plan.topicMode === 'single' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>How this plan works</DialogTitle>
+                <DialogDescription>
+                  {`This ${targetKindNoun} gives each topic one task instead of three passes.`}
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Each topic gets one task. Cover the material, work through examples, and check yourself in one sitting. Use the task's note to record what you covered and anything you want to come back to.
               </p>
             </>
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle>How to use Learn &amp; Review, Practice, and Recall</DialogTitle>
-                <DialogDescription>Each topic moves through three phases. Here's how to approach each one.</DialogDescription>
+                <DialogTitle>
+                  How to use {PHASE_GUIDE[plan.phasePreset].map((entry) => entry.title.replace(/^\d+\.\s*/, '')).join(', ')}
+                </DialogTitle>
+                <DialogDescription>
+                  {`Each topic in this ${targetKindNoun} moves through three passes. Here's how to approach each one.`}
+                </DialogDescription>
               </DialogHeader>
               <ol className="grid gap-3">
-                <li className="rounded-md border bg-muted/20 p-3">
-                  <strong className="block text-sm">1. Learn &amp; Review</strong>
-                  <span className="text-sm text-muted-foreground">First exposure to the material. Read the chapter, rewatch the lecture, or work through examples. Use the task's note to jot down key ideas, definitions, and anything confusing.</span>
-                </li>
-                <li className="rounded-md border bg-muted/20 p-3">
-                  <strong className="block text-sm">2. Practice</strong>
-                  <span className="text-sm text-muted-foreground">Apply what you learned with problem sets, past assignments, or practice questions. Add worked examples or common mistakes to the same note so it becomes a working reference.</span>
-                </li>
-                <li className="rounded-md border bg-muted/20 p-3">
-                  <strong className="block text-sm">3. Recall</strong>
-                  <span className="text-sm text-muted-foreground">Test yourself without looking anything up, then check against the note. This is where gaps show up. The closer this is to your exam, the more it tells you what still needs review.</span>
-                </li>
+                {PHASE_GUIDE[plan.phasePreset].map((entry) => (
+                  <li key={entry.title} className="rounded-md border bg-muted/20 p-3">
+                    <strong className="block text-sm">{entry.title}</strong>
+                    <span className="text-sm text-muted-foreground">{entry.body}</span>
+                  </li>
+                ))}
               </ol>
               <p className="text-sm text-muted-foreground">
-                The notebook icon on each task opens the <strong>same note</strong> for that topic across all three phases. Treat it as one running document instead of three separate ones. Tasks aren't locked to this order. You can complete them whenever, but the schedule places Learn tasks earliest and Recall tasks closest to your target date for spaced repetition.
+                The notebook icon on each task opens the <strong>same note</strong> for that topic across all three passes. Treat it as one running document instead of three separate ones. Tasks aren't locked to this order. You can complete them whenever, but the schedule places the first pass earliest and the last pass closest to your target date so the material gets revisited over time.
               </p>
             </>
           )}
