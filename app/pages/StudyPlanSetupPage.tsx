@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ArrowLeft, BookOpenCheck, CalendarDays, Clock3, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpenCheck, CalendarDays, Check, Clock3, Plus, Save, Sparkles, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,14 @@ import { useAuth } from '@/app/lib/auth/AuthContext';
 import { trackProductEvent } from '@/app/lib/launch/client';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const WEEKDAY_PRESETS = [
+  { label: 'Weekdays', weekdays: [1, 2, 3, 4, 5] },
+  { label: 'Weekends', weekdays: [0, 6] },
+  { label: 'Every day', weekdays: [0, 1, 2, 3, 4, 5, 6] },
+  { label: 'Clear', weekdays: [] as number[] },
+];
 
 type TopicDraft = { id?: string; title: string; difficulty: StudyDifficulty };
 
@@ -193,6 +201,21 @@ function StudyPlanSetupPage() {
   const blocked = (usesTopics && !topics.length)
     || (targetType !== 'exam' && !targetTitle.trim())
     || (missingMinutes > 0 && !partialPlanAcknowledged);
+
+  const setWeekdayActive = (weekday: number, active: boolean) => {
+    setAvailability((current) => current.map((item) => item.weekday === weekday
+      ? { ...item, minutes: active ? dailyCapMinutes : 0 }
+      : item));
+    setPartialPlanAcknowledged(false);
+  };
+
+  const setWeekdays = (weekdays: number[]) => {
+    setAvailability((current) => current.map((item) => ({
+      ...item,
+      minutes: weekdays.includes(item.weekday) ? dailyCapMinutes : 0,
+    })));
+    setPartialPlanAcknowledged(false);
+  };
 
   const importTopics = () => {
     const parsed = parseStudyTopics(topicText);
@@ -530,11 +553,59 @@ function StudyPlanSetupPage() {
               />
             </div>
             <div className="p-4 pt-1 sm:p-5 sm:pt-2">
+              {!usesTopics && (
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Quick pick</span>
+                  {WEEKDAY_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setWeekdays(preset.weekdays)}
+                      className="rounded-full border border-[var(--border-light)] bg-card px-3 py-1 text-xs font-semibold text-[var(--secondary-accent)] transition-colors hover:border-[var(--study-course-border)] hover:bg-[color-mix(in_srgb,var(--study-course-bg)_24%,var(--surface))] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] focus-visible:ring-offset-2"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-7">
-                {availability.map((entry) => (
-                  <div key={entry.weekday} className={`rounded-lg border p-3 ${entry.minutes > 0 ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}>
-                    <Label className="text-xs font-bold text-[var(--study-course-text)]" htmlFor={`availability-${entry.weekday}`}>{DAYS[entry.weekday]}</Label>
-                    {usesTopics ? (<>
+                {availability.map((entry) => {
+                  const active = entry.minutes > 0;
+                  if (!usesTopics) {
+                    return (
+                      <button
+                        key={entry.weekday}
+                        type="button"
+                        role="switch"
+                        aria-checked={active}
+                        aria-label={`${DAY_NAMES[entry.weekday]}, ${active ? formatStudyMinutes(dailyCapMinutes) : 'not scheduled'}`}
+                        onClick={() => setWeekdayActive(entry.weekday, !active)}
+                        className={`flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-lg border p-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] focus-visible:ring-offset-2 ${
+                          active
+                            ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]'
+                            : 'border-[var(--border-light)] bg-card hover:border-[var(--study-course-border)] hover:bg-[color-mix(in_srgb,var(--study-course-bg)_14%,var(--surface))]'
+                        }`}
+                      >
+                        <span className="text-xs font-bold text-[var(--study-course-text)]">{DAYS[entry.weekday]}</span>
+                        <span
+                          aria-hidden="true"
+                          className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
+                            active
+                              ? 'border-[var(--study-course-border)] bg-[var(--study-course-border)] text-[var(--study-course-text)]'
+                              : 'border-[var(--border-light)] bg-card text-transparent'
+                          }`}
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                        <span className={`text-[0.68rem] font-semibold ${active ? 'text-[var(--secondary-accent)]' : 'text-muted-foreground'}`}>
+                          {active ? formatStudyMinutes(dailyCapMinutes) : 'Off'}
+                        </span>
+                      </button>
+                    );
+                  }
+                  return (
+                    <div key={entry.weekday} className={`rounded-lg border p-3 ${active ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}>
+                      <Label className="text-xs font-bold text-[var(--study-course-text)]" htmlFor={`availability-${entry.weekday}`}>{DAYS[entry.weekday]}</Label>
                       <Input
                         className="mt-2 h-10 rounded-lg bg-card text-center font-bold"
                         id={`availability-${entry.weekday}`}
@@ -550,25 +621,9 @@ function StudyPlanSetupPage() {
                         }}
                       />
                       <p className="mt-1.5 text-center text-[0.68rem] font-medium text-muted-foreground">minutes</p>
-                    </>) : (
-                      <label className="mt-2 flex flex-col items-center gap-1.5 text-[0.68rem] font-medium text-muted-foreground">
-                        <input
-                          className="h-5 w-5"
-                          id={`availability-${entry.weekday}`}
-                          type="checkbox"
-                          checked={entry.minutes > 0}
-                          onChange={(event) => {
-                            setAvailability((current) => current.map((item) => item.weekday === entry.weekday
-                              ? { ...item, minutes: event.target.checked ? dailyCapMinutes : 0 }
-                              : item));
-                            setPartialPlanAcknowledged(false);
-                          }}
-                        />
-                        Available
-                      </label>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
