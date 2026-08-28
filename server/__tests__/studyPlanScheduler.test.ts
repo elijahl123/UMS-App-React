@@ -817,6 +817,68 @@ describe('study plan scheduling', () => {
     expect(rename?.params[0]).toContain('Renamed topic');
   });
 
+  it('lets a converted even-split plan choose its task style, and locks it afterward', async () => {
+    const rebuildWith = async (schedulerVersion: number) => {
+      const calls: Array<{ sql: string; params: unknown[] }> = [];
+      const client = {
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params });
+          if (sql.includes('SELECT p.id, p.course_id')) {
+            return {
+              rows: [{
+                id: '10',
+                course_id: '2',
+                exam_date: '2027-08-01',
+                start_date: '2026-08-01',
+                timezone: 'UTC',
+                // What the plan was built with before this edit.
+                topic_mode: 'phases',
+                phase_preset: 'study',
+                scheduler_version: schedulerVersion,
+              }],
+            };
+          }
+          if (sql.includes('SELECT t.id, EXISTS')) return { rows: [] };
+          if (sql.includes('INSERT INTO study_topics')) return { rows: [{ id: '1', title: 'Outline', difficulty: 'light', position: 0 }] };
+          return { rows: [] };
+        },
+      };
+      const input: StudyPlanInput = {
+        courseId: '2',
+        targetType: 'assignment',
+        targetTitle: 'Essay',
+        examType: 'final',
+        examDate: '2027-08-01',
+        startDate: '2026-08-01',
+        timeZone: 'UTC',
+        availability: Array.from({ length: 7 }, (_, weekday) => ({ weekday, minutes: 120 })),
+        topics: [{ title: 'Outline', difficulty: 'light' }],
+        // The editor asks for a style other than what the row currently holds.
+        topicMode: 'single',
+        phasePreset: 'general',
+      };
+      await rebuildStudyPlan(client as never, 'owner-1', '10', input);
+      const update = calls.find((call) => call.sql.includes('UPDATE study_plans') && call.sql.includes('topic_mode ='));
+      const stored = calls.find((call) => call.sql.includes('INSERT INTO study_tasks'));
+      // Titles are derived from phase + preset, so the phase encoding is what
+      // the insert actually carries. 3 = the single pass-through task.
+      const phases = [...new Set((JSON.parse(String(stored?.params[1] ?? '[]')) as Array<{ phase: number }>).map((task) => task.phase))];
+      return { update, phases };
+    };
+
+    // An even-split plan never picked a style, so the editor's choice applies.
+    const converted = await rebuildWith(2);
+    expect(converted.update?.params).toContain('single');
+    expect(converted.update?.params).toContain('general');
+    expect(converted.phases).toEqual([3]);
+
+    // A plan already scheduled by phase keeps its own style.
+    const locked = await rebuildWith(1);
+    expect(locked.update?.params).toContain('phases');
+    expect(locked.update?.params).toContain('study');
+    expect(locked.phases).toEqual([0, 1, 2]);
+  });
+
   it('defines a forward compact-storage migration without changing public task semantics', () => {
     const migration = readFileSync(
       `${process.cwd()}/migrations/1783840000_compact_study_tasks.sql`,

@@ -643,10 +643,17 @@ export async function rebuildStudyPlan(
   }
   const plan = await ownedPlan(client, userId, planId);
   if (plan.course_id !== input.courseId) throw new ApiError('A plan cannot be moved to another course', 400);
-  const phasePreset = plan.phase_preset ?? 'study';
 
   // A plan that previously split a flat estimate evenly (scheduler_version 2)
-  // becomes a topic plan when topics are added. The editor warns first.
+  // becomes a topic plan when topics are added. It never chose a task style, so
+  // the one picked in the editor applies. An existing topic plan keeps its own,
+  // because completed work is already tracked per phase.
+  const convertsFromEvenSplit = Number(plan.scheduler_version) === 2;
+  const topicMode: StudyPlanMode = convertsFromEvenSplit ? (input.topicMode ?? 'phases') : plan.topic_mode;
+  const phasePreset: PhasePreset = convertsFromEvenSplit
+    ? (input.phasePreset ?? 'study')
+    : (plan.phase_preset ?? 'study');
+
   await client.query(
     `
       UPDATE study_plans
@@ -657,15 +664,16 @@ export async function rebuildStudyPlan(
           estimated_minutes = NULL, daily_cap_minutes = NULL,
           scheduler_version = 1,
           scheduler_explanation = $6,
+          topic_mode = $11, phase_preset = $12,
           unscheduled_minutes = 0, partial_plan_acknowledged = $10,
           updated_at = NOW()
       WHERE id = $5::bigint;
     `,
     [
       input.examType, input.examDate, input.startDate, input.timeZone, planId,
-      schedulerExplanationFor(plan.topic_mode, phasePreset),
+      schedulerExplanationFor(topicMode, phasePreset),
       input.targetType ?? 'exam', input.targetTitle, input.targetTime,
-      Boolean(input.partialPlanAcknowledged),
+      Boolean(input.partialPlanAcknowledged), topicMode, phasePreset,
     ]
   );
   await writeAvailability(client, planId, input.availability);
@@ -782,7 +790,7 @@ export async function rebuildStudyPlan(
 
   const scheduleStart = [input.startDate, todayInTimeZone(input.timeZone)].sort().at(-1) as string;
   try {
-    const jobs = remainingJobs(topics, completed.rows, plan.topic_mode);
+    const jobs = remainingJobs(topics, completed.rows, topicMode);
     const tasks = scheduleStudyJobs(scheduleStart, input.examDate, input.availability, jobs, {
       preset: phasePreset,
       allowPartial: Boolean(input.partialPlanAcknowledged),

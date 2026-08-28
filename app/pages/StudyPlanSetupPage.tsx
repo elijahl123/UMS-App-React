@@ -170,6 +170,10 @@ function StudyPlanSetupPage() {
   const usesTopics = !topicsOptional || planStyle === 'topics';
   // Switching an existing even-split plan to topics rebuilds it, so warn first.
   const convertsFromEvenSplit = Boolean(planId && existing && existing.schedulerVersion === 2 && usesTopics);
+  // An even-split plan never picked a task style, so converting it is the one
+  // edit that gets to choose. A plan already scheduled by phase keeps its own,
+  // because completed work is tracked per phase.
+  const taskStyleLocked = Boolean(planId) && !convertsFromEvenSplit;
   const requiredMinutes = useMemo(
     () => (usesTopics
       ? topics.reduce((total, topic) => total + topicWorkloadMinutes(topic.difficulty, taskStyle.topicMode), 0)
@@ -438,7 +442,7 @@ function StudyPlanSetupPage() {
                     <button
                       key={option.value}
                       type="button"
-                      disabled={Boolean(planId)}
+                      disabled={taskStyleLocked}
                       onClick={() => setTaskStyle(option)}
                       className={`rounded-lg border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60 ${taskStyle.value === option.value ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}
                     >
@@ -447,7 +451,7 @@ function StudyPlanSetupPage() {
                     </button>
                   ))}
                 </div>
-                {planId && <p className="text-xs text-muted-foreground">Task style is set when a plan is created and can't be changed here.</p>}
+                {taskStyleLocked && <p className="text-xs text-muted-foreground">Task style is set when a plan is created and can't be changed here.</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="topic-list" className="text-xs font-bold text-[var(--secondary-accent)]">One topic per line</Label>
