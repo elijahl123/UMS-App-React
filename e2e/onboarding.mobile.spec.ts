@@ -43,7 +43,7 @@ test('every mobile feature-tour stage finds its responsive spotlight target', as
   }
 
   // "How Study Plans work" is an informational dialog step, not a page spotlight.
-  await expect(page.getByRole('heading', { name: 'How Study Plans work' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'How Plans work' })).toBeVisible();
   await page.getByRole('button', { name: 'Continue' }).click();
 
   const finalStages = ['Move quickly and add from anywhere', 'Connections and preferences'];

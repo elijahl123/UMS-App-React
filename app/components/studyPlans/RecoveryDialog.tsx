@@ -160,16 +160,16 @@ export function RecoveryDialog({ planId, userId, open, onOpenChange, onApplied }
                     <CalendarPlus className="h-5 w-5" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 id="recovery-capacity-heading" className="font-bold text-[var(--secondary-accent)]">Make more room before the exam</h3>
+                    <h3 id="recovery-capacity-heading" className="font-bold text-[var(--secondary-accent)]">Make more room before your target date</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Add extra time to remaining study days. Recovery uses only as much as needed and saves those dates to this plan.
+                      Add extra time to your remaining work days. Recovery uses only as much as needed and saves those dates to this plan.
                     </p>
                   </div>
                 </div>
                 <div
                   className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-[repeat(4,minmax(0,1fr))_minmax(11rem,1.2fr)]"
                   role="group"
-                  aria-label="Extra time per remaining study day"
+                  aria-label="Extra time per remaining work day"
                 >
                   {[0, 15, 30, 60, 720].map((minutes) => (
                     <Button
@@ -189,7 +189,7 @@ export function RecoveryDialog({ planId, userId, open, onOpenChange, onApplied }
                   <div className="mt-4 rounded-lg bg-[var(--secondary-color)]/55 p-3">
                     <p className="flex items-center gap-2 text-sm font-bold text-[var(--secondary-accent)]">
                       <Clock3 className="h-4 w-4 text-primary" />
-                      {formatStudyMinutes(preview.capacityChanges.reduce((sum, change) => sum + change.addedMinutes, 0))} added across {preview.capacityChanges.length} study {preview.capacityChanges.length === 1 ? 'day' : 'days'}
+                      {formatStudyMinutes(preview.capacityChanges.reduce((sum, change) => sum + change.addedMinutes, 0))} added across {preview.capacityChanges.length} work {preview.capacityChanges.length === 1 ? 'day' : 'days'}
                     </p>
                     <div className="mt-2 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
                       {preview.capacityChanges.map((change) => (

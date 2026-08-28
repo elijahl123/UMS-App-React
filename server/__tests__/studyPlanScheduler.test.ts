@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   buildStudyJobs,
   enumerateStudyDates,
+  PHASE_LABELS,
   PHASE_MINUTES,
   planStudyRecovery,
   scheduleStudyJobs,
@@ -85,6 +86,78 @@ describe('study plan scheduling', () => {
         buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'heavy' }])
       )
     ).toThrow(StudyPlanCapacityError);
+  });
+
+  it('titles tasks from the phase preset chosen for the plan', () => {
+    const jobs = buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'light' }]);
+    // One Monday of capacity, so each phase lands whole instead of being split.
+    const availability = [{ weekday: 1, minutes: 120 }];
+
+    const study = scheduleStudyJobs('2026-07-20', '2026-07-21', availability, jobs);
+    const general = scheduleStudyJobs('2026-07-20', '2026-07-21', availability, jobs, { preset: 'general' });
+
+    expect(study.map((task) => task.title)).toEqual([
+      'Learn & review: Graphs',
+      'Practice: Graphs',
+      'Recall: Graphs',
+    ]);
+    expect(general.map((task) => task.title)).toEqual([
+      'First pass: Graphs',
+      'Deepen: Graphs',
+      'Review: Graphs',
+    ]);
+    expect(PHASE_LABELS.general.review).toBe('Work through');
+  });
+
+  it('schedules what fits and leaves the rest unscheduled when partial plans are allowed', () => {
+    const jobs = buildStudyJobs([{ id: '1', title: 'Graphs', difficulty: 'heavy' }]);
+    const availability = [{ weekday: 1, minutes: 30 }];
+
+    expect(() => scheduleStudyJobs('2026-07-20', '2026-07-22', availability, jobs)).toThrow(StudyPlanCapacityError);
+
+    const partial = scheduleStudyJobs('2026-07-20', '2026-07-22', availability, jobs, { allowPartial: true });
+    const scheduled = partial.reduce((sum, task) => sum + task.minutes, 0);
+    const required = jobs.reduce((sum, job) => sum + job.minutes, 0);
+
+    expect(scheduled).toBe(30);
+    expect(required - scheduled).toBe(150);
+    expect(partial.every((task) => task.scheduledDate < '2026-07-22')).toBe(true);
+  });
+
+  it('plans a general target from topics without an estimated total', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'general',
+      targetTitle: 'Statistics reading list',
+      targetDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'America/Los_Angeles',
+      phasePreset: 'general',
+      availability: [{ weekday: 1, minutes: 60 }],
+      topics: [{ title: 'Chapter 1', difficulty: 'light' }, { title: 'Chapter 2', difficulty: 'medium' }],
+    });
+
+    expect(normalized.targetType).toBe('general');
+    expect(normalized.phasePreset).toBe('general');
+    expect(normalized.estimatedMinutes).toBeNull();
+    expect(normalized.dailyCapMinutes).toBeNull();
+    expect(normalized.topics.map((topic) => topic.title)).toEqual(['Chapter 1', 'Chapter 2']);
+  });
+
+  it('keeps topics on assignment plans instead of collapsing them to one block', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'assignment',
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      availability: [{ weekday: 1, minutes: 60 }],
+      topics: [{ title: 'Outline', difficulty: 'light' }, { title: 'Draft', difficulty: 'heavy' }],
+    });
+
+    expect(normalized.topics).toHaveLength(2);
+    expect(normalized.targetTitle).toBe('Research essay');
   });
 
   it('uses the plan timezone when deciding today', () => {
@@ -305,7 +378,7 @@ describe('study plan scheduling', () => {
     });
     expect(normalized.topics[0].title).toBe('Graph algorithms');
     expect(() => normalizeStudyPlanInput({ ...normalized, startDate: normalized.examDate })).toThrow(
-      /start before the exam/i
+      /at least one day between its start and its target date/i
     );
   });
 

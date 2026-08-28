@@ -143,12 +143,12 @@ test('shares one topic note across study phases and launches the course homepage
 
   await page.goto('/#/courses/1');
   await page.getByRole('button', { name: 'Create Plan' }).click();
-  await expect(page.getByRole('heading', { name: 'Create Study Plan' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create plan' })).toBeVisible();
 
-  await page.getByLabel(/paste modules or topics/i).fill('Architecture patterns\nTesting strategy');
+  await page.getByLabel(/paste your topics/i).fill('Architecture patterns\nTesting strategy');
   await page.getByRole('button', { name: 'Add topics' }).click();
   await expect(page.locator('input[value="Architecture patterns"]')).toBeVisible();
-  await page.getByRole('button', { name: 'Create study plan' }).click();
+  await page.getByRole('button', { name: 'Create plan', exact: true }).click();
 
   await expect(page).toHaveURL(/#\/courses\/1\/study-plans\/1$/);
   await expect(page.getByRole('heading', { name: /Final exam/i })).toBeVisible();

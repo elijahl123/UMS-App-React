@@ -11,6 +11,7 @@ import {
   mapNote,
   mapNotificationInstance,
 } from '@/app/data/mappers';
+import { parseStudyTopics, topicWorkloadMinutes } from '@/app/data/studyPlans';
 import { assignments, courses, events, links, notes, sessions } from '@/app/test/fixtures';
 
 describe('data mappers and calendar utilities', () => {
@@ -144,6 +145,7 @@ describe('data mappers and calendar utilities', () => {
       unscheduledMinutes: 0,
       partialPlanAcknowledged: false,
       topicMode: 'phases' as const,
+      phasePreset: 'study' as const,
       startDate: '2026-07-01',
       timeZone: 'America/Los_Angeles',
       archived: false,
@@ -184,5 +186,57 @@ describe('data mappers and calendar utilities', () => {
     expect(eventSegments.map((item) => item?.segmentPosition)).toEqual(['start', 'middle', 'middle', 'end']);
     expect(itemsByDate.get('2026-07-20')?.find((item) => item.type === 'study')?.rangeEnd).toBe('2026-07-21');
     expect(itemsByDate.get('2026-07-23')?.find((item) => item.type === 'study')?.segmentPosition).toBe('single');
+  });
+});
+
+describe('study topic parsing', () => {
+  it('trims section prefixes but keeps a bare section as the topic name', () => {
+    expect(parseStudyTopics([
+      'Week 1: Graph Algorithms',
+      'Chapter 1',
+      'Week 1',
+      'Part 3',
+      'Module 2 - Trees',
+      'Day 4. Sorting',
+      'Unit 5 Recursion',
+    ].join('\n'))).toEqual([
+      'Graph Algorithms',
+      'Chapter 1',
+      'Week 1',
+      'Part 3',
+      'Trees',
+      'Sorting',
+      'Recursion',
+    ]);
+  });
+
+  it('strips list markup and leaves ordinary titles alone', () => {
+    expect(parseStudyTopics([
+      '1. Limits',
+      '- Week 2: Derivatives',
+      '• Chapter 4',
+      '',
+      '   ',
+      'Practice paper',
+    ].join('\n'))).toEqual(['Limits', 'Derivatives', 'Chapter 4', 'Practice paper']);
+  });
+
+  it('does not mistake a decimal section number for a prefix', () => {
+    expect(parseStudyTopics('Section 2.1: Limits\nChapter 10.2')).toEqual([
+      'Section 2.1: Limits',
+      'Chapter 10.2',
+    ]);
+  });
+
+  it('caps a pasted outline at 100 topics', () => {
+    const pasted = Array.from({ length: 120 }, (_, index) => `Week ${index + 1}: Topic ${index + 1}`).join('\n');
+    expect(parseStudyTopics(pasted)).toHaveLength(100);
+  });
+
+  it('reports the total time each effort level gives a topic', () => {
+    expect(topicWorkloadMinutes('light')).toBe(60);
+    expect(topicWorkloadMinutes('medium')).toBe(120);
+    expect(topicWorkloadMinutes('heavy')).toBe(180);
+    expect(topicWorkloadMinutes('heavy', 'single')).toBe(180);
   });
 });

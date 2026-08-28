@@ -1,5 +1,6 @@
 import type {
   ExamType,
+  PhasePreset,
   StudyAvailability,
   StudyCalendarData,
   StudyDashboardData,
@@ -15,6 +16,7 @@ import type {
   StudyTargetType,
 } from '@/app/data/types';
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
+export { parseStudyTopics } from '@/app/data/studyPlans';
 import { trackProductEvent } from '@/app/lib/launch/client';
 
 export type StudyPlanInput = {
@@ -24,9 +26,6 @@ export type StudyPlanInput = {
   targetDate?: string;
   targetTime?: string | null;
   targetAssignmentId?: string | null;
-  estimatedMinutes?: number | null;
-  dailyCapMinutes?: number | null;
-  availableWeekdays?: number[];
   partialPlanAcknowledged?: boolean;
   examType: ExamType;
   examDate: string;
@@ -35,6 +34,7 @@ export type StudyPlanInput = {
   availability: StudyAvailability[];
   topics: Array<{ id?: string; title: string; difficulty: StudyDifficulty }>;
   topicMode?: StudyPlanMode;
+  phasePreset?: PhasePreset;
 };
 
 async function studyPlanRequest<T>(path = '', init?: RequestInit): Promise<T> {
@@ -100,6 +100,7 @@ export function mapStudyPlanSummary(row: Record<string, unknown>): StudyPlanSumm
     unscheduledMinutes: Number(row.unscheduled_minutes ?? 0),
     partialPlanAcknowledged: Boolean(row.partial_plan_acknowledged),
     topicMode: (row.topic_mode ?? 'phases') as StudyPlanSummary['topicMode'],
+    phasePreset: (row.phase_preset ?? 'study') as StudyPlanSummary['phasePreset'],
     startDate: String(row.start_date).slice(0, 10),
     timeZone: String(row.timezone),
     archived: Boolean(row.archived),
@@ -345,19 +346,6 @@ export async function deleteStudyPlan(planId: string, userId?: string): Promise<
   });
 }
 
-export function parseStudyTopics(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .map((line) =>
-      line
-        .trim()
-        .replace(/^(?:[-*•]\s+|\d+[.)]\s+|(?:week|topic|module)\s+\d+\s*[:.-]?\s*)/i, '')
-        .trim()
-    )
-    .filter(Boolean)
-    .slice(0, 100);
-}
-
 export function studyPlanErrorMessage(error: unknown): string {
   const payload = error as {
     error?: {
@@ -374,5 +362,5 @@ export function studyPlanErrorMessage(error: unknown): string {
   if (payload?.error?.message === 'RECOVERY_UNDO_UNSAFE') return 'Recovery can no longer be undone because the plan changed afterward.';
   if (payload?.error?.message === 'RECOVERY_UNDO_NOT_AVAILABLE') return 'There is no recovery revision available to undo.';
   if (payload?.error?.message === 'RECOVERY_NO_MOVABLE_WORK') return 'The remaining overdue work is pinned. Edit those tasks manually before recovering the plan.';
-  return payload?.error?.message ?? 'Unable to save the study plan.';
+  return payload?.error?.message ?? 'Unable to save this plan.';
 }

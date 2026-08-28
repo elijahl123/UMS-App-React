@@ -117,7 +117,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/#/');
-  await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Focus', exact: true })).toBeVisible();
   await expect(page.getByText('30 tasks · 8 classes · 15h remaining')).toBeVisible();
   await expect(page.getByText('8 active plans · nearest first')).toBeVisible();
   await expect(page.getByText('COMP31020 Final')).toBeVisible();
@@ -151,7 +151,7 @@ test('study focus is responsive, themed, urgent, and revalidates once after comp
   expect(noteRequests).toBe(1);
   expect(completedTasks.size).toBe(0);
   await page.goBack();
-  await expect(page.getByRole('heading', { name: 'Study Focus' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Focus', exact: true })).toBeVisible();
 
   const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Open COMP31020 homepage' }).first().click();
