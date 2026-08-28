@@ -879,6 +879,66 @@ describe('study plan scheduling', () => {
     expect(locked.phases).toEqual([0, 1, 2]);
   });
 
+  it('keeps the assignment link and retires leftover topics when a plan is edited', async () => {
+    const run = async (topics: StudyPlanInput['topics'], targetAssignmentId: string | null) => {
+      const calls: Array<{ sql: string; params: unknown[] }> = [];
+      const client = {
+        query: async (sql: string, params: unknown[] = []) => {
+          calls.push({ sql, params });
+          if (sql.includes('SELECT p.id, p.course_id')) {
+            return {
+              rows: [{
+                id: '10', course_id: '2', exam_date: '2027-08-01', start_date: '2026-08-01',
+                timezone: 'UTC', topic_mode: 'phases', phase_preset: 'study', scheduler_version: 1,
+              }],
+            };
+          }
+          if (sql.includes('SELECT t.id, EXISTS')) return { rows: [] };
+          // Two leftover topics: one with completed history, one without.
+          if (sql.includes('SELECT t.id::text, EXISTS')) {
+            return { rows: [{ id: '2', has_completed: true }, { id: '3', has_completed: false }] };
+          }
+          if (sql.includes('UPDATE study_topics SET title')) return { rows: [{ id: '1' }] };
+          if (sql.includes('INSERT INTO study_topics')) return { rows: [{ id: '1', title: 'Draft', difficulty: 'light', position: 0 }] };
+          return { rows: [] };
+        },
+      };
+      const input: StudyPlanInput = {
+        courseId: '2',
+        targetType: 'assignment',
+        targetTitle: 'Essay',
+        targetAssignmentId,
+        estimatedMinutes: topics.length ? null : 300,
+        dailyCapMinutes: topics.length ? null : 60,
+        examType: 'final',
+        examDate: '2027-08-01',
+        targetDate: '2027-08-01',
+        startDate: '2026-08-01',
+        timeZone: 'UTC',
+        availability: Array.from({ length: 7 }, (_, weekday) => ({ weekday, minutes: 120 })),
+        topics,
+      };
+      await rebuildStudyPlan(client as never, 'owner-1', '10', input);
+      return calls;
+    };
+
+    // A topic plan re-links its assignment instead of clearing it.
+    const topicEdit = await run([{ title: 'Draft', difficulty: 'light' }], '77');
+    const update = topicEdit.find((call) => call.sql.includes('UPDATE study_plans') && call.sql.includes('target_assignment_id'));
+    expect(update?.sql).not.toContain('target_assignment_id = NULL');
+    expect(update?.sql).toContain('FROM assignments a');
+    expect(update?.params).toContain('77');
+    // Scoped to the plan's own course, so another course's assignment resolves to NULL.
+    expect(update?.params).toContain('2');
+
+    // Collapsing to a single estimate retires the topics that are left over.
+    const collapsed = await run([], null);
+    const deactivated = collapsed.find((call) => call.sql.includes('UPDATE study_topics SET active = FALSE'));
+    const deleted = collapsed.find((call) => call.sql.includes('DELETE FROM study_topics'));
+    expect(deactivated?.params[1]).toEqual(['2']);
+    expect(deleted?.params[1]).toEqual(['3']);
+  });
+
   it('defines a forward compact-storage migration without changing public task semantics', () => {
     const migration = readFileSync(
       `${process.cwd()}/migrations/1783840000_compact_study_tasks.sql`,

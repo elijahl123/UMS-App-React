@@ -194,7 +194,12 @@ function StudyPlanSetupPage() {
     [scheduledAvailability, startDate, targetDate]
   );
   const missingMinutes = Math.max(0, requiredMinutes - availableMinutes);
-  const blocked = (usesTopics && !topics.length)
+  // A plan needs a day it can actually schedule into. Older assignment and
+  // project plans were allowed to start on their due date, so an existing plan
+  // can load in this state and has to say why it will not save.
+  const emptyDateRange = startDate >= targetDate;
+  const blocked = emptyDateRange
+    || (usesTopics && !topics.length)
     || (targetType !== 'exam' && !targetTitle.trim())
     || (missingMinutes > 0 && !partialPlanAcknowledged);
 
@@ -217,8 +222,8 @@ function StudyPlanSetupPage() {
       setError('Add at least one topic.');
       return;
     }
-    if (startDate >= targetDate) {
-      setError('A plan needs at least one day between its start and its target date.');
+    if (emptyDateRange) {
+      setError(`There are no days between the start date and the ${targetDateLabel(targetType).toLowerCase()}. Move one of them so the plan has at least one day to work in.`);
       return;
     }
     if (targetType !== 'exam' && !targetTitle.trim()) {
@@ -609,8 +614,10 @@ function StudyPlanSetupPage() {
                   {usesTopics ? topics.length : targetTitle || 'Untitled'}
                 </span>
               </div>
-              <p className={`text-sm leading-relaxed ${missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                {missingMinutes
+              <p className={`text-sm leading-relaxed ${emptyDateRange || missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+                {emptyDateRange
+                  ? `There are no days between the start date and the ${targetDateLabel(targetType).toLowerCase()}. Move one of them so the plan has at least one day to work in.`
+                  : missingMinutes
                   ? `${formatStudyMinutes(missingMinutes)} cannot be scheduled within the selected capacity.`
                   : !usesTopics
                     ? 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'
@@ -618,7 +625,7 @@ function StudyPlanSetupPage() {
                       ? 'Your topics fit within the available time.'
                       : 'Add your topics to calculate the workload.'}
               </p>
-              {missingMinutes > 0 && (
+              {missingMinutes > 0 && !emptyDateRange && (
                 <label className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] p-3 text-xs text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
                   <input type="checkbox" className="mt-0.5" checked={partialPlanAcknowledged} onChange={(event) => setPartialPlanAcknowledged(event.target.checked)} />
                   <span>Save a partial plan and leave {formatStudyMinutes(missingMinutes)} visibly unscheduled. No work will be silently discarded.</span>

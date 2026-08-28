@@ -628,7 +628,42 @@ async function rebuildEvenWorkStudyPlan(
     const inserted = await insertTopics(client, planId, [{ title: targetTitle, difficulty: 'light', position: 0 }]);
     topic = { rows: inserted.map((item) => ({ id: item.id })) } as typeof topic;
   }
+  // Collapsing a topic plan into one estimate leaves the other topics behind.
+  // Retire them the same way the topic path does: keep any that hold completed
+  // work so its history survives, drop the rest.
+  await retireTopicsExcept(client, planId, topic.rows[0].id);
   await writeEvenWorkTasks(client, planId, topic.rows[0].id, targetTitle, schedule.tasks);
+}
+
+/**
+ * Notes reference topics with ON DELETE SET NULL, so dropping a topic detaches
+ * its note rather than destroying what the student wrote.
+ */
+async function retireTopicsExcept(client: Queryable, planId: string, keptTopicId: string) {
+  const others = await client.query<{ id: string; has_completed: boolean }>(
+    `
+      SELECT t.id::text, EXISTS (
+        SELECT 1 FROM study_tasks task WHERE task.topic_id = t.id AND task.completed_at IS NOT NULL
+      ) AS has_completed
+      FROM study_topics t
+      WHERE t.plan_id = $1::bigint AND t.id <> $2::bigint;
+    `,
+    [planId, keptTopicId]
+  );
+  const withHistory = others.rows.filter((row) => row.has_completed).map((row) => String(row.id));
+  const withoutHistory = others.rows.filter((row) => !row.has_completed).map((row) => String(row.id));
+  if (withHistory.length > 0) {
+    await client.query(
+      'UPDATE study_topics SET active = FALSE WHERE plan_id = $1::bigint AND id = ANY($2::bigint[])',
+      [planId, withHistory]
+    );
+  }
+  if (withoutHistory.length > 0) {
+    await client.query(
+      'DELETE FROM study_topics WHERE plan_id = $1::bigint AND id = ANY($2::bigint[])',
+      [planId, withoutHistory]
+    );
+  }
 }
 
 export async function rebuildStudyPlan(
@@ -658,7 +693,13 @@ export async function rebuildStudyPlan(
     `
       UPDATE study_plans
       SET exam_type = $1, exam_date = $2::date, start_date = $3::date, timezone = $4,
-          target_type = $7, target_assignment_id = NULL,
+          target_type = $7,
+          -- Scalar subquery, so an assignment on another course resolves to NULL
+          -- instead of linking a plan to coursework it does not belong to.
+          target_assignment_id = (
+            SELECT a.id FROM assignments a
+            WHERE a.id = NULLIF($13, '')::bigint AND a.course_id = $14::bigint
+          ),
           target_title = $8,
           target_date = $2::date, target_time = $9::time,
           estimated_minutes = NULL, daily_cap_minutes = NULL,
@@ -674,6 +715,7 @@ export async function rebuildStudyPlan(
       schedulerExplanationFor(topicMode, phasePreset),
       input.targetType ?? 'exam', input.targetTitle, input.targetTime,
       Boolean(input.partialPlanAcknowledged), topicMode, phasePreset,
+      input.targetAssignmentId ?? null, input.courseId,
     ]
   );
   await writeAvailability(client, planId, input.availability);
