@@ -545,7 +545,11 @@ function StudyPlanPage() {
                     </button>
                     <div className="min-w-0 flex-1">
                       <p className={`break-words text-sm font-semibold leading-snug text-[var(--secondary-accent)] ${task.completedAt ? 'line-through opacity-60' : ''}`}>{task.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{studyPhaseLabel(task.phase, plan.phasePreset)} · {formatStudyMinutes(task.estimatedMinutes)}</p>
+                      {/* Even-split tasks store phase 0 as a placeholder, so there is no phase to name. */}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {usesTopics ? `${studyPhaseLabel(task.phase, plan.phasePreset)} · ` : ''}
+                        {formatStudyMinutes(task.estimatedMinutes)}
+                      </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
