@@ -253,6 +253,12 @@ function StudyPlanPage() {
     '--study-course-text': courseColors.text,
   } as CSSProperties;
   const activeTopics = plan.topics.filter((topic) => topic.active);
+  // An even-split plan carries one synthetic topic named after the target, so
+  // counting topics there would be misleading.
+  const usesTopics = plan.schedulerVersion !== 2;
+  const targetKindNoun = plan.targetType === 'exam'
+    ? `${plan.examType === 'midterm' ? 'midterm' : 'final exam'} plan`
+    : plan.targetType === 'general' ? 'plan' : `${plan.targetType} plan`;
   const editPath = `/courses/${courseId}/study-plans/${plan.id}/edit`;
   const canGoEarlier = windowStart > plan.startDate;
   const canGoLater = windowEnd < plan.targetDate;
@@ -273,11 +279,13 @@ function StudyPlanPage() {
                 {completed}/{total}
               </span>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <span className="capitalize">{topic.difficulty}</span>
-              {' · '}
-              {formatStudyMinutes(topicWorkloadMinutes(topic.difficulty, plan.topicMode))}
-            </p>
+            {usesTopics && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="capitalize">{topic.difficulty}</span>
+                {' · '}
+                {formatStudyMinutes(topicWorkloadMinutes(topic.difficulty, plan.topicMode))}
+              </p>
+            )}
           </div>
         );
       })}
@@ -400,7 +408,9 @@ function StudyPlanPage() {
         {[
           { label: 'Complete', value: `${progress.percent}%`, icon: CheckCircle2 },
           { label: 'Tasks', value: `${progress.completed}/${progress.total}`, icon: ListChecks },
-          { label: 'Topics', value: activeTopics.length, icon: BookOpenCheck },
+          usesTopics
+            ? { label: 'Topics', value: activeTopics.length, icon: BookOpenCheck }
+            : { label: 'Work target', value: 1, icon: BookOpenCheck },
           { label: 'Work days left', value: plan.studyDaysLeft, icon: CalendarClock },
         ].map((stat) => {
           const Icon = stat.icon;
@@ -420,8 +430,10 @@ function StudyPlanPage() {
         <details className="group rounded-lg border border-[var(--study-course-border)] bg-card">
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 rounded-lg bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] px-4 py-3 marker:content-none">
             <span>
-              <span className="block text-sm font-bold text-[var(--secondary-accent)]">Topics</span>
-              <span className="block text-xs text-muted-foreground">{activeTopics.length} in this plan</span>
+              <span className="block text-sm font-bold text-[var(--secondary-accent)]">{usesTopics ? 'Topics' : 'Work target'}</span>
+              <span className="block text-xs text-muted-foreground">
+                {usesTopics ? `${activeTopics.length} in this plan` : plan.targetTitle}
+              </span>
             </span>
             <span className="text-xs font-bold text-[var(--study-course-text)] group-open:hidden">Show</span>
             <span className="hidden text-xs font-bold text-[var(--study-course-text)] group-open:inline">Hide</span>
@@ -581,8 +593,10 @@ function StudyPlanPage() {
           <Card className="hidden h-auto overflow-hidden rounded-lg border border-[var(--study-course-border)] lg:block">
             <CardHeader className="flex flex-row items-center justify-between gap-3 bg-[color-mix(in_srgb,var(--study-course-bg)_48%,var(--surface))] p-4">
               <div>
-                <CardTitle className="text-base text-[var(--secondary-accent)]">Topics</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground">{activeTopics.length} in this plan</p>
+                <CardTitle className="text-base text-[var(--secondary-accent)]">{usesTopics ? 'Topics' : 'Work target'}</CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {usesTopics ? `${activeTopics.length} in this plan` : plan.targetTitle}
+                </p>
               </div>
               <Button asChild variant="outline" size="sm" className="h-9 rounded-lg bg-[color-mix(in_srgb,var(--card)_80%,transparent)]">
                 <Link to={editPath}><Pencil className="mr-1 h-3.5 w-3.5" /> Edit</Link>
@@ -612,11 +626,31 @@ function StudyPlanPage() {
       />
       <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
         <DialogContent className="max-w-lg">
-          {plan.topicMode === 'single' ? (
+          {plan.schedulerVersion === 2 ? (
             <>
               <DialogHeader>
                 <DialogTitle>How this plan works</DialogTitle>
-                <DialogDescription>This plan gives each topic one task instead of three passes.</DialogDescription>
+                <DialogDescription>
+                  {`This ${targetKindNoun} is planned as one body of work rather than separate topics.`}
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                You estimated {plan.estimatedMinutes ? formatStudyMinutes(plan.estimatedMinutes) : 'the total work'} and it was
+                divided evenly across the days you picked, up to
+                {plan.dailyCapMinutes ? ` ${formatStudyMinutes(plan.dailyCapMinutes)}` : ' your maximum'} per day. Every task is a
+                sitting on the same work, so tick them off as you go. The notebook icon opens one shared note for the whole plan.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Want it broken down instead? Edit the plan and switch to &ldquo;Break it into topics&rdquo;. Completed time is kept.
+              </p>
+            </>
+          ) : plan.topicMode === 'single' ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>How this plan works</DialogTitle>
+                <DialogDescription>
+                  {`This ${targetKindNoun} gives each topic one task instead of three passes.`}
+                </DialogDescription>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
                 Each topic gets one task. Cover the material, work through examples, and check yourself in one sitting. Use the task's note to record what you covered and anything you want to come back to.
@@ -628,7 +662,9 @@ function StudyPlanPage() {
                 <DialogTitle>
                   How to use {PHASE_GUIDE[plan.phasePreset].map((entry) => entry.title.replace(/^\d+\.\s*/, '')).join(', ')}
                 </DialogTitle>
-                <DialogDescription>Each topic moves through three passes. Here's how to approach each one.</DialogDescription>
+                <DialogDescription>
+                  {`Each topic in this ${targetKindNoun} moves through three passes. Here's how to approach each one.`}
+                </DialogDescription>
               </DialogHeader>
               <ol className="grid gap-3">
                 {PHASE_GUIDE[plan.phasePreset].map((entry) => (

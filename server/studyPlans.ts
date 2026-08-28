@@ -154,7 +154,30 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
   }
   if (!targetTitle || targetTitle.length > 200) throw new ApiError('targetTitle must be between 1 and 200 characters', 400);
 
-  const availabilitySource = source.availability;
+  // Topics are what a plan is normally built from, but an assignment, project,
+  // or general target can instead be a single body of work with a time estimate.
+  // An empty topic list is the signal for that even-split path.
+  const topicSource = Array.isArray(source.topics) ? source.topics : [];
+  if (topicSource.length > 100) throw new ApiError('A plan needs between 1 and 100 topics', 400);
+  if (targetType === 'exam' && topicSource.length < 1) {
+    throw new ApiError('An exam plan needs between 1 and 100 topics', 400);
+  }
+  const usesTopics = topicSource.length > 0;
+
+  const estimatedMinutes = usesTopics ? null : Number(source.estimatedMinutes);
+  const dailyCapMinutes = usesTopics ? null : Number(source.dailyCapMinutes);
+  if (!usesTopics) {
+    if (!Number.isInteger(estimatedMinutes) || (estimatedMinutes as number) < 15 || (estimatedMinutes as number) > 10080 || (estimatedMinutes as number) % 15 !== 0) {
+      throw new ApiError('estimatedMinutes must be a multiple of 15 between 15 and 10080', 400);
+    }
+    if (!Number.isInteger(dailyCapMinutes) || (dailyCapMinutes as number) < 15 || (dailyCapMinutes as number) > 720 || (dailyCapMinutes as number) % 15 !== 0) {
+      throw new ApiError('dailyCapMinutes must be a multiple of 15 between 15 and 720', 400);
+    }
+  }
+
+  const availabilitySource = !usesTopics && Array.isArray(source.availableWeekdays)
+    ? source.availableWeekdays.map((weekday) => ({ weekday, minutes: dailyCapMinutes }))
+    : source.availability;
   if (!Array.isArray(availabilitySource)) throw new ApiError('availability must be an array', 400);
   const availabilityByDay = new Map<number, number>();
   availabilitySource.forEach((entry) => {
@@ -176,10 +199,6 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
     throw new ApiError('At least one day needs available time', 400);
   }
 
-  const topicSource = source.topics;
-  if (!Array.isArray(topicSource) || topicSource.length < 1 || topicSource.length > 100) {
-    throw new ApiError('A plan needs between 1 and 100 topics', 400);
-  }
   const topics = topicSource.map((entry) => {
     const item = entry as Record<string, unknown>;
     const title = String(item.title ?? '').trim().replace(/\s+/g, ' ');
@@ -194,7 +213,7 @@ export function normalizeStudyPlanInput(value: unknown): StudyPlanInput {
 
   return {
     courseId, targetType, targetTitle, targetDate, targetTime, targetAssignmentId,
-    estimatedMinutes: null, dailyCapMinutes: null, partialPlanAcknowledged,
+    estimatedMinutes, dailyCapMinutes, partialPlanAcknowledged,
     examType: examType as 'midterm' | 'final', examDate, startDate, timeZone, availability, topics,
     topicMode, phasePreset,
   };
@@ -400,11 +419,55 @@ function assertPartialPlanAcknowledged(input: StudyPlanInput, schedule: ReturnTy
 }
 
 /**
- * Every plan is scheduled from its topics. `allowPartial` lets a plan save with
- * a visible shortfall instead of failing outright, which the setup page offers
- * behind an explicit acknowledgement.
+ * A plan with no topics is a single body of work: one flat estimate divided
+ * evenly across the chosen weekdays, recorded as scheduler version 2.
+ */
+async function createEvenWorkStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
+  const targetTitle = input.targetTitle ?? 'Plan target';
+  const schedule = evenScheduleForInput(input);
+  assertPartialPlanAcknowledged(input, schedule);
+  const inserted = await client.query<{ id: string }>(
+    `
+      INSERT INTO study_plans (
+        course_id, exam_type, exam_date, start_date, timezone,
+        target_type, target_assignment_id, target_title, target_date, target_time,
+        estimated_minutes, daily_cap_minutes, scheduler_version, scheduler_explanation,
+        unscheduled_minutes, partial_plan_acknowledged
+      )
+      SELECT c.id, 'final', $3::date, $4::date, $5,
+             $2, owned_assignment.id, $6, $3::date, $7::time,
+             $8, $9, $10, $11, $12, $13
+      FROM courses c
+      LEFT JOIN LATERAL (
+        SELECT a.id FROM assignments a
+        WHERE a.id = NULLIF($14, '')::bigint AND a.course_id = c.id
+      ) owned_assignment ON TRUE
+      WHERE c.id = $1::bigint AND c.user_id = $15
+      RETURNING id::text;
+    `,
+    [
+      input.courseId, input.targetType, input.targetDate, input.startDate, input.timeZone,
+      targetTitle, input.targetTime, input.estimatedMinutes, input.dailyCapMinutes,
+      schedule.schedulerVersion, schedule.explanation, schedule.unscheduledMinutes,
+      Boolean(input.partialPlanAcknowledged), input.targetAssignmentId ?? null, userId,
+    ]
+  );
+  const planId = inserted.rows[0]?.id;
+  if (!planId) throw new ApiError('Course not found', 404);
+  await writeAvailability(client, planId, input.availability);
+  const topic = await insertTopics(client, planId, [{ title: targetTitle, difficulty: 'light', position: 0 }]);
+  if (!topic[0]) throw new ApiError('Unable to create the plan target', 500);
+  await writeEvenWorkTasks(client, planId, topic[0].id, targetTitle, schedule.tasks);
+  return planId;
+}
+
+/**
+ * Topic plans are scheduled from their topics. `allowPartial` lets a plan save
+ * with a visible shortfall instead of failing outright, which the setup page
+ * offers behind an explicit acknowledgement.
  */
 export async function createStudyPlan(client: Queryable, userId: string, input: StudyPlanInput): Promise<string> {
+  if (input.topics.length === 0) return createEvenWorkStudyPlan(client, userId, input);
   const topicMode: StudyPlanMode = input.topicMode ?? 'phases';
   const phasePreset: PhasePreset = input.phasePreset ?? 'study';
   const targetType = input.targetType ?? 'exam';
@@ -509,7 +572,7 @@ async function ownedPlan(
   return result.rows[0];
 }
 
-export async function rebuildStudyPlan(
+async function rebuildEvenWorkStudyPlan(
   client: Queryable,
   userId: string,
   planId: string,
@@ -517,10 +580,73 @@ export async function rebuildStudyPlan(
 ) {
   const plan = await ownedPlan(client, userId, planId);
   if (plan.course_id !== input.courseId) throw new ApiError('A plan cannot be moved to another course', 400);
+  const targetTitle = input.targetTitle ?? 'Plan target';
+  const completed = await client.query<{ minutes: number }>(
+    `SELECT COALESCE(SUM(estimated_minutes), 0)::integer AS minutes FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NOT NULL`,
+    [planId]
+  );
+  const remainingMinutes = Math.max(0, (input.estimatedMinutes ?? 0) - Number(completed.rows[0]?.minutes ?? 0));
+  const scheduleStart = [input.startDate, todayInTimeZone(input.timeZone)].sort().at(-1) as string;
+  const schedule = evenScheduleForInput({ ...input, estimatedMinutes: remainingMinutes }, scheduleStart);
+  assertPartialPlanAcknowledged(input, schedule);
+
+  await client.query(
+    `
+      UPDATE study_plans p
+      SET exam_type = 'final', exam_date = $2::date, start_date = $3::date, timezone = $4,
+          target_type = $5, target_assignment_id = owned_assignment.id,
+          target_title = $6, target_date = $2::date, target_time = $7::time,
+          estimated_minutes = $8, daily_cap_minutes = $9,
+          scheduler_version = $10, scheduler_explanation = $11,
+          unscheduled_minutes = $12, partial_plan_acknowledged = $13,
+          updated_at = NOW()
+      FROM courses c
+      LEFT JOIN LATERAL (
+        SELECT a.id FROM assignments a
+        WHERE a.id = NULLIF($14, '')::bigint AND a.course_id = c.id
+      ) owned_assignment ON TRUE
+      WHERE p.id = $1::bigint AND p.course_id = c.id AND c.user_id = $15;
+    `,
+    [
+      planId, input.targetDate, input.startDate, input.timeZone, input.targetType,
+      targetTitle, input.targetTime, input.estimatedMinutes, input.dailyCapMinutes,
+      schedule.schedulerVersion, schedule.explanation, schedule.unscheduledMinutes,
+      Boolean(input.partialPlanAcknowledged), input.targetAssignmentId ?? null, userId,
+    ]
+  );
+  await writeAvailability(client, planId, input.availability);
+  await client.query('DELETE FROM study_tasks WHERE plan_id = $1::bigint AND completed_at IS NULL', [planId]);
+  let topic = await client.query<{ id: string }>(
+    `
+      UPDATE study_topics SET title = $2, difficulty = 'light', active = TRUE
+      WHERE id = (SELECT id FROM study_topics WHERE plan_id = $1::bigint ORDER BY position, id LIMIT 1)
+      RETURNING id::text;
+    `,
+    [planId, targetTitle]
+  );
+  if (!topic.rows[0]) {
+    const inserted = await insertTopics(client, planId, [{ title: targetTitle, difficulty: 'light', position: 0 }]);
+    topic = { rows: inserted.map((item) => ({ id: item.id })) } as typeof topic;
+  }
+  await writeEvenWorkTasks(client, planId, topic.rows[0].id, targetTitle, schedule.tasks);
+}
+
+export async function rebuildStudyPlan(
+  client: Queryable,
+  userId: string,
+  planId: string,
+  input: StudyPlanInput
+) {
+  if (input.topics.length === 0) {
+    await rebuildEvenWorkStudyPlan(client, userId, planId, input);
+    return;
+  }
+  const plan = await ownedPlan(client, userId, planId);
+  if (plan.course_id !== input.courseId) throw new ApiError('A plan cannot be moved to another course', 400);
   const phasePreset = plan.phase_preset ?? 'study';
 
-  // Saving a legacy even-split plan (scheduler_version 2) converts it to the
-  // topic path. The editor warns before this happens.
+  // A plan that previously split a flat estimate evenly (scheduler_version 2)
+  // becomes a topic plan when topics are added. The editor warns first.
   await client.query(
     `
       UPDATE study_plans

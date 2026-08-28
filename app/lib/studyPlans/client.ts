@@ -26,6 +26,9 @@ export type StudyPlanInput = {
   targetDate?: string;
   targetTime?: string | null;
   targetAssignmentId?: string | null;
+  estimatedMinutes?: number | null;
+  dailyCapMinutes?: number | null;
+  availableWeekdays?: number[];
   partialPlanAcknowledged?: boolean;
   examType: ExamType;
   examDate: string;

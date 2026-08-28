@@ -28,6 +28,8 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type TopicDraft = { id?: string; title: string; difficulty: StudyDifficulty };
 
+type PlanStyle = 'topics' | 'estimate';
+
 type TaskStyle = {
   value: string;
   label: string;
@@ -123,6 +125,9 @@ function StudyPlanSetupPage() {
   const [startDate, setStartDate] = useState(today);
   const [targetDate, setTargetDate] = useState(addDays(today, 30));
   const [timeZone, setTimeZone] = useState(browserTimeZone);
+  const [planStyle, setPlanStyle] = useState<PlanStyle>('topics');
+  const [estimatedMinutes, setEstimatedMinutes] = useState(180);
+  const [dailyCapMinutes, setDailyCapMinutes] = useState(60);
   const [topicText, setTopicText] = useState('');
   const [topics, setTopics] = useState<TopicDraft[]>([]);
   const [taskStyle, setTaskStyle] = useState<TaskStyle>(TASK_STYLES[0]);
@@ -140,6 +145,9 @@ function StudyPlanSetupPage() {
     setTargetTitle(existing.targetTitle);
     setTargetTime(existing.targetTime ?? '');
     setPartialPlanAcknowledged(existing.partialPlanAcknowledged);
+    setPlanStyle(existing.schedulerVersion === 2 ? 'estimate' : 'topics');
+    setEstimatedMinutes(existing.estimatedMinutes ?? 180);
+    setDailyCapMinutes(existing.dailyCapMinutes ?? 60);
     setTaskStyle(taskStyleFor(existing.topicMode, existing.phasePreset));
     setStartDate(existing.startDate);
     setTargetDate(existing.targetDate);
@@ -156,22 +164,33 @@ function StudyPlanSetupPage() {
     setHydratedPlanId(existing.id);
   }, [existing, hydratedPlanId]);
 
-  // A legacy plan split a flat minute total evenly and never had real topics.
-  // Saving rebuilds it from the topic list below, so say so before it happens.
-  const convertsFromEvenSplit = Boolean(planId && existing && existing.schedulerVersion === 2);
+  // Exams are always broken into topics. Everything else may instead be a single
+  // body of work with one estimate, which the scheduler splits evenly.
+  const topicsOptional = targetType !== 'exam';
+  const usesTopics = !topicsOptional || planStyle === 'topics';
+  // Switching an existing even-split plan to topics rebuilds it, so warn first.
+  const convertsFromEvenSplit = Boolean(planId && existing && existing.schedulerVersion === 2 && usesTopics);
   const requiredMinutes = useMemo(
-    () => topics.reduce((total, topic) => total + topicWorkloadMinutes(topic.difficulty, taskStyle.topicMode), 0),
-    [taskStyle, topics]
+    () => (usesTopics
+      ? topics.reduce((total, topic) => total + topicWorkloadMinutes(topic.difficulty, taskStyle.topicMode), 0)
+      : estimatedMinutes),
+    [estimatedMinutes, taskStyle, topics, usesTopics]
   );
   const effortSummary = STUDY_DIFFICULTIES
     .map((difficulty) => `${DIFFICULTY_LABELS[difficulty]} ${formatStudyMinutes(topicWorkloadMinutes(difficulty, taskStyle.topicMode))}`)
     .join(', ');
+  const scheduledAvailability = useMemo(
+    () => (usesTopics
+      ? availability
+      : availability.map((entry) => ({ ...entry, minutes: entry.minutes > 0 ? dailyCapMinutes : 0 }))),
+    [availability, dailyCapMinutes, usesTopics]
+  );
   const availableMinutes = useMemo(
-    () => (startDate < targetDate ? availableStudyMinutes(startDate, targetDate, availability) : 0),
-    [availability, startDate, targetDate]
+    () => (startDate < targetDate ? availableStudyMinutes(startDate, targetDate, scheduledAvailability) : 0),
+    [scheduledAvailability, startDate, targetDate]
   );
   const missingMinutes = Math.max(0, requiredMinutes - availableMinutes);
-  const blocked = !topics.length
+  const blocked = (usesTopics && !topics.length)
     || (targetType !== 'exam' && !targetTitle.trim())
     || (missingMinutes > 0 && !partialPlanAcknowledged);
 
@@ -190,7 +209,7 @@ function StudyPlanSetupPage() {
 
   const handleSave = async () => {
     setError(null);
-    if (!topics.length) {
+    if (usesTopics && !topics.length) {
       setError('Add at least one topic.');
       return;
     }
@@ -216,13 +235,16 @@ function StudyPlanSetupPage() {
           targetTitle: targetType === 'exam' ? (examType === 'midterm' ? 'Midterm exam' : 'Final exam') : targetTitle.trim(),
           targetDate,
           targetTime: targetType === 'exam' ? null : (targetTime || null),
+          estimatedMinutes: usesTopics ? null : estimatedMinutes,
+          dailyCapMinutes: usesTopics ? null : dailyCapMinutes,
+          availableWeekdays: availability.filter((entry) => entry.minutes > 0).map((entry) => entry.weekday),
           partialPlanAcknowledged,
           examType,
           examDate: targetDate,
           startDate,
           timeZone,
-          availability,
-          topics,
+          availability: scheduledAvailability,
+          topics: usesTopics ? topics : [],
           topicMode: taskStyle.topicMode,
           phasePreset: taskStyle.phasePreset,
         },
@@ -339,12 +361,76 @@ function StudyPlanSetupPage() {
             <div className="p-4 pb-3 sm:p-5 sm:pb-3">
               <SectionHeading
                 step={2}
-                title="Topics"
-                description="List the modules, chapters, sections, or milestones you need to get through."
+                title={usesTopics ? 'Topics' : 'Workload'}
+                description={usesTopics
+                  ? 'List the modules, chapters, sections, or milestones you need to get through.'
+                  : 'Estimate the work once and it gets divided evenly across the days you pick.'}
                 icon={BookOpenCheck}
               />
             </div>
             <div className="space-y-4 p-4 pt-1 sm:p-5 sm:pt-2">
+              {topicsOptional && (
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-[var(--secondary-accent)]">How to plan it</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {([
+                      { value: 'topics' as const, label: 'Break it into topics', hint: 'Plan each part separately' },
+                      { value: 'estimate' as const, label: 'One time estimate', hint: 'Split evenly across your days' },
+                    ]).map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => { setPlanStyle(option.value); setPartialPlanAcknowledged(false); }}
+                        className={`rounded-lg border p-3 text-left ${planStyle === option.value ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}
+                      >
+                        <span className="block text-sm font-bold text-[var(--secondary-accent)]">{option.label}</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">{option.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!usesTopics && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Estimated total work
+                    <span className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={15}
+                        max={10080}
+                        step={15}
+                        aria-label="Estimated total work in minutes"
+                        className="h-10 bg-card"
+                        value={estimatedMinutes}
+                        onChange={(event) => {
+                          setEstimatedMinutes(Math.max(15, Math.round(Number(event.target.value || 15) / 15) * 15));
+                          setPartialPlanAcknowledged(false);
+                        }}
+                      />
+                      <span className="font-medium text-muted-foreground">minutes</span>
+                    </span>
+                  </label>
+                  <label className="grid gap-1.5 text-xs font-bold text-[var(--secondary-accent)]">Maximum per day
+                    <span className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={15}
+                        max={720}
+                        step={15}
+                        aria-label="Maximum minutes per day"
+                        className="h-10 bg-card"
+                        value={dailyCapMinutes}
+                        onChange={(event) => {
+                          setDailyCapMinutes(Math.max(15, Math.min(720, Math.round(Number(event.target.value || 15) / 15) * 15)));
+                          setPartialPlanAcknowledged(false);
+                        }}
+                      />
+                      <span className="font-medium text-muted-foreground">minutes</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+              {usesTopics && (<>
               <div className="space-y-2">
                 <Label className="text-xs font-bold text-[var(--secondary-accent)]">Task style</Label>
                 <div className="grid gap-2 sm:grid-cols-3">
@@ -428,6 +514,7 @@ function StudyPlanSetupPage() {
                   ))}
                 </div>
               )}
+              </>)}
             </div>
           </section>
 
@@ -436,7 +523,9 @@ function StudyPlanSetupPage() {
               <SectionHeading
                 step={3}
                 title="Weekly time budget"
-                description="Set how many minutes you can give each day. Use zero for days off."
+                description={usesTopics
+                  ? 'Set how many minutes you can give each day. Use zero for days off.'
+                  : 'Pick the days you can work. Each one takes up to your daily maximum.'}
                 icon={Clock3}
               />
             </div>
@@ -445,21 +534,39 @@ function StudyPlanSetupPage() {
                 {availability.map((entry) => (
                   <div key={entry.weekday} className={`rounded-lg border p-3 ${entry.minutes > 0 ? 'border-[var(--study-course-border)] bg-[color-mix(in_srgb,var(--study-course-bg)_30%,var(--surface))]' : 'border-[var(--border-light)] bg-card'}`}>
                     <Label className="text-xs font-bold text-[var(--study-course-text)]" htmlFor={`availability-${entry.weekday}`}>{DAYS[entry.weekday]}</Label>
-                    <Input
-                      className="mt-2 h-10 rounded-lg bg-card text-center font-bold"
-                      id={`availability-${entry.weekday}`}
-                      type="number"
-                      min={0}
-                      max={720}
-                      step={15}
-                      value={entry.minutes}
-                      onChange={(e) => {
-                        const minutes = Math.max(0, Math.min(720, Math.round(Number(e.target.value || 0) / 15) * 15));
-                        setAvailability((current) => current.map((item) => item.weekday === entry.weekday ? { ...item, minutes } : item));
-                        setPartialPlanAcknowledged(false);
-                      }}
-                    />
-                    <p className="mt-1.5 text-center text-[0.68rem] font-medium text-muted-foreground">minutes</p>
+                    {usesTopics ? (<>
+                      <Input
+                        className="mt-2 h-10 rounded-lg bg-card text-center font-bold"
+                        id={`availability-${entry.weekday}`}
+                        type="number"
+                        min={0}
+                        max={720}
+                        step={15}
+                        value={entry.minutes}
+                        onChange={(e) => {
+                          const minutes = Math.max(0, Math.min(720, Math.round(Number(e.target.value || 0) / 15) * 15));
+                          setAvailability((current) => current.map((item) => item.weekday === entry.weekday ? { ...item, minutes } : item));
+                          setPartialPlanAcknowledged(false);
+                        }}
+                      />
+                      <p className="mt-1.5 text-center text-[0.68rem] font-medium text-muted-foreground">minutes</p>
+                    </>) : (
+                      <label className="mt-2 flex flex-col items-center gap-1.5 text-[0.68rem] font-medium text-muted-foreground">
+                        <input
+                          className="h-5 w-5"
+                          id={`availability-${entry.weekday}`}
+                          type="checkbox"
+                          checked={entry.minutes > 0}
+                          onChange={(event) => {
+                            setAvailability((current) => current.map((item) => item.weekday === entry.weekday
+                              ? { ...item, minutes: event.target.checked ? dailyCapMinutes : 0 }
+                              : item));
+                            setPartialPlanAcknowledged(false);
+                          }}
+                        />
+                        Available
+                      </label>
+                    )}
                   </div>
                 ))}
               </div>
@@ -493,15 +600,19 @@ function StudyPlanSetupPage() {
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[var(--border-light)] bg-card px-3 py-2.5 text-sm">
-                <span className="text-muted-foreground">Topics</span>
-                <span className="max-w-40 truncate font-bold text-[var(--secondary-accent)]">{topics.length}</span>
+                <span className="text-muted-foreground">{usesTopics ? 'Topics' : 'Target'}</span>
+                <span className="max-w-40 truncate font-bold text-[var(--secondary-accent)]">
+                  {usesTopics ? topics.length : targetTitle || 'Untitled'}
+                </span>
               </div>
               <p className={`text-sm leading-relaxed ${missingMinutes ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
                 {missingMinutes
                   ? `${formatStudyMinutes(missingMinutes)} cannot be scheduled within the selected capacity.`
-                  : topics.length
-                    ? 'Your topics fit within the available time.'
-                    : 'Add your topics to calculate the workload.'}
+                  : !usesTopics
+                    ? 'The work fits evenly across the selected days. Any 15-minute rounding remainder goes to earlier days.'
+                    : topics.length
+                      ? 'Your topics fit within the available time.'
+                      : 'Add your topics to calculate the workload.'}
               </p>
               {missingMinutes > 0 && (
                 <label className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] p-3 text-xs text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">

@@ -382,6 +382,79 @@ describe('study plan scheduling', () => {
     );
   });
 
+  it('keeps topics optional for assignment, project, and general targets', () => {
+    const estimateOnly = {
+      courseId: '1',
+      targetType: 'assignment' as const,
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      examType: 'final' as const,
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'America/Los_Angeles',
+      estimatedMinutes: 300,
+      dailyCapMinutes: 60,
+      availableWeekdays: [1, 3, 5],
+    };
+
+    for (const targetType of ['assignment', 'project', 'general'] as const) {
+      const normalized = normalizeStudyPlanInput({ ...estimateOnly, targetType });
+      expect(normalized.topics).toEqual([]);
+      expect(normalized.estimatedMinutes).toBe(300);
+      expect(normalized.dailyCapMinutes).toBe(60);
+      // availableWeekdays becomes the per-day budget for the even split.
+      expect(normalized.availability).toEqual([
+        { weekday: 1, minutes: 60 },
+        { weekday: 3, minutes: 60 },
+        { weekday: 5, minutes: 60 },
+      ]);
+    }
+  });
+
+  it('requires an estimate when a plan has no topics, and topics for an exam', () => {
+    const base = {
+      courseId: '1',
+      targetTitle: 'Research essay',
+      targetDate: '2026-08-20',
+      examType: 'final' as const,
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      availability: [{ weekday: 1, minutes: 60 }],
+    };
+
+    expect(() => normalizeStudyPlanInput({ ...base, targetType: 'assignment' })).toThrow(
+      /estimatedMinutes must be a multiple of 15/i
+    );
+    expect(() => normalizeStudyPlanInput({
+      ...base, targetType: 'assignment', estimatedMinutes: 300,
+    })).toThrow(/dailyCapMinutes must be a multiple of 15/i);
+    expect(() => normalizeStudyPlanInput({ ...base, targetType: 'exam' })).toThrow(
+      /exam plan needs between 1 and 100 topics/i
+    );
+  });
+
+  it('ignores the estimate once a plan has topics', () => {
+    const normalized = normalizeStudyPlanInput({
+      courseId: '1',
+      targetType: 'project',
+      targetTitle: 'Group project',
+      targetDate: '2026-08-20',
+      examType: 'final',
+      examDate: '2026-08-20',
+      startDate: '2026-07-25',
+      timeZone: 'UTC',
+      estimatedMinutes: 300,
+      dailyCapMinutes: 60,
+      availability: [{ weekday: 1, minutes: 90 }],
+      topics: [{ title: 'Literature review', difficulty: 'medium' }],
+    });
+
+    expect(normalized.estimatedMinutes).toBeNull();
+    expect(normalized.dailyCapMinutes).toBeNull();
+    expect(normalized.availability).toEqual([{ weekday: 1, minutes: 90 }]);
+  });
+
   it('defaults topics without a difficulty to light', () => {
     const normalized = normalizeStudyPlanInput({
       courseId: '1',
