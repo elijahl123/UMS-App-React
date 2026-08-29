@@ -47,6 +47,23 @@ export function isTempId(value: unknown): value is string {
   return typeof value === 'string' && value.startsWith(TEMP_ID_PREFIX);
 }
 
+/**
+ * A v4 UUID identifying one logical write, reused across every retry of it so
+ * the server can recognise a replay. Returns null when the platform offers no
+ * usable randomness, in which case the request simply goes without a key.
+ */
+export function createMutationId(): string | null {
+  if (typeof crypto === 'undefined') return null;
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  if (typeof crypto.getRandomValues !== 'function') return null;
+
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function createTempId(): string {
   const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()

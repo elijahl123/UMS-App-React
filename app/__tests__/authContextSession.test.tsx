@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { mockUser } from '@/app/test/fixtures';
 import { AUTH_SESSION_STORAGE_KEY, type StoredAuthSession } from '@/app/lib/auth/sessionPersistence';
 
@@ -49,10 +50,25 @@ vi.mock('@/app/lib/email/client', () => ({
 }));
 
 import { AuthProvider, useAuth } from '@/app/lib/auth/AuthContext';
+import { setOfflineRuntime } from '@/app/lib/offline/runtime';
 
 function AuthProbe() {
   const { isLoading, user } = useAuth();
   return <div>{isLoading ? 'loading' : user?.email ?? 'signed-out'}</div>;
+}
+
+function LogoutProbe() {
+  const { isLoading, user, logout } = useAuth();
+  return (
+    <div>
+      <span>{isLoading ? 'loading' : user?.email ?? 'signed-out'}</span>
+      <button type="button" onClick={() => logout()}>Log Out</button>
+    </div>
+  );
+}
+
+function signedInSession(): StoredAuthSession {
+  return { ...expiredSession(), expiresAt: Date.now() + 60 * 60 * 1000, refreshToken: null };
 }
 
 function expiredSession(): StoredAuthSession {
@@ -120,5 +136,59 @@ describe('AuthProvider remembered sessions', () => {
 
     expect(await screen.findByText(mockUser.email)).toBeInTheDocument();
     expect(localStorage.getItem(AUTH_SESSION_STORAGE_KEY)).not.toBeNull();
+  });
+});
+
+describe('logging out with unsynced offline changes', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    authMocks.refreshToken.mockReset();
+    authMocks.lookupUser.mockReset();
+    authMocks.lookupUser.mockRejectedValue(new TypeError('Failed to fetch'));
+    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(signedInSession()));
+  });
+
+  afterEach(() => {
+    setOfflineRuntime({ enabled: false, userId: null, pendingCount: 0 });
+  });
+
+  async function renderSignedIn() {
+    render(<AuthProvider><LogoutProbe /></AuthProvider>);
+    expect(await screen.findByText(mockUser.email)).toBeInTheDocument();
+  }
+
+  it('keeps the session when the warning is declined', async () => {
+    setOfflineRuntime({ enabled: true, userId: mockUser.id, pendingCount: 2 });
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    await renderSignedIn();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Log Out' }));
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('2 changes you made offline'));
+    expect(screen.getByText(mockUser.email)).toBeInTheDocument();
+    expect(localStorage.getItem(AUTH_SESSION_STORAGE_KEY)).not.toBeNull();
+  });
+
+  it('logs out once the warning is accepted', async () => {
+    setOfflineRuntime({ enabled: true, userId: mockUser.id, pendingCount: 1 });
+    vi.mocked(window.confirm).mockReturnValueOnce(true);
+    await renderSignedIn();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Log Out' }));
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('1 change you made offline'));
+    expect(await screen.findByText('signed-out')).toBeInTheDocument();
+    expect(localStorage.getItem(AUTH_SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it('does not ask when nothing is waiting to sync', async () => {
+    setOfflineRuntime({ enabled: true, userId: mockUser.id, pendingCount: 0 });
+    await renderSignedIn();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Log Out' }));
+
+    expect(window.confirm).not.toHaveBeenCalled();
+    expect(await screen.findByText('signed-out')).toBeInTheDocument();
   });
 });

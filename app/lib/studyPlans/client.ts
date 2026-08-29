@@ -188,20 +188,88 @@ export async function getStudyPlanDefinition(planId: string, userId?: string): P
   });
 }
 
+function studyTasksKey(planId: string): string {
+  return `study-plans:tasks:${planId}`;
+}
+
+function inWindow(task: StudyTask, from: string, to: string): boolean {
+  return task.scheduledDate >= from && task.scheduledDate < to;
+}
+
+/**
+ * The visible task window moves with the calendar, so caching per window would
+ * miss the moment the day rolls over. Instead every fetched window is merged
+ * into one cached set per plan and filtered on read.
+ */
 export async function getStudyPlanTasks(
   planId: string,
   from: string,
   to: string,
   userId?: string
 ): Promise<{ from: string; to: string; tasks: StudyTask[] }> {
-  return cachedStudyRead(`study-plans:tasks:${planId}:${from}:${to}`, async () => {
+  const load = async () => {
     const payload = await studyPlanRequest<{
       from: string;
       to: string;
       tasks: Array<Record<string, unknown>>;
     }>(`/${planId}/tasks${requestQuery({ from, to, userId })}`);
     return { from: payload.from, to: payload.to, tasks: payload.tasks.map(mapTask) };
-  });
+  };
+
+  const offline = getOfflineAdapter();
+  if (!offline) return load();
+
+  const key = studyTasksKey(planId);
+  const readCached = async () => {
+    const cached = await offline.readResource<StudyTask[]>(key);
+    return cached ? { from, to, tasks: cached.filter((task) => inWindow(task, from, to)) } : null;
+  };
+
+  if (isBrowserOffline()) {
+    const cached = await readCached();
+    if (cached) return cached;
+  }
+
+  try {
+    const payload = await load();
+    const cached = (await offline.readResource<StudyTask[]>(key)) ?? [];
+    const outsideWindow = cached.filter((task) => !inWindow(task, payload.from, payload.to));
+    void offline.writeResource(key, [...outsideWindow, ...payload.tasks]);
+    return payload;
+  } catch (err) {
+    const cached = await readCached();
+    if (cached) return cached;
+    throw err;
+  }
+}
+
+/** Keeps the checkbox and the plan's progress count honest until the toggle syncs. */
+async function patchCachedStudyTask(planId: string, taskId: string, completedAt: string | null): Promise<void> {
+  const offline = getOfflineAdapter();
+  if (!offline) return;
+
+  const key = studyTasksKey(planId);
+  const cached = await offline.readResource<StudyTask[]>(key);
+  const previous = cached?.find((task) => task.id === taskId);
+  if (cached) {
+    await offline.writeResource(
+      key,
+      cached.map((task) => (task.id === taskId ? { ...task, completedAt } : task))
+    );
+  }
+
+  const wasCompleted = Boolean(previous?.completedAt);
+  const delta = Number(Boolean(completedAt)) - Number(wasCompleted);
+  if (!previous || delta === 0) return;
+
+  const definitionKey = `study-plans:definition:${planId}`;
+  const definition = await offline.readResource<StudyPlanDefinition>(definitionKey);
+  if (definition) {
+    await offline.writeResource(definitionKey, {
+      ...definition,
+      completedTasks: Math.max(0, definition.completedTasks + delta),
+    });
+  }
 }
 
 export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashboardData> {
@@ -339,13 +407,40 @@ export async function setStudyTaskCompleted(
   completed: boolean,
   userId?: string
 ): Promise<{ id: string; completedAt: string | null }> {
-  requireConnection();
-  const result = await studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
+  const offline = getOfflineAdapter();
+  const queueLocally = async () => {
+    const completedAt = completed ? new Date().toISOString() : null;
+    await patchCachedStudyTask(planId, taskId, completedAt);
+    await offline!.enqueueStudyTaskCompletion(planId, taskId, completed, userId);
+    return { id: taskId, completedAt };
+  };
+
+  if (offline && isBrowserOffline()) return queueLocally();
+  if (!offline) requireConnection();
+
+  try {
+    const result = await setStudyTaskCompletedOverNetwork(planId, taskId, completed, userId);
+    if (completed) void trackProductEvent('study_task_completed');
+    void patchCachedStudyTask(planId, taskId, result.completedAt);
+    return result;
+  } catch (err) {
+    // A rejection the server never saw: queue it instead of losing the tick.
+    if (offline && err instanceof Error) return queueLocally();
+    throw err;
+  }
+}
+
+/** Used by the sync engine to replay a queued toggle without re-entering the queue. */
+export function setStudyTaskCompletedOverNetwork(
+  planId: string,
+  taskId: string,
+  completed: boolean,
+  userId?: string
+): Promise<{ id: string; completedAt: string | null }> {
+  return studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
     method: 'PATCH',
     body: JSON.stringify({ completed, userId }),
   });
-  if (completed) void trackProductEvent('study_task_completed');
-  return result;
 }
 
 export function updateStudyTask(

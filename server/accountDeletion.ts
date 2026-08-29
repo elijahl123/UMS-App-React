@@ -50,6 +50,7 @@ async function deleteRows(client: PoolClient, userId: string, emails: string[], 
     );
   }
 
+  await client.query('DELETE FROM mutation_receipts WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM course_links WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM note_images WHERE user_id = $1;', [userId]);
   await client.query('DELETE FROM notes WHERE user_id = $1;', [userId]);

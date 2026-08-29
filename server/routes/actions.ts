@@ -11,6 +11,7 @@ import {
 import { syncNotificationInstancesForUser } from '../notifications';
 import { assertContentReadAccess, assertFullWriteAccess } from '../access';
 import { runNoteAction } from '../notes';
+import { claimMutation, completeMutation, readClientMutationId, releaseMutation } from '../mutationReceipts';
 
 export const actionsRouter = Router();
 
@@ -27,6 +28,12 @@ const notificationMutationActions = new Set([
 ]);
 
 actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Response) => {
+  // Offline clients keep a queued write until its response arrives, so a lost
+  // response makes them send it again. The receipt lets a retry return the
+  // original result instead of writing a second row.
+  const clientMutationId = req.params.name.startsWith('load') ? null : readClientMutationId(req.body);
+  let claimed = false;
+
   try {
     if (req.auth?.uid) {
       if (req.params.name.startsWith('load')) {
@@ -35,9 +42,16 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
         await assertFullWriteAccess(req.auth.uid);
       }
     }
+
+    if (req.auth?.uid && clientMutationId) {
+      const { replayOf } = await claimMutation(req.auth.uid, clientMutationId, req.params.name);
+      if (replayOf) return res.json(replayOf);
+      claimed = true;
+    }
     const params = req.auth ? { ...(req.body ?? {}), userId: req.auth.uid } : (req.body ?? {});
     const noteResult = await runNoteAction(req.params.name, params);
     if (noteResult) {
+      if (req.auth?.uid && clientMutationId) await completeMutation(req.auth.uid, clientMutationId, noteResult);
       return res.json(noteResult);
     }
     if (req.auth?.uid && req.params.name === 'loadEvents') {
@@ -58,7 +72,7 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
       && recurrenceOriginalStart
       && (req.params.name === 'updateEvent' || req.params.name === 'deleteEvent')
     ) {
-      return res.json(
+      const recurringResult = (
         await mutateRecurringGoogleOccurrence(
           req.auth.uid,
           req.params.name === 'deleteEvent' ? 'delete' : 'update',
@@ -76,7 +90,9 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
             academicKind: req.body?.academicKind === 'class' ? 'class' : null,
           }
         )
-      );
+      ) as unknown[];
+      if (clientMutationId) await completeMutation(req.auth.uid, clientMutationId, recurringResult);
+      return res.json(recurringResult);
     }
     const beforeDelete =
       req.auth?.uid && req.params.name === 'deleteEvent' && req.body?.id
@@ -84,6 +100,9 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
         : null;
     const query = getActionQuery(req.params.name, params);
     if (!query) {
+      if (claimed && req.auth?.uid && clientMutationId) {
+        await releaseMutation(req.auth.uid, clientMutationId).catch(() => undefined);
+      }
       return res.status(404).json({ error: { message: 'UNKNOWN_ACTION' } });
     }
 
@@ -117,8 +136,14 @@ actionsRouter.post('/:name', async (req: Request<{ name: string }>, res: Respons
     if (req.auth?.uid && notificationMutationActions.has(req.params.name)) {
       await syncNotificationInstancesForUser(req.auth.uid);
     }
+    if (req.auth?.uid && clientMutationId) await completeMutation(req.auth.uid, clientMutationId, result.rows);
     return res.json(result.rows);
   } catch (err) {
+    // Free the claim so the client's next attempt is not answered with an
+    // empty receipt for a write that never happened.
+    if (claimed && req.auth?.uid && clientMutationId) {
+      await releaseMutation(req.auth.uid, clientMutationId).catch(() => undefined);
+    }
     const message = err instanceof Error ? err.message : 'SERVER_ERROR';
     const status = err instanceof ApiError ? err.status : 500;
     return res.status(status).json({ error: { message } });

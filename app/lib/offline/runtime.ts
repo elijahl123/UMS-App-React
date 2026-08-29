@@ -8,7 +8,12 @@
 export interface OfflineAdapter {
   readActionRows(name: string, params?: Record<string, unknown>): Promise<unknown[] | null>;
   writeActionRows(name: string, params: Record<string, unknown> | undefined, rows: unknown): Promise<void>;
-  enqueueMutation(name: string, params?: Record<string, unknown>): Promise<unknown[]>;
+  enqueueMutation(
+    name: string,
+    params?: Record<string, unknown>,
+    clientMutationId?: string | null
+  ): Promise<unknown[]>;
+  enqueueStudyTaskCompletion(planId: string, taskId: string, completed: boolean, userId?: string): Promise<void>;
   readResource<T>(key: string): Promise<T | null>;
   writeResource(key: string, payload: unknown): Promise<void>;
 }
@@ -17,14 +22,24 @@ interface OfflineRuntimeState {
   enabled: boolean;
   userId: string | null;
   adapter: OfflineAdapter | null;
+  pendingCount: number;
 }
 
-const state: OfflineRuntimeState = { enabled: false, userId: null, adapter: null };
+const state: OfflineRuntimeState = { enabled: false, userId: null, adapter: null, pendingCount: 0 };
 
 export function setOfflineRuntime(next: Partial<OfflineRuntimeState>) {
   if (next.enabled !== undefined) state.enabled = next.enabled;
   if (next.userId !== undefined) state.userId = next.userId;
   if (next.adapter !== undefined) state.adapter = next.adapter;
+  if (next.pendingCount !== undefined) state.pendingCount = next.pendingCount;
+}
+
+/**
+ * Edits waiting to reach the server, readable without touching IndexedDB so
+ * synchronous callers (logout) can check before throwing the queue away.
+ */
+export function getPendingOfflineCount(): number {
+  return state.enabled ? state.pendingCount : 0;
 }
 
 export function getOfflineUserId(): string | null {

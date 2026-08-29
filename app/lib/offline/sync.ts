@@ -15,6 +15,7 @@ import {
   type QueuedMutation,
 } from '@/app/lib/offline/db';
 import { entityByAction, isTempId, type OfflineEntity } from '@/app/lib/offline/rows';
+import { setStudyTaskCompletedOverNetwork } from '@/app/lib/studyPlans/client';
 import {
   getOfflineUserId,
   isBrowserOffline,
@@ -45,6 +46,9 @@ const entityLabels: Record<OfflineEntity, string> = {
 };
 
 function describeFailure(name: string, reason: string): string {
+  if (name === 'setStudyTaskCompleted') {
+    return `Could not save a study task you checked off offline. ${reason}`;
+  }
   const entity = entityByAction[name];
   const label = entity ? entityLabels[entity] : 'item';
   const verb = name.startsWith('create') ? 'add' : name.startsWith('update') ? 'save changes to' : 'delete';
@@ -122,7 +126,25 @@ async function resolveParams(
   return { params: resolved, unresolved };
 }
 
+async function replayStudyTask(userId: string, record: QueuedMutation): Promise<'done' | 'issue' | 'retry'> {
+  try {
+    await setStudyTaskCompletedOverNetwork(
+      String(record.params.planId),
+      String(record.params.taskId),
+      Boolean(record.params.completed),
+      typeof record.params.userId === 'string' ? record.params.userId : undefined
+    );
+    return 'done';
+  } catch (err) {
+    if (isTransportFailure(err)) return 'retry';
+    await recordIssue(userId, describeFailure(record.name, serverMessage(err)));
+    return 'issue';
+  }
+}
+
 async function replayOne(userId: string, record: QueuedMutation): Promise<'done' | 'issue' | 'retry'> {
+  if (record.kind === 'studyTask') return replayStudyTask(userId, record);
+
   const { params, unresolved } = await resolveParams(userId, record.params);
   if (unresolved) {
     await recordIssue(
@@ -134,7 +156,10 @@ async function replayOne(userId: string, record: QueuedMutation): Promise<'done'
 
   let rows: unknown;
   try {
-    rows = await callActionOverNetwork(record.name, params);
+    rows = await callActionOverNetwork(
+      record.name,
+      record.clientMutationId ? { ...params, clientMutationId: record.clientMutationId } : params
+    );
   } catch (err) {
     if (isTransportFailure(err)) return 'retry';
     await recordIssue(userId, describeFailure(record.name, serverMessage(err)));
@@ -203,8 +228,10 @@ async function runSync(): Promise<SyncOutcome> {
   const remaining = await countMutations(userId);
 
   if (!stopped && remaining === 0) {
-    // Drop the locally patched rows so the next load re-reads the server's truth.
-    await clearActionCache(userId);
+    // Only the rows patched by a replayed edit are stale. Clearing after a sync
+    // that replayed nothing would throw away the offline copy for every page
+    // that is not currently mounted to refetch it.
+    if (replayed.size > 0) await clearActionCache(userId);
     await writeRecord(META_STORE, lastSyncedKey(userId), new Date().toISOString());
   }
 
