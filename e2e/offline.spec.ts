@@ -248,3 +248,25 @@ test('does not duplicate a queued change when its response is lost', async ({ pa
   expect(writes).toBe(1);
   expect(serverCourses.filter((course) => course.name === 'Only Once')).toHaveLength(1);
 });
+
+test('boots from the offline copy when the network accepts but never answers', async ({ page }) => {
+  await enableOfflineAccess(page);
+  await page.goto('/#/courses');
+  await expect(page.getByText('Software Engineering Project')).toBeVisible();
+
+  // The nastier case than being offline: sockets connect and nothing comes
+  // back, so navigator.onLine stays true and every request runs to its timeout.
+  // Path predicates, not globs: '**/api/**' would also match the app's own
+  // module URLs, such as /app/lib/api/client.ts.
+  const hang = () => new Promise<void>(() => {});
+  await page.route((url) => url.pathname.startsWith('/api/'), hang);
+  await page.route((url) => url.hostname.endsWith('googleapis.com'), hang);
+
+  const startedAt = Date.now();
+  await page.reload({ waitUntil: 'commit' });
+
+  // Boot must not wait on any of it. Generous next to the request timeouts this
+  // used to serialise, and far under the ~38s it took before.
+  await expect(page.getByText('Software Engineering Project')).toBeVisible({ timeout: 10_000 });
+  expect(Date.now() - startedAt).toBeLessThan(10_000);
+});

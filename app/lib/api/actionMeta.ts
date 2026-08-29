@@ -4,6 +4,9 @@
 
 export const MUTATION_EVENT = 'ums-api-action-mutated';
 
+/** Fired when a background revalidation found newer data than the cache held. */
+export const REVALIDATED_EVENT = 'ums-offline-revalidated';
+
 export const invalidatesByMutation: Record<string, string[]> = {
   createCourse: ['loadCourses'],
   updateCourse: ['loadCourses'],

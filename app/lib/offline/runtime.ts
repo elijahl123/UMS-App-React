@@ -60,6 +60,30 @@ export function isBrowserOffline(): boolean {
   return typeof navigator !== 'undefined' && navigator.onLine === false;
 }
 
+// `navigator.onLine` says nothing about whether the API can actually be reached.
+// A captive portal or a dead mobile connection accepts the socket and never
+// answers, so every request waits out its full timeout. One such failure marks
+// the API unreachable for a short window and the rest skip straight to cache.
+const UNREACHABLE_WINDOW_MS = 15_000;
+let apiUnreachableUntil = 0;
+
+export function markApiUnreachable() {
+  apiUnreachableUntil = Date.now() + UNREACHABLE_WINDOW_MS;
+}
+
+export function markApiReachable() {
+  apiUnreachableUntil = 0;
+}
+
+export function isApiUnreachable(): boolean {
+  return Date.now() < apiUnreachableUntil;
+}
+
+/** Offline in the sense that matters: asking the network is not worth the wait. */
+export function shouldSkipNetwork(): boolean {
+  return isBrowserOffline() || isApiUnreachable();
+}
+
 export const OFFLINE_QUEUE_EVENT = 'ums-offline-queue-changed';
 
 export function notifyOfflineQueueChanged() {

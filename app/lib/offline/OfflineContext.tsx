@@ -15,7 +15,9 @@ import { prefetchOfflineData } from '@/app/lib/offline/prefetch';
 import {
   OFFLINE_QUEUE_EVENT,
   isBrowserOffline,
+  markApiReachable,
   setOfflineRuntime,
+  shouldSkipNetwork,
 } from '@/app/lib/offline/runtime';
 import {
   dismissSyncIssue,
@@ -109,7 +111,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   // queue drains, which is only halfway: reporting "synced" while the copy is
   // still downloading would tell the user it is safe to disconnect too early.
   const refreshOfflineCopy = useCallback(async () => {
-    if (!userId || !enabled || isBrowserOffline()) return;
+    if (!userId || !enabled || shouldSkipNetwork()) return;
     setPrefetching(true);
     try {
       await pushQueue();
@@ -153,12 +155,26 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!enabled || !userId) return;
-    void refreshOfflineCopy();
+    // Hold the refresh back until the app has painted. It fires a dozen or so
+    // requests, and during boot those compete with the ones the visible page is
+    // waiting on for the browser's per-origin connection budget.
+    const start = () => void refreshOfflineCopy();
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback(start, { timeout: 3000 })
+      : window.setTimeout(start, 1000);
+    return () => {
+      if (typeof window.cancelIdleCallback === 'function' && typeof idle === 'number') {
+        window.cancelIdleCallback(idle);
+      }
+      window.clearTimeout(idle as number);
+    };
   }, [enabled, userId, refreshOfflineCopy]);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      // A fresh connection deserves a fresh attempt, whatever the last one did.
+      markApiReachable();
       void refreshOfflineCopy();
     };
     const handleOffline = () => setIsOnline(false);
