@@ -23,6 +23,16 @@ function SubscriptionRoute() {
       }
 
       setLoading(true);
+
+      // Show the app from the last known answer straight away. This check gates
+      // every authenticated screen, so waiting for it on an unresponsive
+      // connection means a blank app for the length of the request timeout.
+      const known = await readCachedBillingStatus(user.id);
+      if (known && !cancelled) {
+        setStatus(known);
+        setLoading(false);
+      }
+
       try {
         const startedAt = performance.now();
         const nextStatus = await getBillingStatus(user.id);

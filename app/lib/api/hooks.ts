@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { callAction } from '@/app/lib/api/client';
-import { MUTATION_EVENT, invalidatesByMutation, notificationMutationActions } from '@/app/lib/api/actionMeta';
+import {
+  MUTATION_EVENT,
+  REVALIDATED_EVENT,
+  invalidatesByMutation,
+  notificationMutationActions,
+} from '@/app/lib/api/actionMeta';
 import { trackProductEvent } from '@/app/lib/launch/client';
 
 export function useLoadAction<T = unknown[]>(
@@ -47,8 +52,16 @@ export function useLoadAction<T = unknown[]>(
       }
     };
 
+    const handleRevalidated = (event: Event) => {
+      if ((event as CustomEvent<{ name?: string }>).detail?.name === name) void reload();
+    };
+
     window.addEventListener(MUTATION_EVENT, handleMutation);
-    return () => window.removeEventListener(MUTATION_EVENT, handleMutation);
+    window.addEventListener(REVALIDATED_EVENT, handleRevalidated);
+    return () => {
+      window.removeEventListener(MUTATION_EVENT, handleMutation);
+      window.removeEventListener(REVALIDATED_EVENT, handleRevalidated);
+    };
   }, [name, reload]);
 
   return [data, loading, error, reload];

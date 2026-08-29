@@ -1,6 +1,12 @@
 import { Capacitor } from '@capacitor/core';
-import { isLoadAction, isQueueableAction } from '@/app/lib/api/actionMeta';
-import { getOfflineAdapter, isBrowserOffline } from '@/app/lib/offline/runtime';
+import { REVALIDATED_EVENT, isLoadAction, isQueueableAction } from '@/app/lib/api/actionMeta';
+import {
+  getOfflineAdapter,
+  markApiReachable,
+  markApiUnreachable,
+  shouldSkipNetwork,
+  type OfflineAdapter,
+} from '@/app/lib/offline/runtime';
 import { createMutationId } from '@/app/lib/offline/rows';
 
 let authToken: string | null = null;
@@ -101,6 +107,38 @@ function isTransportFailure(err: unknown): boolean {
   return err instanceof Error;
 }
 
+const revalidating = new Set<string>();
+
+/**
+ * Refreshes a cached load without anyone waiting on it. The screen is only
+ * disturbed when the answer actually changed, which also stops the reload it
+ * triggers from revalidating forever.
+ */
+function revalidateInBackground(
+  offline: OfflineAdapter,
+  name: string,
+  params: Record<string, unknown> | undefined,
+  cached: unknown[]
+) {
+  if (shouldSkipNetwork()) return;
+  const key = `${name}|${JSON.stringify(params ?? {})}`;
+  if (revalidating.has(key)) return;
+  revalidating.add(key);
+
+  void callActionOverNetwork<unknown[]>(name, params)
+    .then(async (rows) => {
+      markApiReachable();
+      await offline.writeActionRows(name, params, rows);
+      if (typeof window !== 'undefined' && JSON.stringify(rows) !== JSON.stringify(cached)) {
+        window.dispatchEvent(new CustomEvent(REVALIDATED_EVENT, { detail: { name } }));
+      }
+    })
+    .catch((err) => {
+      if (isTransportFailure(err)) markApiUnreachable();
+    })
+    .finally(() => revalidating.delete(key));
+}
+
 export async function callAction<TResult = unknown>(name: string, params?: Record<string, unknown>): Promise<TResult> {
   const offline = getOfflineAdapter();
   if (!offline) {
@@ -108,24 +146,28 @@ export async function callAction<TResult = unknown>(name: string, params?: Recor
   }
 
   if (isLoadAction(name)) {
-    if (isBrowserOffline()) {
-      const cached = await offline.readActionRows(name, params);
-      if (cached) return cached as TResult;
+    // Cache first. Waiting on the network before showing anything is what turns
+    // an unresponsive connection into a blank screen for the length of the
+    // timeout, once per load on the page.
+    const cached = await offline.readActionRows(name, params);
+    if (cached) {
+      revalidateInBackground(offline, name, params, cached);
+      return cached as TResult;
     }
 
     try {
       const rows = await callActionOverNetwork<TResult>(name, params);
+      markApiReachable();
       void offline.writeActionRows(name, params, rows);
       return rows;
     } catch (err) {
-      const cached = await offline.readActionRows(name, params);
-      if (cached) return cached as TResult;
+      if (isTransportFailure(err)) markApiUnreachable();
       throw err;
     }
   }
 
   if (isQueueableAction(name)) {
-    if (isBrowserOffline()) {
+    if (shouldSkipNetwork()) {
       return (await offline.enqueueMutation(name, params)) as TResult;
     }
 
@@ -134,12 +176,15 @@ export async function callAction<TResult = unknown>(name: string, params?: Recor
     // writing a second row.
     const clientMutationId = createMutationId();
     try {
-      return await callActionOverNetwork<TResult>(
+      const result = await callActionOverNetwork<TResult>(
         name,
         clientMutationId ? { ...params, clientMutationId } : params
       );
+      markApiReachable();
+      return result;
     } catch (err) {
       if (!isTransportFailure(err)) throw err;
+      markApiUnreachable();
       return (await offline.enqueueMutation(name, params, clientMutationId)) as TResult;
     }
   }

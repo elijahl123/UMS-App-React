@@ -382,14 +382,21 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const authStartedAt = performance.now();
       try {
         console.log('[Auth] Mount: checking for Firebase auth redirect result in URL');
-        let accessControlEnabled = stagingAccessControlEnabled;
-        try {
-          const stagingConfig = await getStagingAccessConfig();
-          accessControlEnabled = stagingConfig.enabled;
-          setIsStagingAccessControlEnabled(stagingConfig.enabled);
-        } catch {
-          setIsStagingAccessControlEnabled(stagingAccessControlEnabled);
-        }
+        // Start from the build-time flag rather than waiting on the server for
+        // it. On an unresponsive connection this single call used to burn the
+        // whole request timeout before the app had done anything at all.
+        const accessControlEnabled = stagingAccessControlEnabled;
+        setIsStagingAccessControlEnabled(accessControlEnabled);
+        void getStagingAccessConfig()
+          .then(async (stagingConfig) => {
+            setIsStagingAccessControlEnabled(stagingConfig.enabled);
+            // The server disagrees with the build flag, so catch up on the
+            // access check that was skipped.
+            if (stagingConfig.enabled && !accessControlEnabled && sessionRef.current) {
+              await refreshStagingAccess(sessionRef.current.idToken, true);
+            }
+          })
+          .catch(() => undefined);
         const storedRecord = readStoredAuthSession();
         if (storedRecord) {
           sessionRef.current = storedRecord.session;
@@ -451,7 +458,32 @@ function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session.user);
           setIdToken(session.idToken);
           setApiAuthToken(session.idToken);
-          try {
+
+          // Verifying the session costs several network round trips, and on a
+          // connection that accepts sockets without answering, each one waits
+          // out its full timeout before the app renders anything at all. The
+          // stored session is already good enough to show the app, so release
+          // the loading gate now and verify behind it.
+          setIsProcessingGoogleRedirect(false);
+          setIsLoading(false);
+          void verifyStoredSession(session, persistence, accessControlEnabled);
+          return;
+        }
+      } catch (err) {
+        console.error('[Auth] Bootstrap failed:', err);
+      } finally {
+        setIsProcessingGoogleRedirect(false);
+        setIsLoading(false);
+        console.log(`[Auth] Bootstrap completed in ${Math.round(performance.now() - authStartedAt)}ms`);
+      }
+
+      async function verifyStoredSession(
+        session: StoredAuthSession,
+        persistence: SessionPersistence,
+        accessControlEnabled: boolean
+      ) {
+        const verifyStartedAt = performance.now();
+        try {
             const activeToken = await refreshAuthToken();
             if (!activeToken || !sessionRef.current) return;
             const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: activeToken });
@@ -470,20 +502,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
             } else {
               clearSession();
             }
-          } catch (err) {
-            if (!session.refreshToken && extractErrorCode(err) === 'INVALID_ID_TOKEN') {
-              clearSession();
-            } else {
-              console.warn('[Auth] Stored session could not be verified; keeping it for a later retry:', err);
-            }
+        } catch (err) {
+          if (!session.refreshToken && extractErrorCode(err) === 'INVALID_ID_TOKEN') {
+            clearSession();
+          } else {
+            console.warn('[Auth] Stored session could not be verified; keeping it for a later retry:', err);
           }
+        } finally {
+          console.log(`[Auth] Stored session verified in ${Math.round(performance.now() - verifyStartedAt)}ms`);
         }
-      } catch (err) {
-        console.error('[Auth] Bootstrap failed:', err);
-      } finally {
-        setIsProcessingGoogleRedirect(false);
-        setIsLoading(false);
-        console.log(`[Auth] Bootstrap completed in ${Math.round(performance.now() - authStartedAt)}ms`);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
