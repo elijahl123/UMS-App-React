@@ -8,7 +8,11 @@
 export interface OfflineAdapter {
   readActionRows(name: string, params?: Record<string, unknown>): Promise<unknown[] | null>;
   writeActionRows(name: string, params: Record<string, unknown> | undefined, rows: unknown): Promise<void>;
-  enqueueMutation(name: string, params?: Record<string, unknown>): Promise<unknown[]>;
+  enqueueMutation(
+    name: string,
+    params?: Record<string, unknown>,
+    clientMutationId?: string | null
+  ): Promise<unknown[]>;
   enqueueStudyTaskCompletion(planId: string, taskId: string, completed: boolean, userId?: string): Promise<void>;
   readResource<T>(key: string): Promise<T | null>;
   writeResource(key: string, payload: unknown): Promise<void>;

@@ -15,6 +15,7 @@ import {
 } from '@/app/lib/offline/db';
 import {
   buildRow,
+  createMutationId,
   createTempId,
   entityByAction,
   loadActionByEntity,
@@ -94,7 +95,11 @@ async function cascadeCourseDelete(userId: string, courseId: string): Promise<vo
   );
 }
 
-async function enqueueMutation(name: string, params?: Record<string, unknown>): Promise<unknown[]> {
+async function enqueueMutation(
+  name: string,
+  params?: Record<string, unknown>,
+  clientMutationId?: string | null
+): Promise<unknown[]> {
   const userId = getOfflineUserId();
   const entity = entityByAction[name];
   if (!userId || !entity) return [];
@@ -123,12 +128,16 @@ async function enqueueMutation(name: string, params?: Record<string, unknown>): 
     if (entity === 'course') await cascadeCourseDelete(userId, id);
   }
 
+  // Carry the id from a failed online attempt so its replay is recognised as
+  // the same write rather than a new one.
+  const mutationId = clientMutationId ?? createMutationId();
   await appendMutation({
     userId,
     kind: 'action',
     name,
     params: request,
     ...(tempId ? { tempId } : {}),
+    ...(mutationId ? { clientMutationId: mutationId } : {}),
     createdAt: new Date().toISOString(),
     attempts: 0,
   });

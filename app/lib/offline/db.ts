@@ -34,6 +34,8 @@ export interface QueuedMutation {
   params: Record<string, unknown>;
   /** Placeholder ID handed to the UI for a create, remapped once it replays. */
   tempId?: string;
+  /** Identifies this write across retries so the server can spot a replay. */
+  clientMutationId?: string;
   createdAt: string;
   attempts: number;
 }

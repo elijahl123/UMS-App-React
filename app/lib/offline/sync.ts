@@ -156,7 +156,10 @@ async function replayOne(userId: string, record: QueuedMutation): Promise<'done'
 
   let rows: unknown;
   try {
-    rows = await callActionOverNetwork(record.name, params);
+    rows = await callActionOverNetwork(
+      record.name,
+      record.clientMutationId ? { ...params, clientMutationId: record.clientMutationId } : params
+    );
   } catch (err) {
     if (isTransportFailure(err)) return 'retry';
     await recordIssue(userId, describeFailure(record.name, serverMessage(err)));
@@ -225,8 +228,10 @@ async function runSync(): Promise<SyncOutcome> {
   const remaining = await countMutations(userId);
 
   if (!stopped && remaining === 0) {
-    // Drop the locally patched rows so the next load re-reads the server's truth.
-    await clearActionCache(userId);
+    // Only the rows patched by a replayed edit are stale. Clearing after a sync
+    // that replayed nothing would throw away the offline copy for every page
+    // that is not currently mounted to refetch it.
+    if (replayed.size > 0) await clearActionCache(userId);
     await writeRecord(META_STORE, lastSyncedKey(userId), new Date().toISOString());
   }
 

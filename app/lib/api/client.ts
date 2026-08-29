@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { isLoadAction, isQueueableAction } from '@/app/lib/api/actionMeta';
 import { getOfflineAdapter, isBrowserOffline } from '@/app/lib/offline/runtime';
+import { createMutationId } from '@/app/lib/offline/rows';
 
 let authToken: string | null = null;
 let authTokenRefresher: (() => Promise<string | null>) | null = null;
@@ -128,11 +129,18 @@ export async function callAction<TResult = unknown>(name: string, params?: Recor
       return (await offline.enqueueMutation(name, params)) as TResult;
     }
 
+    // Tag the attempt so that if its response is lost and the write is queued
+    // and replayed, the server answers with the original result instead of
+    // writing a second row.
+    const clientMutationId = createMutationId();
     try {
-      return await callActionOverNetwork<TResult>(name, params);
+      return await callActionOverNetwork<TResult>(
+        name,
+        clientMutationId ? { ...params, clientMutationId } : params
+      );
     } catch (err) {
       if (!isTransportFailure(err)) throw err;
-      return (await offline.enqueueMutation(name, params)) as TResult;
+      return (await offline.enqueueMutation(name, params, clientMutationId)) as TResult;
     }
   }
 

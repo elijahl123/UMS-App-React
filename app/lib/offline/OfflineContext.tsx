@@ -104,11 +104,15 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
 
   // Push the queue out first, then pull a fresh copy down, so the prefetch does
   // not overwrite local edits that have not reached the server yet.
+  //
+  // The busy flag covers both halves. `pushQueue` stamps `lastSyncedAt` when the
+  // queue drains, which is only halfway: reporting "synced" while the copy is
+  // still downloading would tell the user it is safe to disconnect too early.
   const refreshOfflineCopy = useCallback(async () => {
     if (!userId || !enabled || isBrowserOffline()) return;
-    await pushQueue();
     setPrefetching(true);
     try {
+      await pushQueue();
       await prefetchOfflineData(userId);
     } finally {
       setPrefetching(false);
