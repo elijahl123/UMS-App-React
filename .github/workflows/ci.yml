@@ -27,6 +27,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Type-check end-to-end tests
+        run: npm run typecheck:e2e
+
       - name: Test
         run: npm test
 

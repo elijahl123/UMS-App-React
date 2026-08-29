@@ -136,7 +136,18 @@ const events = [
   },
 ];
 
-function createAssignments() {
+type MockAssignmentRow = {
+  id: number;
+  course_id: number;
+  name: string;
+  due_date: string;
+  due_time: string | null;
+  due_timezone: string;
+  status: string;
+  description: string | null;
+};
+
+function createAssignments(): MockAssignmentRow[] {
   return [
     {
       id: 1,
@@ -387,6 +398,7 @@ export async function mockPublicAppApis(page: Page, onboarding: MockOnboardingSt
 
 export async function mockAuthenticatedApp(page: Page, options: MockAuthenticatedAppOptions = {}) {
   const assignments = createAssignments();
+  const courseRows = courses.map((course) => ({ ...course }));
   const user = options.user ?? testUser;
 
   await page.addInitScript(
@@ -452,8 +464,26 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
 
     switch (action) {
       case 'loadCourses':
-        await fulfillJson(route, courses);
+        await fulfillJson(route, courseRows);
         break;
+      case 'createCourse': {
+        const body = route.request().postDataJSON() as {
+          code: string;
+          name: string;
+          color?: string;
+          homepageUrl?: string | null;
+        };
+        const created = {
+          id: courseRows.length + 1,
+          code: body.code,
+          name: body.name,
+          color: body.color ?? 'course-diamond',
+          homepage_url: body.homepageUrl ?? null,
+        };
+        courseRows.push(created);
+        await fulfillJson(route, [created]);
+        break;
+      }
       case 'loadAssignments':
         await fulfillJson(route, assignments);
         break;
@@ -504,6 +534,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
 export async function mockSecondaryEmailLogin(page: Page, options: MockSecondaryEmailLoginOptions) {
   const password = options.password ?? 'password123';
   const assignments = createAssignments();
+  const courseRows = courses.map((course) => ({ ...course }));
 
   await mockPublicAppApis(page);
 
@@ -578,8 +609,26 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
 
     switch (action) {
       case 'loadCourses':
-        await fulfillJson(route, courses);
+        await fulfillJson(route, courseRows);
         break;
+      case 'createCourse': {
+        const body = route.request().postDataJSON() as {
+          code: string;
+          name: string;
+          color?: string;
+          homepageUrl?: string | null;
+        };
+        const created = {
+          id: courseRows.length + 1,
+          code: body.code,
+          name: body.name,
+          color: body.color ?? 'course-diamond',
+          homepage_url: body.homepageUrl ?? null,
+        };
+        courseRows.push(created);
+        await fulfillJson(route, [created]);
+        break;
+      }
       case 'loadAssignments':
         await fulfillJson(route, assignments);
         break;
@@ -602,6 +651,7 @@ export async function mockSecondaryEmailLogin(page: Page, options: MockSecondary
 export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondaryGoogleLoginOptions) {
   const googleIdToken = options.googleIdToken ?? 'e2e-google-secondary-id-token';
   const assignments = createAssignments();
+  const courseRows = courses.map((course) => ({ ...course }));
 
   await mockPublicAppApis(page);
 
@@ -694,8 +744,26 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
 
     switch (action) {
       case 'loadCourses':
-        await fulfillJson(route, courses);
+        await fulfillJson(route, courseRows);
         break;
+      case 'createCourse': {
+        const body = route.request().postDataJSON() as {
+          code: string;
+          name: string;
+          color?: string;
+          homepageUrl?: string | null;
+        };
+        const created = {
+          id: courseRows.length + 1,
+          code: body.code,
+          name: body.name,
+          color: body.color ?? 'course-diamond',
+          homepage_url: body.homepageUrl ?? null,
+        };
+        courseRows.push(created);
+        await fulfillJson(route, [created]);
+        break;
+      }
       case 'loadAssignments':
         await fulfillJson(route, assignments);
         break;
@@ -712,5 +780,47 @@ export async function mockSecondaryGoogleLogin(page: Page, options: MockSecondar
         await fulfillJson(route, []);
         break;
     }
+  });
+}
+
+/**
+ * Lets a spec simulate losing the connection. `navigator.onLine` is redefined
+ * before any page script runs so the state survives a reload, and every API
+ * request is aborted the way the browser would abort it with no network.
+ */
+export async function installOfflineControl(page: Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => {
+        try {
+          return window.localStorage.getItem('e2e.offline') !== '1';
+        } catch {
+          return true;
+        }
+      },
+    });
+  });
+}
+
+const isApiRequest = (url: URL) => url.pathname.startsWith('/api/');
+
+const abortApiRequest = async (route: Route) => {
+  await route.abort('internetdisconnected');
+};
+
+export async function goOffline(page: Page) {
+  await page.evaluate(() => {
+    window.localStorage.setItem('e2e.offline', '1');
+    window.dispatchEvent(new Event('offline'));
+  });
+  await page.route(isApiRequest, abortApiRequest);
+}
+
+export async function goOnline(page: Page) {
+  await page.unroute(isApiRequest, abortApiRequest);
+  await page.evaluate(() => {
+    window.localStorage.removeItem('e2e.offline');
+    window.dispatchEvent(new Event('online'));
   });
 }

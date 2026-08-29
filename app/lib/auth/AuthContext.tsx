@@ -13,6 +13,7 @@ import { firebaseAuth } from '@/app/lib/auth/firebaseRest';
 import { startTrial } from '@/app/lib/billing/client';
 import { configureRevenueCat, isIOSNativeApp, logOutRevenueCat } from '@/app/lib/billing/revenuecat';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
+import { clearOfflineData } from '@/app/lib/offline/db';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 import { reconcileAccess } from '@/app/lib/access/client';
 import { isKnownInstitutionEmail, isLaunchJourney } from '@/app/lib/launch/attribution';
@@ -556,6 +557,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
     clearSession();
+    // Cached rows and queued edits are unencrypted browser storage; never leave
+    // them behind for whoever signs in next on this device.
+    void clearOfflineData().catch((err) => {
+      console.warn('[Offline] Could not clear offline data on logout:', err);
+    });
     void logOutRevenueCat().catch((err) => {
       console.warn('[Auth] RevenueCat logout failed:', err);
     });

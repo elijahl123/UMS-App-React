@@ -1,4 +1,6 @@
 import { Capacitor } from '@capacitor/core';
+import { isLoadAction, isQueueableAction } from '@/app/lib/api/actionMeta';
+import { getOfflineAdapter, isBrowserOffline } from '@/app/lib/offline/runtime';
 
 let authToken: string | null = null;
 let authTokenRefresher: (() => Promise<string | null>) | null = null;
@@ -70,7 +72,11 @@ export function getApiAuthHeaders(): HeadersInit {
   return authToken ? { Authorization: `Bearer ${authToken}` } : {};
 }
 
-export async function callAction<TResult = unknown>(name: string, params?: Record<string, unknown>): Promise<TResult> {
+/** Calls an action without consulting the offline cache. Used by the sync engine. */
+export async function callActionOverNetwork<TResult = unknown>(
+  name: string,
+  params?: Record<string, unknown>
+): Promise<TResult> {
   const response = await apiFetch(`/actions/${encodeURIComponent(name)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...getApiAuthHeaders() },
@@ -83,4 +89,52 @@ export async function callAction<TResult = unknown>(name: string, params?: Recor
   }
 
   return payload as TResult;
+}
+
+/**
+ * A rejection the server never saw. Failed requests reject with the parsed JSON
+ * body (a plain object), so anything thrown as an `Error` came from the
+ * transport, the request timeout, or the token refresh that precedes it.
+ */
+function isTransportFailure(err: unknown): boolean {
+  return err instanceof Error;
+}
+
+export async function callAction<TResult = unknown>(name: string, params?: Record<string, unknown>): Promise<TResult> {
+  const offline = getOfflineAdapter();
+  if (!offline) {
+    return callActionOverNetwork<TResult>(name, params);
+  }
+
+  if (isLoadAction(name)) {
+    if (isBrowserOffline()) {
+      const cached = await offline.readActionRows(name, params);
+      if (cached) return cached as TResult;
+    }
+
+    try {
+      const rows = await callActionOverNetwork<TResult>(name, params);
+      void offline.writeActionRows(name, params, rows);
+      return rows;
+    } catch (err) {
+      const cached = await offline.readActionRows(name, params);
+      if (cached) return cached as TResult;
+      throw err;
+    }
+  }
+
+  if (isQueueableAction(name)) {
+    if (isBrowserOffline()) {
+      return (await offline.enqueueMutation(name, params)) as TResult;
+    }
+
+    try {
+      return await callActionOverNetwork<TResult>(name, params);
+    } catch (err) {
+      if (!isTransportFailure(err)) throw err;
+      return (await offline.enqueueMutation(name, params)) as TResult;
+    }
+  }
+
+  return callActionOverNetwork<TResult>(name, params);
 }

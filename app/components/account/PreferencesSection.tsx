@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { CheckCircle2, Loader2, MessageSquareHeart, Palette, RotateCcw, Send } from 'lucide-react';
+import { CheckCircle2, CloudOff, Loader2, MessageSquareHeart, Palette, RefreshCw, RotateCcw, Send } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { submitFeedback } from '@/app/lib/email/client';
 import ThemeToggle from '@/app/components/ThemeToggle';
+import { Switch } from '@/components/ui/switch';
+import { useOffline } from '@/app/lib/offline/OfflineContext';
 import { useTheme } from '@/app/lib/theme/ThemeContext';
 import type { AppUser } from '@/app/data/types';
 import { requestError } from './shared';
@@ -15,11 +17,31 @@ interface PreferencesSectionProps {
 
 function PreferencesSection({ user }: PreferencesSectionProps) {
   const { resolvedTheme } = useTheme();
+  const {
+    enabled: offlineEnabled,
+    setEnabled: setOfflineEnabled,
+    isOnline,
+    pendingCount,
+    syncState,
+    lastSyncedAt,
+    syncNow,
+  } = useOffline();
 
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+
+  const handleOfflineToggle = (next: boolean) => {
+    if (!next && pendingCount > 0) {
+      const changes = pendingCount === 1 ? '1 change' : `${pendingCount} changes`;
+      const confirmed = window.confirm(
+        `${changes} made offline have not reached the server yet. Turning offline access off discards them. Continue?`
+      );
+      if (!confirmed) return;
+    }
+    setOfflineEnabled(next);
+  };
 
   const handleFeedbackSubmit = async () => {
     setFeedbackError(null);
@@ -84,6 +106,69 @@ function PreferencesSection({ user }: PreferencesSectionProps) {
             </div>
             <ThemeToggle variant="switch" />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CloudOff className="h-5 w-5 text-primary" />
+            <CardTitle>Offline access</CardTitle>
+          </div>
+          <CardDescription>
+            Keep a copy of your courses, homework, schedule, calendar and notes on this device so you can work without a
+            connection. Changes you make offline sync the next time you are online.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4 rounded-md border p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Offline access</p>
+              <p className="text-sm text-muted-foreground">
+                {offlineEnabled
+                  ? 'Your work is saved on this device. Turning it off erases that copy.'
+                  : 'Off. Nothing is stored on this device.'}
+              </p>
+            </div>
+            <Switch checked={offlineEnabled} onCheckedChange={handleOfflineToggle} label="Offline access" />
+          </div>
+
+          {offlineEnabled && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {pendingCount === 0
+                    ? 'No changes waiting to sync'
+                    : `${pendingCount === 1 ? '1 change' : `${pendingCount} changes`} waiting to sync`}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {!isOnline
+                    ? 'You are offline. Syncing resumes when you reconnect.'
+                    : lastSyncedAt
+                      ? `Last synced ${new Date(lastSyncedAt).toLocaleString()}.`
+                      : 'Not synced yet.'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled={!isOnline || syncState === 'syncing'}
+                onClick={() => void syncNow()}
+              >
+                {syncState === 'syncing' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {syncState === 'syncing' ? 'Syncing...' : 'Sync now'}
+              </Button>
+            </div>
+          )}
+
+          <p className="text-sm text-muted-foreground">
+            Offline copies are stored unencrypted in this browser. Leave this off on shared or public devices.
+          </p>
         </CardContent>
       </Card>
 
