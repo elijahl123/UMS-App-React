@@ -172,6 +172,15 @@ function createAssignments(): MockAssignmentRow[] {
   ];
 }
 
+/** Post bodies are absent on some routes, so reading one must never throw. */
+function readPostJson(route: Route): unknown {
+  try {
+    return route.request().postDataJSON();
+  } catch {
+    return null;
+  }
+}
+
 async function fulfillJson(route: Route, payload: unknown) {
   await route.fulfill({
     contentType: 'application/json',
@@ -459,29 +468,40 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
   await mockGoogleCalendarApis(page);
   await mockStudyPlanApis(page);
 
+  // Mirrors the server's mutation receipts: a write the server has already
+  // completed replays its stored result rather than being applied twice.
+  const receipts = new Map<string, unknown>();
+
   await page.route('**/api/actions/*', async (route) => {
     const action = new URL(route.request().url()).pathname.split('/').pop();
+    const body = readPostJson(route) as { clientMutationId?: unknown } | null;
+    const mutationId = typeof body?.clientMutationId === 'string' ? body.clientMutationId : null;
+
+    if (mutationId && receipts.has(mutationId)) {
+      await fulfillJson(route, receipts.get(mutationId));
+      return;
+    }
+
+    const fulfillMutation = async (payload: unknown) => {
+      if (mutationId) receipts.set(mutationId, payload);
+      await fulfillJson(route, payload);
+    };
 
     switch (action) {
       case 'loadCourses':
         await fulfillJson(route, courseRows);
         break;
       case 'createCourse': {
-        const body = route.request().postDataJSON() as {
-          code: string;
-          name: string;
-          color?: string;
-          homepageUrl?: string | null;
-        };
+        const create = body as { code: string; name: string; color?: string; homepageUrl?: string | null };
         const created = {
           id: courseRows.length + 1,
-          code: body.code,
-          name: body.name,
-          color: body.color ?? 'course-diamond',
-          homepage_url: body.homepageUrl ?? null,
+          code: create.code,
+          name: create.name,
+          color: create.color ?? 'course-diamond',
+          homepage_url: create.homepageUrl ?? null,
         };
         courseRows.push(created);
-        await fulfillJson(route, [created]);
+        await fulfillMutation([created]);
         break;
       }
       case 'loadAssignments':
@@ -497,7 +517,7 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
         await fulfillJson(route, notes);
         break;
       case 'createAssignment': {
-        const body = route.request().postDataJSON() as {
+        const create = body as {
           courseId: string;
           name: string;
           dueDate: string;
@@ -507,16 +527,16 @@ export async function mockAuthenticatedApp(page: Page, options: MockAuthenticate
         };
         const created = {
           id: assignments.length + 1,
-          course_id: Number(body.courseId),
-          name: body.name,
-          due_date: body.dueDate,
-          due_time: body.dueTime ?? null,
-          due_timezone: body.dueTimeZone ?? 'America/Los_Angeles',
+          course_id: Number(create.courseId),
+          name: create.name,
+          due_date: create.dueDate,
+          due_time: create.dueTime ?? null,
+          due_timezone: create.dueTimeZone ?? 'America/Los_Angeles',
           status: 'upcoming',
-          description: body.description ?? null,
+          description: create.description ?? null,
         };
         assignments.push(created);
-        await fulfillJson(route, [created]);
+        await fulfillMutation([created]);
         break;
       }
       case 'updateAssignment':
