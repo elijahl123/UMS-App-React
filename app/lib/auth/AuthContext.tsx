@@ -14,7 +14,7 @@ import { startTrial } from '@/app/lib/billing/client';
 import { configureRevenueCat, isIOSNativeApp, logOutRevenueCat } from '@/app/lib/billing/revenuecat';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { clearOfflineData } from '@/app/lib/offline/db';
-import { isBrowserOffline } from '@/app/lib/offline/runtime';
+import { getPendingOfflineCount, isBrowserOffline } from '@/app/lib/offline/runtime';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 import { reconcileAccess } from '@/app/lib/access/client';
 import { isKnownInstitutionEmail, isLaunchJourney } from '@/app/lib/launch/attribution';
@@ -562,7 +562,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const performLogout = () => {
     sessionStorage.removeItem(GOOGLE_PERSISTENCE_STORAGE_KEY);
     clearSession();
     // Cached rows and queued edits are unencrypted browser storage; never leave
@@ -573,6 +573,27 @@ function AuthProvider({ children }: { children: ReactNode }) {
     void logOutRevenueCat().catch((err) => {
       console.warn('[Auth] RevenueCat logout failed:', err);
     });
+  };
+
+  /**
+   * Logging out wipes the offline store, so edits made offline that have not
+   * reached the server would go with it. Ask first. The guard lives here rather
+   * than on each Log Out button so every entry point is covered.
+   */
+  const logout = () => {
+    const pending = getPendingOfflineCount();
+    if (pending > 0 && typeof window !== 'undefined') {
+      const changes = pending === 1 ? '1 change' : `${pending} changes`;
+      const verb = pending === 1 ? 'has' : 'have';
+      const object = pending === 1 ? 'it' : 'them';
+      const advice = isBrowserOffline()
+        ? `Reconnect to sync ${object} first, or log out anyway?`
+        : `Use Sync now in Account preferences first, or log out anyway?`;
+      if (!window.confirm(`${changes} you made offline ${verb} not reached the server yet. Logging out discards ${object}. ${advice}`)) {
+        return;
+      }
+    }
+    performLogout();
   };
 
   const updateProfile = async (values: { email: string; firstName: string; lastName: string }) => {
@@ -746,7 +767,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: payload?.error?.message ?? 'Unable to delete account.' };
       }
 
-      logout();
+      performLogout();
       return { success: true };
     } catch {
       return { success: false, error: 'Unable to delete account.' };

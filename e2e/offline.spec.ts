@@ -147,3 +147,32 @@ test('shows a study plan offline and syncs a task checked off there', async ({ p
   await expect(page.getByText(/waiting to sync/)).toBeHidden();
   expect(toggles).toEqual([true]);
 });
+
+test('warns before logging out with changes still waiting to sync', async ({ page }) => {
+  await enableOfflineAccess(page);
+  await page.goto('/#/courses');
+  await expect(page.getByText('Software Engineering Project')).toBeVisible();
+
+  await goOffline(page);
+  await page.getByRole('button', { name: 'Add Course' }).first().click();
+  await page.getByLabel('Course Code').fill('LOG101');
+  await page.getByLabel('Course Name').fill('Unsynced Work');
+  await page.getByRole('button', { name: 'Add Course', exact: true }).last().click();
+  await expect(page.getByText(/1 change waiting/)).toBeVisible();
+
+  // Playwright dismisses dialogs when nothing handles them, which is the "cancel" path.
+  const dismissed: string[] = [];
+  page.once('dialog', (dialog) => {
+    dismissed.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await page.getByRole('button', { name: 'Log Out' }).click();
+
+  expect(dismissed[0]).toContain('1 change you made offline');
+  await expect(page.getByText(/1 change waiting/)).toBeVisible();
+
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'Log Out' }).click();
+
+  await expect(page).toHaveURL(/#\/login$/);
+});

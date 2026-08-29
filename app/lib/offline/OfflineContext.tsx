@@ -69,7 +69,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
 
   // Published during render, not in an effect: child effects run before the
   // provider's, and the first `useLoadAction` fetch has to see the cache.
-  setOfflineRuntime({ enabled, userId, adapter: offlineAdapter });
+  setOfflineRuntime({ enabled, userId, adapter: offlineAdapter, pendingCount });
 
   const refreshStatus = useCallback(async () => {
     if (!userId || !enabled) {
