@@ -6,7 +6,9 @@ import {
   appendMutation,
   deleteRecord,
   readKeys,
+  readMutationQueue,
   readRecord,
+  updateMutation,
   writeRecord,
   type CachedPayload,
   type CachedRows,
@@ -123,6 +125,7 @@ async function enqueueMutation(name: string, params?: Record<string, unknown>): 
 
   await appendMutation({
     userId,
+    kind: 'action',
     name,
     params: request,
     ...(tempId ? { tempId } : {}),
@@ -164,12 +167,62 @@ export async function clearActionCache(userId: string): Promise<void> {
   await Promise.all(keys.map((key) => deleteRecord(ACTION_CACHE_STORE, key)));
 }
 
+/**
+ * Some loads are range-scoped (`loadEvents` takes from/to), so the exact cache
+ * key depends on which window the page happens to ask for. Offline that window
+ * has usually moved on, so fall back to the widest cached copy of the same
+ * action and let the page filter it, rather than showing nothing.
+ */
+async function readWidestCachedRows(userId: string, name: string): Promise<Row[] | null> {
+  const keys = await cacheEntriesFor(userId, name);
+  let widest: Row[] | null = null;
+  for (const key of keys) {
+    const entry = await readRecord<CachedRows>(ACTION_CACHE_STORE, key);
+    const rows = asRows(entry?.rows);
+    if (entry && (!widest || rows.length > widest.length)) widest = rows;
+  }
+  return widest;
+}
+
+async function enqueueStudyTaskCompletion(
+  planId: string,
+  taskId: string,
+  completed: boolean,
+  userId?: string
+): Promise<void> {
+  const owner = getOfflineUserId();
+  if (!owner) return;
+
+  const params = { planId, taskId, completed, userId: userId ?? owner };
+  // Toggling the same task twice offline should settle on the last choice
+  // rather than replaying every flip.
+  const queued = await readMutationQueue(owner);
+  const existing = queued.find(
+    (record) => record.kind === 'studyTask' && record.params.planId === planId && record.params.taskId === taskId
+  );
+
+  if (existing) {
+    await updateMutation({ ...existing, params });
+  } else {
+    await appendMutation({
+      userId: owner,
+      kind: 'studyTask',
+      name: 'setStudyTaskCompleted',
+      params,
+      createdAt: new Date().toISOString(),
+      attempts: 0,
+    });
+  }
+  notifyOfflineQueueChanged();
+}
+
 export const offlineAdapter: OfflineAdapter = {
   async readActionRows(name, params) {
     const userId = getOfflineUserId();
     if (!userId) return null;
     const entry = await readRecord<CachedRows>(ACTION_CACHE_STORE, actionCacheKey(userId, name, params));
-    return entry ? asRows(entry.rows) : null;
+    if (entry) return asRows(entry.rows);
+    return readWidestCachedRows(userId, name);
   },
 
   async writeActionRows(name, params, rows) {
@@ -182,6 +235,8 @@ export const offlineAdapter: OfflineAdapter = {
   },
 
   enqueueMutation,
+
+  enqueueStudyTaskCompletion,
 
   async readResource<T>(key: string): Promise<T | null> {
     const userId = getOfflineUserId();

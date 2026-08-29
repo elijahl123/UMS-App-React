@@ -47,6 +47,7 @@ export const offlineState = {
   isOnline: true,
   pendingCount: 0,
   syncState: 'idle' as 'idle' | 'syncing',
+  prefetching: false,
   lastSyncedAt: null as string | null,
   syncIssues: [] as Array<{ id: string; message: string; at: string }>,
 };
@@ -279,6 +280,7 @@ export function resetMockState() {
   offlineState.isOnline = true;
   offlineState.pendingCount = 0;
   offlineState.syncState = 'idle';
+  offlineState.prefetching = false;
   offlineState.lastSyncedAt = null;
   offlineState.syncIssues = [];
   apiState.loads = { ...dbRows };

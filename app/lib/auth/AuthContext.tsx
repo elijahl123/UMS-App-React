@@ -14,6 +14,7 @@ import { startTrial } from '@/app/lib/billing/client';
 import { configureRevenueCat, isIOSNativeApp, logOutRevenueCat } from '@/app/lib/billing/revenuecat';
 import { stagingAccessControlEnabled } from '@/app/lib/env';
 import { clearOfflineData } from '@/app/lib/offline/db';
+import { isBrowserOffline } from '@/app/lib/offline/runtime';
 import { getMyStagingAccess, getStagingAccessConfig } from '@/app/lib/stagingAccess/client';
 import { reconcileAccess } from '@/app/lib/access/client';
 import { isKnownInstitutionEmail, isLaunchJourney } from '@/app/lib/launch/attribution';
@@ -117,6 +118,11 @@ function extractErrorCode(err: unknown): string {
   const response = (err as { response?: FirebaseErrorResponse })?.response ?? (err as FirebaseErrorResponse);
   return response?.error?.message ?? 'UNKNOWN_ERROR';
 }
+
+// Signing in always needs Firebase, so offline it fails with a raw network
+// error. Say so plainly instead: an existing session keeps working offline, but
+// a new sign-in cannot.
+const OFFLINE_SIGN_IN_MESSAGE = 'You are offline. Signing in needs a connection. Reconnect and try again.';
 
 function isTerminalRefreshError(err: unknown): boolean {
   return new Set(['TOKEN_EXPIRED', 'USER_DISABLED', 'USER_NOT_FOUND', 'INVALID_REFRESH_TOKEN']).has(extractErrorCode(err));
@@ -493,6 +499,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string, rememberMe: boolean) => {
+    if (isBrowserOffline()) return { success: false, error: OFFLINE_SIGN_IN_MESSAGE };
     try {
       const result: FirebaseAuthResult = await firebaseAuth.signIn({ email, password });
       const lookup: FirebaseLookupResult = await firebaseAuth.lookupUser({ idToken: result.idToken });
@@ -515,6 +522,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signup = async (values: { email: string; password: string; firstName: string; lastName: string }) => {
+    if (isBrowserOffline()) return { success: false, error: OFFLINE_SIGN_IN_MESSAGE };
     try {
       const displayName = `${values.firstName} ${values.lastName}`.trim();
       const result: FirebaseAuthResult = await firebaseAuth.signUp({ email: values.email, password: values.password });
@@ -679,6 +687,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[Auth] Current URL:', window.location.href);
     console.log('[Auth] isGoogleSignInAvailable:', isGoogleSignInConfigured());
     setGoogleSignInError(null);
+    if (isBrowserOffline()) {
+      setGoogleSignInError(OFFLINE_SIGN_IN_MESSAGE);
+      return { success: false, error: OFFLINE_SIGN_IN_MESSAGE };
+    }
     setIsProcessingGoogleRedirect(true);
     const persistence = rememberMe === undefined ? persistenceRef.current : persistenceFromRememberMe(rememberMe);
     sessionStorage.setItem(GOOGLE_PERSISTENCE_STORAGE_KEY, persistence);

@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { offlineAdapter } from '@/app/lib/offline/adapter';
 import { clearOfflineData, countMutations } from '@/app/lib/offline/db';
+import { prefetchOfflineData } from '@/app/lib/offline/prefetch';
 import {
   OFFLINE_QUEUE_EVENT,
   isBrowserOffline,
@@ -38,6 +39,8 @@ interface OfflineContextValue {
   syncIssues: SyncIssue[];
   syncNow: () => Promise<void>;
   dismissIssue: (id: string) => void;
+  /** True while the initial copy of your work is being saved to this device. */
+  prefetching: boolean;
 }
 
 const OfflineContext = createContext<OfflineContextValue | null>(null);
@@ -61,6 +64,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   const [syncState, setSyncState] = useState<OfflineSyncState>('idle');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [syncIssues, setSyncIssues] = useState<SyncIssue[]>([]);
+  const [prefetching, setPrefetching] = useState(false);
   const previousUserIdRef = useRef<string | null>(null);
 
   // Published during render, not in an effect: child effects run before the
@@ -84,7 +88,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     setLastSyncedAt(syncedAt);
   }, [enabled, userId]);
 
-  const syncNow = useCallback(async () => {
+  const pushQueue = useCallback(async () => {
     if (!userId || !enabled || isBrowserOffline()) {
       await refreshStatus();
       return;
@@ -97,6 +101,20 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       await refreshStatus();
     }
   }, [enabled, refreshStatus, userId]);
+
+  // Push the queue out first, then pull a fresh copy down, so the prefetch does
+  // not overwrite local edits that have not reached the server yet.
+  const refreshOfflineCopy = useCallback(async () => {
+    if (!userId || !enabled || isBrowserOffline()) return;
+    await pushQueue();
+    setPrefetching(true);
+    try {
+      await prefetchOfflineData(userId);
+    } finally {
+      setPrefetching(false);
+      await refreshStatus();
+    }
+  }, [enabled, pushQueue, refreshStatus, userId]);
 
   const setEnabled = useCallback(
     (next: boolean) => {
@@ -131,18 +149,18 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!enabled || !userId) return;
-    void syncNow();
-  }, [enabled, userId, syncNow]);
+    void refreshOfflineCopy();
+  }, [enabled, userId, refreshOfflineCopy]);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      void syncNow();
+      void refreshOfflineCopy();
     };
     const handleOffline = () => setIsOnline(false);
     const handleQueueChanged = () => void refreshStatus();
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && !isBrowserOffline()) void syncNow();
+      if (document.visibilityState === 'visible' && !isBrowserOffline()) void pushQueue();
     };
 
     window.addEventListener('online', handleOnline);
@@ -155,7 +173,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(OFFLINE_QUEUE_EVENT, handleQueueChanged);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [refreshStatus, syncNow]);
+  }, [pushQueue, refreshOfflineCopy, refreshStatus]);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
@@ -183,10 +201,22 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       syncState,
       lastSyncedAt,
       syncIssues,
-      syncNow,
+      syncNow: refreshOfflineCopy,
       dismissIssue,
+      prefetching,
     }),
-    [dismissIssue, enabled, isOnline, lastSyncedAt, pendingCount, setEnabled, syncIssues, syncNow, syncState]
+    [
+      dismissIssue,
+      enabled,
+      isOnline,
+      lastSyncedAt,
+      pendingCount,
+      prefetching,
+      refreshOfflineCopy,
+      setEnabled,
+      syncIssues,
+      syncState,
+    ]
   );
 
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;

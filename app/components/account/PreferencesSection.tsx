@@ -25,6 +25,7 @@ function PreferencesSection({ user }: PreferencesSectionProps) {
     syncState,
     lastSyncedAt,
     syncNow,
+    prefetching,
   } = useOffline();
 
   const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -142,26 +143,28 @@ function PreferencesSection({ user }: PreferencesSectionProps) {
                     : `${pendingCount === 1 ? '1 change' : `${pendingCount} changes`} waiting to sync`}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {!isOnline
-                    ? 'You are offline. Syncing resumes when you reconnect.'
-                    : lastSyncedAt
-                      ? `Last synced ${new Date(lastSyncedAt).toLocaleString()}.`
-                      : 'Not synced yet.'}
+                  {prefetching
+                    ? 'Saving a copy of your work to this device...'
+                    : !isOnline
+                      ? 'You are offline. Syncing resumes when you reconnect.'
+                      : lastSyncedAt
+                        ? `Last synced ${new Date(lastSyncedAt).toLocaleString()}.`
+                        : 'Not synced yet.'}
                 </p>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 className="gap-2"
-                disabled={!isOnline || syncState === 'syncing'}
+                disabled={!isOnline || syncState === 'syncing' || prefetching}
                 onClick={() => void syncNow()}
               >
-                {syncState === 'syncing' ? (
+                {syncState === 'syncing' || prefetching ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="h-4 w-4" />
                 )}
-                {syncState === 'syncing' ? 'Syncing...' : 'Sync now'}
+                {syncState === 'syncing' || prefetching ? 'Syncing...' : 'Sync now'}
               </Button>
             </div>
           )}

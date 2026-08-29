@@ -22,9 +22,14 @@ export interface CachedPayload {
   cachedAt: string;
 }
 
+/** `action` replays through POST /api/actions/:name; `studyTask` through the study-plan REST route. */
+export type QueuedMutationKind = 'action' | 'studyTask';
+
 export interface QueuedMutation {
   seq: number;
   userId: string;
+  /** Absent on records written before study-task toggles were queueable. */
+  kind?: QueuedMutationKind;
   name: string;
   params: Record<string, unknown>;
   /** Placeholder ID handed to the UI for a create, remapped once it replays. */
@@ -89,14 +94,17 @@ async function withStore<T>(
   if (!db) return null;
   try {
     const transaction = db.transaction(storeName, mode);
+    // Attach before the first await: a transaction can auto-commit as soon as
+    // its requests settle, and a handler added afterwards would never fire.
+    const committed = mode === 'readwrite'
+      ? new Promise<void>((resolve, reject) => {
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+          transaction.onabort = () => reject(transaction.error);
+        })
+      : Promise.resolve();
     const result = await run(transaction.objectStore(storeName));
-    if (mode === 'readwrite') {
-      await new Promise<void>((resolve, reject) => {
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error);
-        transaction.onabort = () => reject(transaction.error);
-      });
-    }
+    await committed;
     return result;
   } catch (err) {
     console.warn(`[Offline] Store operation failed on ${storeName}:`, err);
