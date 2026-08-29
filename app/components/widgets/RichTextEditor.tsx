@@ -42,6 +42,7 @@ import {
   noteImageErrorMessage,
   uploadNoteImage,
 } from '@/app/lib/noteImages/client';
+import { isBrowserOffline } from '@/app/lib/offline/runtime';
 
 interface Props {
   content: string;
@@ -273,6 +274,15 @@ function RichTextEditor({ content, onChange, placeholder, autoFocus = false, onU
   const performUpload = useCallback(async (uploadId: string) => {
     const file = filesRef.current.get(uploadId);
     if (!file) return;
+    if (isBrowserOffline()) {
+      // Note text syncs from the offline queue, but the server rejects a note
+      // whose embedded image IDs have no matching upload, so images stay online-only.
+      updateUploadNode(uploadId, {
+        status: 'failed',
+        error: 'Images need a connection. Reconnect to add this image.',
+      });
+      return;
+    }
     updateUploadNode(uploadId, { status: 'uploading', error: null });
     try {
       const uploaded = await uploadNoteImage(file);

@@ -9,6 +9,8 @@ import {
   authState,
   billingState,
   googleCalendarActions,
+  offlineActions,
+  offlineState,
   onboardingActions,
   resetMockState,
   studyPlanActions,
@@ -37,6 +39,7 @@ afterEach(() => {
   resetMockState();
   try {
     window.localStorage.removeItem('ums.theme');
+    window.localStorage.removeItem('ums.offlineSync');
     window.localStorage.removeItem('ums_school_calendar_provider');
   } catch {
     // Individual storage tests may replace localStorage with a constrained mock.
@@ -68,6 +71,15 @@ vi.doMock('@/app/lib/auth/AuthContext', () => ({
   useAuth: () => ({
     ...authState,
     ...authActions,
+  }),
+}));
+
+vi.doMock('@/app/lib/offline/OfflineContext', () => ({
+  OFFLINE_STORAGE_KEY: 'ums.offlineSync',
+  OfflineProvider: ({ children }: { children: React.ReactNode }) => React.createElement(React.Fragment, null, children),
+  useOffline: () => ({
+    ...offlineState,
+    ...offlineActions,
   }),
 }));
 

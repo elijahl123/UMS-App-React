@@ -126,7 +126,7 @@ test('logging in with a secondary email shows the primary email marked as primar
 
 test('logging in with Google using a secondary email shows the primary email marked as primary on the account page', async ({ page }) => {
   const googleIdToken = 'e2e-google-secondary-id-token';
-  let googleOAuthRequest: URL | null = null;
+  const googleOAuthRequests: URL[] = [];
   let firebaseGoogleLoginEmail: string | null = null;
 
   await mockSecondaryGoogleLogin(page, {
@@ -142,7 +142,7 @@ test('logging in with Google using a secondary email shows the primary email mar
     googleEmail: googleAliasEmail,
     googleIdToken,
     onGoogleOAuthRequest: (url) => {
-      googleOAuthRequest = url;
+      googleOAuthRequests.push(url);
     },
     onFirebaseGoogleSignIn: ({ email }) => {
       firebaseGoogleLoginEmail = email;
@@ -170,12 +170,13 @@ test('logging in with Google using a secondary email shows the primary email mar
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByRole('heading', { name: 'Upcoming Assignments' })).toBeVisible();
 
-  expect(googleOAuthRequest).not.toBeNull();
-  expect(googleOAuthRequest?.searchParams.get('response_type')).toBe('id_token');
-  expect(googleOAuthRequest?.searchParams.get('prompt')).toBe('select_account');
-  expect(googleOAuthRequest?.searchParams.get('scope')).toContain('openid');
-  expect(googleOAuthRequest?.searchParams.get('scope')).toContain('email');
-  expect(googleOAuthRequest?.searchParams.get('scope')).toContain('profile');
+  expect(googleOAuthRequests).toHaveLength(1);
+  const [googleOAuthRequest] = googleOAuthRequests;
+  expect(googleOAuthRequest.searchParams.get('response_type')).toBe('id_token');
+  expect(googleOAuthRequest.searchParams.get('prompt')).toBe('select_account');
+  expect(googleOAuthRequest.searchParams.get('scope')).toContain('openid');
+  expect(googleOAuthRequest.searchParams.get('scope')).toContain('email');
+  expect(googleOAuthRequest.searchParams.get('scope')).toContain('profile');
   expect(firebaseGoogleLoginEmail).toBe(googleAliasEmail);
 
   const sidebar = page.locator('aside');

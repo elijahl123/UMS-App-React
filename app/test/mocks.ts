@@ -42,6 +42,23 @@ export const authActions = {
   consumeTrialStartedRedirect: vi.fn(() => false),
 };
 
+export const offlineState = {
+  enabled: false,
+  isOnline: true,
+  pendingCount: 0,
+  syncState: 'idle' as 'idle' | 'syncing',
+  lastSyncedAt: null as string | null,
+  syncIssues: [] as Array<{ id: string; message: string; at: string }>,
+};
+
+export const offlineActions = {
+  setEnabled: vi.fn((next: boolean) => {
+    offlineState.enabled = next;
+  }),
+  syncNow: vi.fn(async () => undefined),
+  dismissIssue: vi.fn(),
+};
+
 export const accountEmailState = {
   emails: [] as AccountEmailAddress[],
 };
@@ -258,6 +275,12 @@ export function resetMockState() {
   authState.isProcessingGoogleRedirect = false;
   authState.googleSignInError = null;
   accountEmailState.emails = [];
+  offlineState.enabled = false;
+  offlineState.isOnline = true;
+  offlineState.pendingCount = 0;
+  offlineState.syncState = 'idle';
+  offlineState.lastSyncedAt = null;
+  offlineState.syncIssues = [];
   apiState.loads = { ...dbRows };
   apiState.mutations = [];
   billingState.status = {

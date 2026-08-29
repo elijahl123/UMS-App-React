@@ -27,6 +27,8 @@ import StagingAccessPage from '@/app/pages/StagingAccessPage';
 import StudyPlanPage from '@/app/pages/StudyPlanPage';
 import StudyPlanSetupPage from '@/app/pages/StudyPlanSetupPage';
 import { ThemeProvider } from '@/app/lib/theme/ThemeContext';
+import { OfflineProvider } from '@/app/lib/offline/OfflineContext';
+import OfflineIdRedirect from '@/app/components/OfflineIdRedirect';
 
 function FallbackRoute() {
   const location = useLocation();
@@ -101,7 +103,9 @@ function App() {
     <ThemeProvider>
       <HashRouter>
         <AuthProvider>
+        <OfflineProvider>
         <AuthActionRedirect />
+        <OfflineIdRedirect />
         <TrialStartedRedirect />
         <NotificationService />
         <Routes>
@@ -140,6 +144,7 @@ function App() {
           </Route>
           <Route path="*" element={<FallbackRoute />} />
         </Routes>
+        </OfflineProvider>
         </AuthProvider>
       </HashRouter>
     </ThemeProvider>

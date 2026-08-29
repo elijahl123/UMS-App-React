@@ -16,6 +16,7 @@ import type {
   StudyTargetType,
 } from '@/app/data/types';
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
+import { getOfflineAdapter, isBrowserOffline } from '@/app/lib/offline/runtime';
 export { parseStudyTopics } from '@/app/data/studyPlans';
 import { trackProductEvent } from '@/app/lib/launch/client';
 
@@ -52,6 +53,34 @@ async function studyPlanRequest<T>(path = '', init?: RequestInit): Promise<T> {
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw payload ?? { error: { message: 'REQUEST_FAILED' } };
   return payload as T;
+}
+
+/**
+ * Study plans are read-only offline: the schedule is generated server side, so a
+ * cached copy is safe to show but edits cannot be replayed later.
+ */
+async function cachedStudyRead<T>(cacheKey: string, load: () => Promise<T>): Promise<T> {
+  const offline = getOfflineAdapter();
+  if (!offline) return load();
+
+  if (isBrowserOffline()) {
+    const cached = await offline.readResource<T>(cacheKey);
+    if (cached !== null) return cached;
+  }
+
+  try {
+    const payload = await load();
+    void offline.writeResource(cacheKey, payload);
+    return payload;
+  } catch (err) {
+    const cached = await offline.readResource<T>(cacheKey);
+    if (cached !== null) return cached;
+    throw err;
+  }
+}
+
+function requireConnection() {
+  if (isBrowserOffline()) throw { error: { message: 'OFFLINE_UNAVAILABLE' } };
 }
 
 function mapTask(row: Record<string, unknown>): StudyTask {
@@ -133,13 +162,16 @@ function requestQuery(values: Record<string, string | undefined>): string {
 }
 
 export async function listStudyPlanSummaries(courseId?: string, userId?: string): Promise<StudyPlanSummary[]> {
-  const payload = await studyPlanRequest<{ plans: Array<Record<string, unknown>> }>(
-    requestQuery({ courseId, userId })
-  );
-  return payload.plans.map(mapStudyPlanSummary);
+  return cachedStudyRead(`study-plans:summaries:${courseId ?? 'all'}`, async () => {
+    const payload = await studyPlanRequest<{ plans: Array<Record<string, unknown>> }>(
+      requestQuery({ courseId, userId })
+    );
+    return payload.plans.map(mapStudyPlanSummary);
+  });
 }
 
 export async function getStudyPlanDefinition(planId: string, userId?: string): Promise<StudyPlanDefinition> {
+  return cachedStudyRead(`study-plans:definition:${planId}`, async () => {
   const payload = await studyPlanRequest<{
     plan: Record<string, unknown>;
     availability: Array<Record<string, unknown>>;
@@ -153,6 +185,7 @@ export async function getStudyPlanDefinition(planId: string, userId?: string): P
     })),
     topics: payload.topics.map(mapTopic),
   };
+  });
 }
 
 export async function getStudyPlanTasks(
@@ -161,15 +194,18 @@ export async function getStudyPlanTasks(
   to: string,
   userId?: string
 ): Promise<{ from: string; to: string; tasks: StudyTask[] }> {
-  const payload = await studyPlanRequest<{
-    from: string;
-    to: string;
-    tasks: Array<Record<string, unknown>>;
-  }>(`/${planId}/tasks${requestQuery({ from, to, userId })}`);
-  return { from: payload.from, to: payload.to, tasks: payload.tasks.map(mapTask) };
+  return cachedStudyRead(`study-plans:tasks:${planId}:${from}:${to}`, async () => {
+    const payload = await studyPlanRequest<{
+      from: string;
+      to: string;
+      tasks: Array<Record<string, unknown>>;
+    }>(`/${planId}/tasks${requestQuery({ from, to, userId })}`);
+    return { from: payload.from, to: payload.to, tasks: payload.tasks.map(mapTask) };
+  });
 }
 
 export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashboardData> {
+  return cachedStudyRead('study-plans:dashboard', async () => {
   const payload = await studyPlanRequest<{
     plans: Array<Record<string, unknown>>;
     tasks: Array<Record<string, unknown>>;
@@ -195,10 +231,13 @@ export async function getStudyPlanDashboard(userId?: string): Promise<StudyDashb
     urgentPlan: payload.urgentPlan ? mapStudyPlanSummary(payload.urgentPlan) : null,
     nextStudyDate: payload.nextStudyDate ? String(payload.nextStudyDate).slice(0, 10) : null,
   };
+  });
 }
 
 export async function getStudyPlanRecoveryStatus(planId: string, userId?: string): Promise<StudyRecoveryStatus> {
-  return studyPlanRequest<StudyRecoveryStatus>(`/${planId}/recovery${requestQuery({ userId })}`);
+  return cachedStudyRead(`study-plans:recovery:${planId}`, () =>
+    studyPlanRequest<StudyRecoveryStatus>(`/${planId}/recovery${requestQuery({ userId })}`)
+  );
 }
 
 export async function previewStudyPlanRecovery(
@@ -207,6 +246,7 @@ export async function previewStudyPlanRecovery(
   additionalMinutesPerDay = 0,
   userId?: string
 ): Promise<StudyRecoveryPreview> {
+  requireConnection();
   const result = await studyPlanRequest<StudyRecoveryPreview>(`/${planId}/recovery/preview`, {
     method: 'POST',
     body: JSON.stringify({ omittedGroupIds, additionalMinutesPerDay, userId }),
@@ -225,6 +265,7 @@ export async function confirmStudyPlanRecovery(
   additionalMinutesPerDay = 0,
   userId?: string
 ): Promise<{ planId: string; recovered: boolean; revisionId: string | null; preview: StudyRecoveryPreview }> {
+  requireConnection();
   const result = await studyPlanRequest<{
     planId: string;
     recovered: boolean;
@@ -246,6 +287,7 @@ export async function undoStudyPlanRecovery(
   planId: string,
   userId?: string
 ): Promise<{ planId: string; undone: boolean; revisionId: string }> {
+  requireConnection();
   const result = await studyPlanRequest<{ planId: string; undone: boolean; revisionId: string }>(`/${planId}/recovery/undo`, {
     method: 'POST',
     body: JSON.stringify({ userId }),
@@ -259,6 +301,7 @@ export async function getStudyPlanCalendar(
   to: string,
   userId?: string
 ): Promise<StudyCalendarData> {
+  return cachedStudyRead(`study-plans:calendar:${from}:${to}`, async () => {
   const payload = await studyPlanRequest<{
     from: string;
     to: string;
@@ -271,9 +314,11 @@ export async function getStudyPlanCalendar(
     plans: payload.plans.map(mapStudyPlanSummary),
     tasks: payload.tasks.map(mapTask),
   };
+  });
 }
 
 export async function saveStudyPlan(input: StudyPlanInput, planId?: string, userId?: string): Promise<{ planId: string }> {
+  requireConnection();
   return studyPlanRequest<{ planId: string }>(planId ? `/${planId}` : '', {
     method: planId ? 'PUT' : 'POST',
     body: JSON.stringify({ ...input, userId }),
@@ -281,6 +326,7 @@ export async function saveStudyPlan(input: StudyPlanInput, planId?: string, user
 }
 
 export async function refreshStudyPlan(planId: string, userId?: string): Promise<{ planId: string; refreshed: boolean }> {
+  requireConnection();
   return studyPlanRequest<{ planId: string; refreshed: boolean }>(`/${planId}/refresh`, {
     method: 'POST',
     body: JSON.stringify({ userId }),
@@ -293,6 +339,7 @@ export async function setStudyTaskCompleted(
   completed: boolean,
   userId?: string
 ): Promise<{ id: string; completedAt: string | null }> {
+  requireConnection();
   const result = await studyPlanRequest<{ id: string; completedAt: string | null }>(`/${planId}/tasks/${taskId}`, {
     method: 'PATCH',
     body: JSON.stringify({ completed, userId }),
@@ -307,6 +354,7 @@ export function updateStudyTask(
   changes: { title: string; scheduledDate: string; estimatedMinutes: number },
   userId?: string
 ) {
+  requireConnection();
   return studyPlanRequest<{
     id: string;
     completedAt: string | null;
@@ -325,6 +373,7 @@ export async function openStudyTaskNote(
   taskId: string,
   userId?: string
 ): Promise<{ noteId: string; created: boolean }> {
+  requireConnection();
   return studyPlanRequest<{ noteId: string; created: boolean }>(`/${planId}/tasks/${taskId}/note`, {
     method: 'POST',
     body: JSON.stringify({ userId }),
@@ -336,6 +385,7 @@ export async function setStudyPlanArchived(
   archived: boolean,
   userId?: string
 ): Promise<{ id: string; archived: boolean }> {
+  requireConnection();
   return studyPlanRequest<{ id: string; archived: boolean }>(`/${planId}`, {
     method: 'PATCH',
     body: JSON.stringify({ archived, userId }),
@@ -343,6 +393,7 @@ export async function setStudyPlanArchived(
 }
 
 export async function deleteStudyPlan(planId: string, userId?: string): Promise<void> {
+  requireConnection();
   await studyPlanRequest(`/${planId}`, {
     method: 'DELETE',
     body: JSON.stringify({ userId }),
@@ -356,6 +407,7 @@ export function studyPlanErrorMessage(error: unknown): string {
       details?: { requiredMinutes?: number; availableMinutes?: number; missingMinutes?: number };
     };
   };
+  if (payload?.error?.message === 'OFFLINE_UNAVAILABLE') return 'Study plans need a connection. Reconnect to make changes.';
   const details = payload?.error?.details;
   if (payload?.error?.message === 'INSUFFICIENT_STUDY_CAPACITY' && details) {
     return `This plan needs ${details.requiredMinutes ?? 0} minutes, but only ${details.availableMinutes ?? 0} are available. Add ${details.missingMinutes ?? 0} minutes or reduce the workload.`;

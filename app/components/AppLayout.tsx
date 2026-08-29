@@ -8,6 +8,7 @@ import type { SubscriptionOutletContext } from '@/app/components/SubscriptionRou
 import { AlertTriangle, LockKeyhole } from 'lucide-react';
 import { trackProductEvent } from '@/app/lib/launch/client';
 import OnboardingExperience from '@/app/components/onboarding/OnboardingExperience';
+import OfflineStatusBanner from '@/app/components/OfflineStatusBanner';
 
 function AppLayout() {
   const { accessStatus } = useOutletContext<SubscriptionOutletContext>();
@@ -63,6 +64,7 @@ function AppLayout() {
           sidebarCollapsed ? 'md:ml-20' : 'md:ml-72'
         }`}
       >
+        <OfflineStatusBanner />
         {(accessStatus.accessMode === 'read_only' || accessStatus.billingWarning || accessNotice) && (
           <div role="status" className="mb-3 flex shrink-0 items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--course-citrine)_64%,var(--surface))] bg-[color-mix(in_srgb,var(--course-citrine)_34%,var(--surface))] px-3 py-2 text-sm text-[color-mix(in_srgb,var(--course-citrine)_68%,var(--secondary-accent))]">
             {accessStatus.accessMode === 'read_only' ? <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}

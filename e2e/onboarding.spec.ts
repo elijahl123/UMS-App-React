@@ -20,7 +20,7 @@ test('new users can set up essentials and enter the live feature tour', async ({
   await expect(page.getByRole('heading', { name: 'Plan everything in Calendar' })).toBeVisible();
   await expect(page.getByTestId('onboarding-spotlight')).toHaveAttribute('data-spotlight-status', 'fallback');
 
-  await delayedCalendarLayout.evaluate((element) => element.remove());
+  await delayedCalendarLayout.evaluate((element) => element.parentNode?.removeChild(element));
   await expect(page.getByTestId('onboarding-spotlight')).toHaveAttribute('data-spotlight-status', 'target');
 
   const remainingStages = [
