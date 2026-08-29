@@ -19,10 +19,13 @@ import {
   Settings,
   Sparkles,
   X,
+  CloudOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { useOffline } from '@/app/lib/offline/OfflineContext';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { useLoadAction, useMutateAction } from '@/app/lib/api/hooks';
 import { mapCourse } from '@/app/data/mappers';
@@ -105,7 +108,7 @@ const tourSteps: Partial<Record<OnboardingStep, {
   },
   account: {
     title: 'Connections and preferences',
-    body: 'Account is where you manage Google Calendar, school calendar imports, notification rules, profile details, billing, exports, and this walkthrough.',
+    body: 'Account is where you manage Google Calendar, school calendar imports, notification rules, offline access, profile details, billing, exports, and this walkthrough.',
     path: '/account',
     selector: '[data-tour="account"]',
     icon: Settings,
@@ -169,6 +172,11 @@ function rectChanged(previous: SpotlightRect | null, next: SpotlightRect) {
 
 export default function OnboardingExperience() {
   const { user } = useAuth();
+  const {
+    enabled: offlineEnabled,
+    setEnabled: setOfflineEnabled,
+    prefetching: offlinePrefetching,
+  } = useOffline();
   const navigate = useNavigate();
   const location = useLocation();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -542,7 +550,7 @@ export default function OnboardingExperience() {
     { step: 'course' as const, label: 'Add your first course', icon: GraduationCap, path: '/courses' },
     { step: 'coursework' as const, label: 'Add or import coursework', icon: BookOpen, path: '/homework' },
     { step: 'schedule' as const, label: 'Add a class time', icon: Clock, path: '/class-schedule' },
-    { step: 'services' as const, label: 'Enable reminders or Calendar', icon: BellRing, path: '/account' },
+    { step: 'services' as const, label: 'Set up reminders, Calendar, or offline access', icon: BellRing, path: '/account' },
   ];
   const completedChecklistCount = checklistItems.filter((item) => inferred.has(item.step)).length;
   const nextChecklistItem = checklistItems.find((item) => !inferred.has(item.step));
@@ -792,6 +800,20 @@ export default function OnboardingExperience() {
           </span>
           {calendarConnection?.connected ? <span className="text-xs font-semibold text-primary">Connected</span> : <ChevronRight className="h-4 w-4" />}
         </button>
+        <div className="flex items-center gap-3 rounded-lg border p-4">
+          <CloudOff className="h-5 w-5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold">Work offline</span>
+            <span className="block text-xs text-muted-foreground">
+              {offlinePrefetching
+                ? 'Saving a copy of your work to this device…'
+                : offlineEnabled
+                  ? 'Your courses, homework, schedule, and notes are saved on this device'
+                  : 'Keep your work available with no connection. Stored on this device only.'}
+            </span>
+          </span>
+          <Switch checked={offlineEnabled} onCheckedChange={setOfflineEnabled} label="Work offline" />
+        </div>
         {serviceMessage && <p role="status" className="rounded-md bg-primary/10 px-3 py-2 text-sm text-primary">{serviceMessage}</p>}
         <Button className="w-full" onClick={() => void advance()} disabled={busy}>Continue to app tour</Button>
         <Button variant="ghost" className="w-full" onClick={() => void advance('defer_step')} disabled={busy}>Set up later</Button>
