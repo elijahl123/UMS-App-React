@@ -8,7 +8,7 @@ test('mobile first-run onboarding is skippable and keeps a resumable checklist',
   await expect(page.getByRole('heading', { name: 'Welcome, E2E!' })).toBeVisible();
   await page.getByRole('button', { name: 'Skip walkthrough' }).click();
   await expect(page.getByRole('heading', { name: 'Getting Started' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible();
+  await expect(page.getByLabel('Resume walkthrough')).toBeVisible();
   await expect(page.getByRole('button', { name: 'View steps' })).toBeVisible();
   const compactCard = await page.getByTestId('getting-started-card').boundingBox();
   expect(compactCard?.height).toBeLessThan(230);

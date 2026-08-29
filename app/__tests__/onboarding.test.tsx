@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { screen, waitFor } from '@testing-library/react';
 import OnboardingExperience from '@/app/components/onboarding/OnboardingExperience';
 import { renderWithRouter } from '@/app/test/render';
-import { apiState, googleCalendarState, onboardingActions, onboardingState } from '@/app/test/mocks';
+import { apiState, googleCalendarState, offlineActions, offlineState, onboardingActions, onboardingState } from '@/app/test/mocks';
 import type { OnboardingState } from '@/app/lib/onboarding/client';
 import { getNotificationPreferences } from '@/app/lib/notifications/client';
 
@@ -99,5 +99,28 @@ describe('guided onboarding', () => {
     expect(screen.getByRole('button', { name: /reminders connected/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /google calendar connected/i })).toBeDisabled();
     expect(screen.getByText('jane@gmail.com')).toBeInTheDocument();
+  });
+
+  it('offers offline access in the services step, off until it is switched on', async () => {
+    onboardingState.value = onboarding({ currentStep: 'services' });
+    const user = userEvent.setup();
+    renderWithRouter(<OnboardingExperience />);
+
+    const toggle = await screen.findByRole('switch', { name: 'Work offline' });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText(/Keep your work available with no connection/i)).toBeInTheDocument();
+
+    await user.click(toggle);
+
+    expect(offlineActions.setEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it('reports offline access as already on without asking again', async () => {
+    onboardingState.value = onboarding({ currentStep: 'services' });
+    offlineState.enabled = true;
+    renderWithRouter(<OnboardingExperience />);
+
+    expect(await screen.findByRole('switch', { name: 'Work offline' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/saved on this device/i)).toBeInTheDocument();
   });
 });

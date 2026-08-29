@@ -12,7 +12,7 @@ function pendingLabel(count: number): string {
 function OfflineStatusBanner() {
   const { enabled, isOnline, pendingCount, syncState, syncIssues, dismissIssue } = useOffline();
 
-  if (isOnline && syncIssues.length === 0 && (!enabled || (pendingCount === 0 && syncState === 'idle'))) {
+  if (isOnline && syncIssues.length === 0 && (!enabled || pendingCount === 0)) {
     return null;
   }
 
@@ -40,7 +40,7 @@ function OfflineStatusBanner() {
         </div>
       )}
 
-      {isOnline && enabled && (pendingCount > 0 || syncState === 'syncing') && (
+      {isOnline && enabled && pendingCount > 0 && (
         <div role="status" className={noticeClasses}>
           <RefreshCw className={`mt-0.5 h-4 w-4 shrink-0 ${syncState === 'syncing' ? 'animate-spin' : ''}`} />
           <span>
