@@ -66,3 +66,55 @@ test('skipping leaves a resumable Getting Started checklist', async ({ page }) =
   await expect(page.getByRole('heading', { name: 'Getting Started' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible();
 });
+
+test('offers offline access during setup, off unless the user turns it on', async ({ page }) => {
+  await mockAuthenticatedApp(page, { onboarding: createMockOnboarding() });
+  await page.goto('/#/');
+
+  await page.getByRole('button', { name: 'Start setup' }).click();
+  await page.getByRole('button', { name: 'Use this course' }).click();
+  await page.getByRole('button', { name: 'Do this later' }).click();
+  await page.getByRole('button', { name: 'Do this later' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Connect your planning tools' })).toBeVisible();
+  const toggle = page.getByRole('switch', { name: 'Work offline' });
+  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+  // Nothing is stored until the user asks for it.
+  expect(await page.evaluate(() => window.localStorage.getItem('ums.offlineSync'))).toBeNull();
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem('ums.offlineSync'))).toBe('on');
+
+  await page.getByRole('button', { name: 'Continue to app tour' }).click();
+  await expect(page.getByRole('heading', { name: 'Your day at a glance' })).toBeVisible();
+  // The tour overlay covers the app, so leave it before reading the account page.
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
+
+  // The walkthrough switch is the same setting the account page owns.
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await expect(page).toHaveURL(/#\/account$/);
+  await page.getByRole('tab', { name: 'Preferences' }).click();
+  await expect(page.getByRole('switch', { name: 'Offline access' })).toHaveAttribute('aria-checked', 'true');
+});
+
+test('leaves offline access off when the walkthrough is skipped past it', async ({ page }) => {
+  await mockAuthenticatedApp(page, { onboarding: createMockOnboarding() });
+  await page.goto('/#/');
+
+  await page.getByRole('button', { name: 'Start setup' }).click();
+  await page.getByRole('button', { name: 'Use this course' }).click();
+  await page.getByRole('button', { name: 'Do this later' }).click();
+  await page.getByRole('button', { name: 'Do this later' }).click();
+  await page.getByRole('button', { name: 'Set up later' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Your day at a glance' })).toBeVisible();
+  expect(await page.evaluate(() => window.localStorage.getItem('ums.offlineSync'))).toBeNull();
+  await page.getByRole('button', { name: 'Skip', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
+  await expect(page).toHaveURL(/#\/account$/);
+  await page.getByRole('tab', { name: 'Preferences' }).click();
+  await expect(page.getByRole('switch', { name: 'Offline access' })).toHaveAttribute('aria-checked', 'false');
+});
