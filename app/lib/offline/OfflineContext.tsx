@@ -158,7 +158,17 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     // Hold the refresh back until the app has painted. It fires a dozen or so
     // requests, and during boot those compete with the ones the visible page is
     // waiting on for the browser's per-origin connection budget.
-    const start = () => void refreshOfflineCopy();
+    let retry: number | undefined;
+    const start = () => {
+      // A single failed request earlier in boot can mark the API unreachable and
+      // skip this entirely, which would leave the device with no saved copy for
+      // the rest of the session. Come back for it.
+      if (shouldSkipNetwork() && !isBrowserOffline()) {
+        retry = window.setTimeout(start, 30_000);
+        return;
+      }
+      void refreshOfflineCopy();
+    };
     const idle = typeof window.requestIdleCallback === 'function'
       ? window.requestIdleCallback(start, { timeout: 3000 })
       : window.setTimeout(start, 1000);
@@ -167,6 +177,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         window.cancelIdleCallback(idle);
       }
       window.clearTimeout(idle as number);
+      window.clearTimeout(retry);
     };
   }, [enabled, userId, refreshOfflineCopy]);
 

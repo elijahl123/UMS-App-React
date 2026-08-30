@@ -158,7 +158,9 @@ export async function callAction<TResult = unknown>(name: string, params?: Recor
     try {
       const rows = await callActionOverNetwork<TResult>(name, params);
       markApiReachable();
-      void offline.writeActionRows(name, params, rows);
+      // Awaited, not fired and forgotten: the prefetch finishes when these reads
+      // resolve, and an in-flight write is lost if the page goes away.
+      await offline.writeActionRows(name, params, rows);
       return rows;
     } catch (err) {
       if (isTransportFailure(err)) markApiUnreachable();

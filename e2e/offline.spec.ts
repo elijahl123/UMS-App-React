@@ -66,22 +66,22 @@ test('leaves the cache empty while offline access is off', async ({ page }) => {
   await expect(page.getByText('Software Engineering Project')).toBeHidden();
 });
 
-test('shows a study plan offline and syncs a task checked off there', async ({ page }) => {
+type StudyPlanMock = { toggles: boolean[] };
+
+async function mockStudyPlan(page: import('@playwright/test').Page): Promise<StudyPlanMock> {
   const today = new Date().toISOString().slice(0, 10);
   const examDate = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
-  const tasks = [
-    {
-      id: 1,
-      plan_id: 1,
-      topic_id: 1,
-      phase: 'learn',
-      title: 'Learn & review: Architecture patterns',
-      scheduled_date: today,
-      estimated_minutes: 60,
-      completed_at: null as string | null,
-      sequence: 0,
-    },
-  ];
+  const tasks = [{
+    id: 1,
+    plan_id: 1,
+    topic_id: 1,
+    phase: 'learn',
+    title: 'Learn & review: Architecture patterns',
+    scheduled_date: today,
+    estimated_minutes: 60,
+    completed_at: null as string | null,
+    sequence: 0,
+  }];
   const plan = {
     id: 1,
     course_id: 1,
@@ -105,7 +105,7 @@ test('shows a study plan offline and syncs a task checked off there', async ({ p
     next_study_date: today,
     next_task_title: 'Learn & review: Architecture patterns',
   };
-  const toggles: boolean[] = [];
+  const mock: StudyPlanMock = { toggles: [] };
 
   await page.route('**/api/study-plans**', async (route) => {
     const request = route.request();
@@ -113,7 +113,7 @@ test('shows a study plan offline and syncs a task checked off there', async ({ p
 
     if (request.method() === 'PATCH' && url.pathname.endsWith('/tasks/1')) {
       const completed = Boolean((request.postDataJSON() as { completed: boolean }).completed);
-      toggles.push(completed);
+      mock.toggles.push(completed);
       tasks[0].completed_at = completed ? '2026-07-25T12:00:00.000Z' : null;
       plan.completed_tasks = completed ? 1 : 0;
       await route.fulfill({
@@ -125,13 +125,23 @@ test('shows a study plan offline and syncs a task checked off there', async ({ p
 
     const body = url.pathname.endsWith('/tasks')
       ? { from: url.searchParams.get('from'), to: url.searchParams.get('to'), tasks }
-      : url.pathname.endsWith('/recovery')
-        ? { planId: '1', needsRecovery: false, reasons: [], overdueMinutes: 0, overCapacityMinutes: 0, unscheduledMinutes: 0, unresolvedTasks: [], latestRevision: null }
-        : /\/study-plans\/1$/.test(url.pathname)
-          ? { plan, availability: [], topics: [{ id: 1, plan_id: 1, title: 'Architecture patterns', difficulty: 'medium', position: 0, active: true, total_tasks: 1, completed_tasks: plan.completed_tasks }] }
-          : { plans: [plan] };
+      : url.pathname.endsWith('/dashboard')
+        ? { plans: [plan], tasks: [], activePlanCount: 1, overduePlanCount: 0, recoveryPlanCount: 0, urgentPlan: null, nextStudyDate: today }
+        : url.pathname.endsWith('/calendar')
+          ? { from: url.searchParams.get('from'), to: url.searchParams.get('to'), plans: [plan], tasks }
+          : url.pathname.endsWith('/recovery')
+            ? { planId: '1', needsRecovery: false, reasons: [], overdueMinutes: 0, overCapacityMinutes: 0, unscheduledMinutes: 0, unresolvedTasks: [], latestRevision: null }
+            : /\/study-plans\/1$/.test(url.pathname)
+              ? { plan, availability: [], topics: [{ id: 1, plan_id: 1, title: 'Architecture patterns', difficulty: 'medium', position: 0, active: true, total_tasks: 1, completed_tasks: plan.completed_tasks }] }
+              : { plans: [plan] };
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
   });
+
+  return mock;
+}
+
+test('shows a study plan offline and syncs a task checked off there', async ({ page }) => {
+  const mock = await mockStudyPlan(page);
 
   await enableOfflineAccess(page);
 
@@ -147,12 +157,30 @@ test('shows a study plan offline and syncs a task checked off there', async ({ p
   await expect(ticked).toBeVisible();
   await expect(ticked).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/1 change waiting/)).toBeVisible();
-  expect(toggles).toEqual([]);
+  expect(mock.toggles).toEqual([]);
 
   await goOnline(page);
 
   await expect(page.getByText(/waiting to sync/)).toBeHidden();
-  expect(toggles).toEqual([true]);
+  expect(mock.toggles).toEqual([true]);
+});
+
+test('shows the saved study plan when the network accepts but never answers', async ({ page }) => {
+  await mockStudyPlan(page);
+  await enableOfflineAccess(page);
+
+  const hang = () => new Promise<void>(() => {});
+  await page.route((url) => url.pathname.startsWith('/api/'), hang);
+  await page.route((url) => url.hostname.endsWith('googleapis.com'), hang);
+  await page.reload({ waitUntil: 'commit' });
+
+  const startedAt = Date.now();
+  await page.evaluate(() => { window.location.hash = '#/courses/1/study-plans/1'; });
+
+  // The saved copy renders without waiting on the request timeout, which used to
+  // hold this page blank for over ten seconds per read.
+  await expect(page.getByRole('heading', { name: /Final exam/i })).toBeVisible({ timeout: 5_000 });
+  expect(Date.now() - startedAt).toBeLessThan(5_000);
 });
 
 test('warns before logging out with changes still waiting to sync', async ({ page }) => {
