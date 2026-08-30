@@ -16,7 +16,13 @@ import type {
   StudyTargetType,
 } from '@/app/data/types';
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
-import { getOfflineAdapter, isBrowserOffline } from '@/app/lib/offline/runtime';
+import {
+  getOfflineAdapter,
+  isBrowserOffline,
+  markApiReachable,
+  markApiUnreachable,
+  shouldSkipNetwork,
+} from '@/app/lib/offline/runtime';
 export { parseStudyTopics } from '@/app/data/studyPlans';
 import { trackProductEvent } from '@/app/lib/launch/client';
 
@@ -59,22 +65,53 @@ async function studyPlanRequest<T>(path = '', init?: RequestInit): Promise<T> {
  * Study plans are read-only offline: the schedule is generated server side, so a
  * cached copy is safe to show but edits cannot be replayed later.
  */
+/** Fired when a background refresh found newer study plan data than the cache held. */
+export const STUDY_PLANS_REVALIDATED_EVENT = 'ums-study-plans-revalidated';
+
+const revalidatingStudyKeys = new Set<string>();
+
+function revalidateStudyRead<T>(cacheKey: string, load: () => Promise<T>, cached: T) {
+  if (shouldSkipNetwork() || revalidatingStudyKeys.has(cacheKey)) return;
+  revalidatingStudyKeys.add(cacheKey);
+
+  void load()
+    .then(async (payload) => {
+      markApiReachable();
+      const offline = getOfflineAdapter();
+      if (!offline) return;
+      await offline.writeResource(cacheKey, payload);
+      if (typeof window !== 'undefined' && JSON.stringify(payload) !== JSON.stringify(cached)) {
+        window.dispatchEvent(new CustomEvent(STUDY_PLANS_REVALIDATED_EVENT));
+      }
+    })
+    .catch((err) => {
+      if (err instanceof Error) markApiUnreachable();
+    })
+    .finally(() => revalidatingStudyKeys.delete(cacheKey));
+}
+
+/**
+ * Cache first, like every other read. Asking the network before showing anything
+ * is what leaves a plan blank until the request times out, which is exactly when
+ * the saved copy is the thing worth showing.
+ */
 async function cachedStudyRead<T>(cacheKey: string, load: () => Promise<T>): Promise<T> {
   const offline = getOfflineAdapter();
   if (!offline) return load();
 
-  if (isBrowserOffline()) {
-    const cached = await offline.readResource<T>(cacheKey);
-    if (cached !== null) return cached;
+  const cached = await offline.readResource<T>(cacheKey);
+  if (cached !== null) {
+    revalidateStudyRead(cacheKey, load, cached);
+    return cached;
   }
 
   try {
     const payload = await load();
-    void offline.writeResource(cacheKey, payload);
+    markApiReachable();
+    await offline.writeResource(cacheKey, payload);
     return payload;
   } catch (err) {
-    const cached = await offline.readResource<T>(cacheKey);
-    if (cached !== null) return cached;
+    if (err instanceof Error) markApiUnreachable();
     throw err;
   }
 }
@@ -220,25 +257,40 @@ export async function getStudyPlanTasks(
   if (!offline) return load();
 
   const key = studyTasksKey(planId);
-  const readCached = async () => {
-    const cached = await offline.readResource<StudyTask[]>(key);
-    return cached ? { from, to, tasks: cached.filter((task) => inWindow(task, from, to)) } : null;
+  const merge = async (payload: { from: string; to: string; tasks: StudyTask[] }) => {
+    const held = (await offline.readResource<StudyTask[]>(key)) ?? [];
+    const outsideWindow = held.filter((task) => !inWindow(task, payload.from, payload.to));
+    await offline.writeResource(key, [...outsideWindow, ...payload.tasks]);
   };
 
-  if (isBrowserOffline()) {
-    const cached = await readCached();
-    if (cached) return cached;
+  const cached = await offline.readResource<StudyTask[]>(key);
+  if (cached) {
+    const visible = cached.filter((task) => inWindow(task, from, to));
+    if (!shouldSkipNetwork() && !revalidatingStudyKeys.has(key)) {
+      revalidatingStudyKeys.add(key);
+      void load()
+        .then(async (payload) => {
+          markApiReachable();
+          await merge(payload);
+          if (typeof window !== 'undefined' && JSON.stringify(payload.tasks) !== JSON.stringify(visible)) {
+            window.dispatchEvent(new CustomEvent(STUDY_PLANS_REVALIDATED_EVENT));
+          }
+        })
+        .catch((err) => {
+          if (err instanceof Error) markApiUnreachable();
+        })
+        .finally(() => revalidatingStudyKeys.delete(key));
+    }
+    return { from, to, tasks: visible };
   }
 
   try {
     const payload = await load();
-    const cached = (await offline.readResource<StudyTask[]>(key)) ?? [];
-    const outsideWindow = cached.filter((task) => !inWindow(task, payload.from, payload.to));
-    void offline.writeResource(key, [...outsideWindow, ...payload.tasks]);
+    markApiReachable();
+    await merge(payload);
     return payload;
   } catch (err) {
-    const cached = await readCached();
-    if (cached) return cached;
+    if (err instanceof Error) markApiUnreachable();
     throw err;
   }
 }

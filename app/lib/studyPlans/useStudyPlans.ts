@@ -8,6 +8,7 @@ import type {
   StudyTask,
 } from '@/app/data/types';
 import {
+  STUDY_PLANS_REVALIDATED_EVENT,
   getStudyPlanCalendar,
   getStudyPlanDashboard,
   getStudyPlanDefinition,
@@ -53,6 +54,15 @@ function useStudyResource<T>(
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Reads are served from the saved copy first, so pick up the fresher answer
+  // when a background refresh finds one.
+  useEffect(() => {
+    if (!enabled) return;
+    const handleRevalidated = () => void reload();
+    window.addEventListener(STUDY_PLANS_REVALIDATED_EVENT, handleRevalidated);
+    return () => window.removeEventListener(STUDY_PLANS_REVALIDATED_EVENT, handleRevalidated);
+  }, [enabled, reload]);
 
   return [data, loading, error, reload, setData];
 }
