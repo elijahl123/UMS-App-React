@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ClassSessionFormDialog from '@/app/components/widgets/ClassSessionFormDialog';
+import ClassSessionDetailsDialog from '@/app/components/widgets/ClassSessionDetailsDialog';
 import { mapCourse, mapClassSession, mapEvent } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import type { ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
-import { dayLabels, formatTimeDisplay, parseTimeToMinutes } from '@/app/data/classSchedule';
+import { dayLabels, formatTimeDisplay, isImportedClassSession, parseTimeToMinutes } from '@/app/data/classSchedule';
 import { toIsoDate } from '@/app/data/calendarUtils';
 
 const days: ClassSession['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -19,6 +20,26 @@ const HOUR_HEIGHT = 56; // px per hour row
 const MOBILE_HOUR_HEIGHT = 56;
 const DEFAULT_START_HOUR = 8;
 const DEFAULT_END_HOUR = 18;
+const MIN_SESSION_MINUTES = 15;
+const MIN_BLOCK_HEIGHT = 24;
+const MIN_MOBILE_BLOCK_HEIGHT = 36;
+
+// How much detail a session block can show before its text gets clipped.
+// 'full' fits the code, time, and location on separate lines; 'compact'
+// fits the code plus one meta line; 'minimal' fits a single line.
+type BlockDensity = 'full' | 'compact' | 'minimal';
+
+function getBlockDensity(height: number): BlockDensity {
+  if (height >= 54) return 'full';
+  if (height >= 40) return 'compact';
+  return 'minimal';
+}
+
+function getSessionBounds(session: ClassSession) {
+  const startMin = parseTimeToMinutes(session.startTime);
+  const endMin = Math.max(parseTimeToMinutes(session.endTime), startMin + MIN_SESSION_MINUTES);
+  return { startMin, endMin };
+}
 
 function useIsMobileSchedule() {
   const [isMobile, setIsMobile] = useState(() => {
@@ -122,6 +143,7 @@ function ClassSchedulePage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClassSession | null>(null);
+  const [detailsSession, setDetailsSession] = useState<ClassSession | null>(null);
 
   const courses = (courseRows ?? []).map(mapCourse);
   const manualSessions = (sessionRows ?? []).map(mapClassSession);
@@ -190,6 +212,21 @@ function ClassSchedulePage() {
   const openEditDialog = (session: ClassSession) => {
     setEditing(session);
     setDialogOpen(true);
+  };
+
+  const openDetails = (session: ClassSession) => {
+    setDetailsSession(session);
+  };
+
+  const closeDetails = () => {
+    setDetailsSession(null);
+  };
+
+  const confirmDelete = (session: ClassSession) => {
+    if (confirm('Are you sure you want to delete this class session?')) {
+      closeDetails();
+      handleDelete(session.id);
+    }
   };
 
   const handleSubmit = async (values: Omit<ClassSession, 'id'> & { id?: string }) => {
@@ -276,31 +313,52 @@ function ClassSchedulePage() {
                       {daySessions.map((s) => {
                         const course = getCourse(s.courseId);
                         const colors = getCourseColor(course?.color);
-                        const startMin = parseTimeToMinutes(s.startTime);
-                        const endMin = Math.max(parseTimeToMinutes(s.endTime), startMin + 20);
+                        const { startMin, endMin } = getSessionBounds(s);
                         const top = ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
-                        const height = ((endMin - startMin) / 60) * HOUR_HEIGHT;
+                        const height = Math.max(((endMin - startMin) / 60) * HOUR_HEIGHT, MIN_BLOCK_HEIGHT);
+                        const density = getBlockDensity(height);
+                        const timeRange = `${formatTimeDisplay(s.startTime)} - ${formatTimeDisplay(s.endTime)}`;
+                        const paddingClass = density === 'minimal' ? 'px-1.5 py-0.5' : 'px-1.5 py-1';
                         return (
                           <div
                             key={s.id}
-                            className="group absolute left-1 right-1 flex flex-col overflow-hidden rounded-md border p-1.5 shadow-sm"
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`View ${course?.code ?? 'class'} on ${dayLabels[day]}, ${timeRange}`}
+                            className={`group absolute left-1 right-1 flex cursor-pointer flex-col overflow-hidden rounded-md border shadow-sm transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${paddingClass}`}
                             style={{
                               top,
-                              height: Math.max(height, 32),
+                              height,
                               backgroundColor: colors.bg,
                               borderColor: colors.border,
                               color: colors.text,
                             }}
-                            title={`${dayLabels[day]}: ${course?.code ?? ''} ${formatTimeDisplay(s.startTime)} - ${formatTimeDisplay(s.endTime)}${s.location ? ` at ${s.location}` : ''}`}
+                            title={`${dayLabels[day]}: ${course?.code ?? ''} ${timeRange}${s.location ? ` at ${s.location}` : ''}`}
+                            onClick={() => openDetails(s)}
+                            onKeyDown={(event) => {
+                              if (event.target !== event.currentTarget) return;
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                openDetails(s);
+                              }
+                            }}
                           >
-                            <div className="flex items-start justify-between gap-1">
-                              <span className="truncate text-[9px] sm:text-[11px] font-bold">{course?.code ?? '—'}</span>
-                              {!s.id.startsWith('academic-event:') && <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
+                            <div className="flex min-h-0 items-center justify-between gap-1">
+                              <span className="flex min-w-0 items-baseline gap-1 leading-[14px]">
+                                <span className="truncate text-[9px] sm:text-[11px] font-bold">{course?.code ?? '—'}</span>
+                                {density === 'minimal' && (
+                                  <span className="truncate text-[8px] sm:text-[10px] font-medium opacity-90">{formatTimeDisplay(s.startTime)}</span>
+                                )}
+                              </span>
+                              {!isImportedClassSession(s) && <div className="flex shrink-0 items-center gap-0.5 opacity-100 transition-opacity xl:opacity-0 xl:group-hover:opacity-100">
                                 <button
                                   type="button"
                                   className="rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--secondary-accent)_12%,transparent)]"
                                   title="Edit"
-                                  onClick={() => openEditDialog(s)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openEditDialog(s);
+                                  }}
                                 >
                                   <Pencil className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                                 </button>
@@ -308,20 +366,27 @@ function ClassSchedulePage() {
                                   type="button"
                                   className="rounded p-0.5 hover:bg-[color-mix(in_srgb,var(--secondary-accent)_12%,transparent)]"
                                   title="Delete"
-                                  onClick={() => {
-                                    if (confirm('Are you sure you want to delete this class session?')) {
-                                      handleDelete(s.id);
-                                    }
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    confirmDelete(s);
                                   }}
                                 >
                                   <Trash2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                                 </button>
                               </div>}
                             </div>
-                            <span className="truncate text-[8px] sm:text-[10px] font-medium opacity-90">
-                              {formatTimeDisplay(s.startTime)} - {formatTimeDisplay(s.endTime)}
-                            </span>
-                            {s.location && <span className="truncate text-[8px] sm:text-[10px] font-medium opacity-90">{s.location}</span>}
+                            {density === 'full' && (
+                              <>
+                                <span className="truncate text-[8px] sm:text-[10px] font-medium leading-[13px] opacity-90">{timeRange}</span>
+                                {s.location && <span className="truncate text-[8px] sm:text-[10px] font-medium leading-[13px] opacity-90">{s.location}</span>}
+                              </>
+                            )}
+                            {density === 'compact' && (
+                              <span className="truncate text-[8px] sm:text-[10px] font-medium leading-[13px] opacity-90">
+                                {timeRange}
+                                {s.location ? ` · ${s.location}` : ''}
+                              </span>
+                            )}
                           </div>
                         );
                       })}
@@ -476,29 +541,29 @@ function ClassSchedulePage() {
             {selectedDaySessions.map((s) => {
               const course = getCourse(s.courseId);
               const colors = getCourseColor(course?.color);
-              const startMin = parseTimeToMinutes(s.startTime);
-              const endMin = Math.max(parseTimeToMinutes(s.endTime), startMin + 20);
+              const { startMin, endMin } = getSessionBounds(s);
               const top = ((startMin - startHour * 60) / 60) * MOBILE_HOUR_HEIGHT;
-              const height = ((endMin - startMin) / 60) * MOBILE_HOUR_HEIGHT;
+              const height = Math.max(((endMin - startMin) / 60) * MOBILE_HOUR_HEIGHT, MIN_MOBILE_BLOCK_HEIGHT);
+              // Two rows of text need roughly 44px with padding; anything shorter shows only the code and time.
+              const showDetails = height >= 46;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  className="mobile-list-item group absolute left-2.5 right-2.5 overflow-hidden px-3 py-2 transition-transform active:scale-[0.99]"
+                  className="mobile-list-item group absolute left-2.5 right-2.5 overflow-hidden px-3 py-1 transition-transform active:scale-[0.99]"
                   style={{
                     top,
-                    minHeight: 50,
-                    height: Math.max(height, 50),
+                    height,
                     '--mobile-item-bg': colors.bg,
                     '--mobile-item-border': colors.border,
                     '--mobile-item-text': colors.text,
                   } as React.CSSProperties}
-                  aria-label={`${s.id.startsWith('academic-event:') ? 'View' : 'Edit'} ${course?.code ?? 'class'} on ${dayLabels[selectedDay]}`}
-                  onClick={() => { if (!s.id.startsWith('academic-event:')) openEditDialog(s); }}
+                  aria-label={`View ${course?.code ?? 'class'} on ${dayLabels[selectedDay]}`}
+                  onClick={() => openDetails(s)}
                 >
                   <span className="mobile-list-rail absolute inset-y-0 left-0 w-1" />
-                  <span className="flex h-full min-h-0 flex-col justify-center gap-1 pl-1.5">
-                    <span className="flex min-w-0 items-center justify-between gap-2">
+                  <span className="flex h-full min-h-0 flex-col justify-center gap-0.5 pl-1.5">
+                    <span className="flex min-w-0 items-center justify-between gap-2 leading-4">
                       <span className="truncate text-[13px] font-bold">{course?.code ?? 'Class'}</span>
                       <span className="flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)]">
                         <Clock className="h-3 w-3 shrink-0" />
@@ -507,13 +572,15 @@ function ClassSchedulePage() {
                         </span>
                       </span>
                     </span>
-                    <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-[10px] font-semibold text-[var(--text-secondary)]">
-                      <span className="truncate text-[11px] text-[var(--text-primary)]">{course?.name ?? 'Course details'}</span>
-                      <span className="flex min-w-0 items-center gap-1">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{s.location ?? 'Location TBD'}</span>
+                    {showDetails && (
+                      <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 text-[10px] font-semibold leading-4 text-[var(--text-secondary)]">
+                        <span className="truncate text-[11px] text-[var(--text-primary)]">{course?.name ?? 'Course details'}</span>
+                        <span className="flex min-w-0 items-center gap-1">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{s.location ?? 'Location TBD'}</span>
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </span>
                 </button>
               );
@@ -544,6 +611,19 @@ function ClassSchedulePage() {
   return (
     <div data-tour="class-schedule" className="flex h-full flex-col gap-4">
       {isMobile ? mobileSchedule : desktopSchedule}
+
+      <ClassSessionDetailsDialog
+        open={detailsSession !== null}
+        onOpenChange={(open) => { if (!open) closeDetails(); }}
+        session={detailsSession}
+        course={detailsSession ? getCourse(detailsSession.courseId) : undefined}
+        date={detailsSession ? weekDays.find((entry) => entry.day === detailsSession.day)?.date : undefined}
+        onEdit={(session) => {
+          closeDetails();
+          openEditDialog(session);
+        }}
+        onDelete={confirmDelete}
+      />
 
       <ClassSessionFormDialog
         open={dialogOpen}

@@ -92,6 +92,23 @@ describe('page rendering', () => {
     expect(screen.getByText(/9:00 a\.m\. - 10:15 a\.m\./i)).toBeInTheDocument();
   });
 
+  it('opens class session details from the schedule grid', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ClassSchedulePage />);
+
+    await user.click(screen.getByRole('button', { name: /view math 101 on friday/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/calculus i/i);
+    expect(dialog).toHaveTextContent(/9:00 a\.m\. - 10:15 a\.m\./i);
+    expect(dialog).toHaveTextContent(/1 hr 15 min/i);
+    expect(dialog).toHaveTextContent(/science center s202/i);
+    expect(screen.getByRole('link', { name: /open course/i })).toHaveAttribute('href', '/courses/1');
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }));
+    expect(await screen.findByRole('heading', { name: /edit class/i })).toBeInTheDocument();
+  });
+
   it('renders the calendar and opens day details', async () => {
     const user = userEvent.setup();
     renderWithRouter(<CalendarPage />, { route: '/calendar?date=2026-07-22' });
