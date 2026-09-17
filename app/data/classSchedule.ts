@@ -58,6 +58,11 @@ export function formatTimeDisplay(time: string): string {
   return `${displayHour}:${minutes} ${period}`;
 }
 
+/** Sessions derived from imported academic calendar events are read-only on the schedule page. */
+export function isImportedClassSession(session: ClassSession): boolean {
+  return session.id.startsWith('academic-event:');
+}
+
 export interface ClassFocus {
   session: ClassSession;
   course?: Course;

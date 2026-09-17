@@ -56,6 +56,25 @@ describe('page rendering', () => {
     expect(screen.getByRole('button', { name: /import school calendar/i })).toBeInTheDocument();
   });
 
+  it('opens assignment details from the homework list', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    await user.click(screen.getByRole('button', { name: /view details for limits worksheet/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/limits worksheet/i);
+    expect(dialog).toHaveTextContent(/math 101 · calculus i/i);
+    expect(dialog).toHaveTextContent(/upcoming/i);
+    expect(dialog).toHaveTextContent(/friday, july 10, 2026 at 11:59 pm/i);
+    expect(dialog).toHaveTextContent(/no description/i);
+    expect(screen.getByRole('link', { name: /open course/i })).toHaveAttribute('href', '/courses/1');
+    expect(screen.getByRole('button', { name: /^mark complete$/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }));
+    expect(await screen.findByRole('heading', { name: /edit assignment/i })).toBeInTheDocument();
+  });
+
   it('opens the Brightspace import guide from the homework page', async () => {
     const user = userEvent.setup();
     renderWithRouter(<HomeworkPage />);
@@ -90,6 +109,23 @@ describe('page rendering', () => {
     expect(screen.getByRole('heading', { name: /class schedule/i })).toBeInTheDocument();
     expect(screen.getAllByText(/math 101/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/9:00 a\.m\. - 10:15 a\.m\./i)).toBeInTheDocument();
+  });
+
+  it('opens class session details from the schedule grid', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<ClassSchedulePage />);
+
+    await user.click(screen.getByRole('button', { name: /view math 101 on friday/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/calculus i/i);
+    expect(dialog).toHaveTextContent(/9:00 a\.m\. - 10:15 a\.m\./i);
+    expect(dialog).toHaveTextContent(/1 hr 15 min/i);
+    expect(dialog).toHaveTextContent(/science center s202/i);
+    expect(screen.getByRole('link', { name: /open course/i })).toHaveAttribute('href', '/courses/1');
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }));
+    expect(await screen.findByRole('heading', { name: /edit class/i })).toBeInTheDocument();
   });
 
   it('renders the calendar and opens day details', async () => {
