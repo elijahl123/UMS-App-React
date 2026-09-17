@@ -56,6 +56,25 @@ describe('page rendering', () => {
     expect(screen.getByRole('button', { name: /import school calendar/i })).toBeInTheDocument();
   });
 
+  it('opens assignment details from the homework list', async () => {
+    const user = userEvent.setup();
+    renderWithRouter(<HomeworkPage />);
+
+    await user.click(screen.getByRole('button', { name: /view details for limits worksheet/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/limits worksheet/i);
+    expect(dialog).toHaveTextContent(/math 101 · calculus i/i);
+    expect(dialog).toHaveTextContent(/upcoming/i);
+    expect(dialog).toHaveTextContent(/friday, july 10, 2026 at 11:59 pm/i);
+    expect(dialog).toHaveTextContent(/no description/i);
+    expect(screen.getByRole('link', { name: /open course/i })).toHaveAttribute('href', '/courses/1');
+    expect(screen.getByRole('button', { name: /^mark complete$/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^edit$/i }));
+    expect(await screen.findByRole('heading', { name: /edit assignment/i })).toBeInTheDocument();
+  });
+
   it('opens the Brightspace import guide from the homework page', async () => {
     const user = userEvent.setup();
     renderWithRouter(<HomeworkPage />);
