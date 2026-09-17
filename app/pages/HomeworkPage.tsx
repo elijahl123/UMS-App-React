@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AssignmentFormDialog from '@/app/components/widgets/AssignmentFormDialog';
+import AssignmentDetailsDialog from '@/app/components/widgets/AssignmentDetailsDialog';
 import SchoolCalendarImportPanel from '@/app/components/SchoolCalendarImportPanel';
 import { mapCourse, mapAssignment } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
@@ -81,6 +82,7 @@ function HomeworkPage() {
   });
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailsAssignment, setDetailsAssignment] = useState<Assignment | null>(null);
   const [editing, setEditing] = useState<Assignment | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(['completed']));
   const [isDesktopLayout, setIsDesktopLayout] = useState(() => {
@@ -154,6 +156,21 @@ function HomeworkPage() {
   const openEditDialog = (assignment: Assignment) => {
     setEditing(assignment);
     setDialogOpen(true);
+  };
+
+  const openDetails = (assignment: Assignment) => {
+    setDetailsAssignment(assignment);
+  };
+
+  const closeDetails = () => {
+    setDetailsAssignment(null);
+  };
+
+  const confirmDelete = (assignment: Assignment) => {
+    if (confirm('Are you sure you want to delete this assignment?')) {
+      closeDetails();
+      handleDelete(assignment.id);
+    }
   };
 
   const handleSubmit = async (values: Omit<Assignment, 'id'> & { id?: string }) => {
@@ -249,32 +266,39 @@ function HomeworkPage() {
     return (
       <div
         key={a.id}
-        className="mobile-list-item group relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 pl-4 sm:gap-4 sm:pl-5 md:gap-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
+        className="mobile-list-item group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 pl-4 sm:gap-4 sm:pl-5 md:gap-3 md:pl-5 md:shadow-sm xl:gap-4 xl:p-4 xl:pl-6"
         style={itemStyle}
       >
         <span className="mobile-list-rail absolute left-3.5 top-4 h-[calc(100%-2rem)] w-1.5 md:left-4 md:top-4 md:h-[calc(100%-2rem)] xl:top-5 xl:h-[calc(100%-2.5rem)]" />
-        <div
-          className="mobile-list-icon ml-5 h-10 w-10 rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
-          aria-hidden="true"
+        <button
+          type="button"
+          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-md text-left sm:gap-4 md:gap-3 xl:gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={`View details for ${a.name}`}
+          onClick={() => openDetails(a)}
         >
-          <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-5 md:w-5 xl:h-7 xl:w-7" style={{ color: colors.text }} />
-        </div>
-        <div className="min-w-0 space-y-1">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-snug text-[var(--secondary-accent)] sm:text-base md:text-sm xl:text-base" title={a.name}>
-              {a.name}
-            </p>
-            <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-secondary)] sm:text-xs md:text-xs" title={course?.code ?? 'No course'}>
-              {course?.code ?? 'No course'}
+          <div
+            className="mobile-list-icon ml-5 h-10 w-10 rounded-full sm:ml-4 sm:h-12 sm:w-12 md:h-11 md:w-11 xl:h-14 xl:w-14"
+            aria-hidden="true"
+          >
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6 md:h-5 md:w-5 xl:h-7 xl:w-7" style={{ color: colors.text }} />
+          </div>
+          <div className="min-w-0 space-y-1">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold leading-snug text-[var(--secondary-accent)] sm:text-base md:text-sm xl:text-base" title={a.name}>
+                {a.name}
+              </p>
+              <p className="truncate text-[11px] font-semibold leading-tight text-[var(--text-secondary)] sm:text-xs md:text-xs" title={course?.code ?? 'No course'}>
+                {course?.code ?? 'No course'}
+              </p>
+            </div>
+            <p className={`flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs md:text-xs ${emphasis === 'late' ? 'text-[var(--main-accent)]' : colors.text}`}>
+              <CalendarClock className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 md:h-3.5 md:w-3.5" />
+              <span className="min-w-0 truncate" title={dueLabel}>
+                {dueLabel}
+              </span>
             </p>
           </div>
-          <p className={`flex min-w-0 items-center gap-1.5 text-[11px] font-semibold leading-tight sm:text-xs md:text-xs ${emphasis === 'late' ? 'text-[var(--main-accent)]' : colors.text}`}>
-            <CalendarClock className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5 md:h-3.5 md:w-3.5" />
-            <span className="min-w-0 truncate" title={dueLabel}>
-              {dueLabel}
-            </span>
-          </p>
-        </div>
+        </button>
         <div className="mobile-action-tray flex w-fit shrink-0 overflow-hidden md:bg-[color-mix(in_srgb,var(--card)_60%,transparent)]">
           {a.status === 'completed' ? (
             <Button
@@ -301,11 +325,7 @@ function HomeworkPage() {
             size="icon"
             className="h-8 w-8 rounded-none text-[var(--main-accent)] hover:bg-[color-mix(in_srgb,var(--card)_70%,transparent)] sm:w-9 md:h-8 md:w-9 xl:h-10 xl:w-11 [&_svg]:size-3.5 xl:[&_svg]:size-4"
             title="Delete"
-            onClick={() => {
-              if (confirm('Are you sure you want to delete this assignment?')) {
-                handleDelete(a.id);
-              }
-            }}
+            onClick={() => confirmDelete(a)}
           >
             <Trash2 className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
           </Button>
@@ -488,6 +508,26 @@ function HomeworkPage() {
           </div>
         </section>
       </div>
+
+      <AssignmentDetailsDialog
+        open={detailsAssignment !== null}
+        onOpenChange={(open) => { if (!open) closeDetails(); }}
+        assignment={detailsAssignment}
+        course={detailsAssignment ? getCourse(detailsAssignment.courseId) : undefined}
+        onEdit={(assignment) => {
+          closeDetails();
+          openEditDialog(assignment);
+        }}
+        onDelete={confirmDelete}
+        onMarkComplete={async (assignment) => {
+          closeDetails();
+          await handleMarkComplete(assignment);
+        }}
+        onMarkIncomplete={async (assignment) => {
+          closeDetails();
+          await handleMarkIncomplete(assignment);
+        }}
+      />
 
       <AssignmentFormDialog
         open={dialogOpen}
