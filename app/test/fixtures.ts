@@ -21,9 +21,30 @@ export const assignments: Assignment[] = [
   { id: '3', courseId: '2', name: 'Reading Response', dueDate: '2026-07-08', dueTimeZone: 'America/Los_Angeles', status: 'completed' },
 ];
 
+// No stored zone: these float, so the viewed times match the scheduled ones.
 export const sessions: ClassSession[] = [
-  { id: '1', courseId: '1', day: 'Fri', startTime: '09:00:00', endTime: '10:15:00', location: 'Science Center S202' },
-  { id: '2', courseId: '2', day: 'Mon', startTime: '13:00:00', endTime: '14:15:00', location: 'Arts Hall 104' },
+  {
+    id: '1',
+    courseId: '1',
+    day: 'Fri',
+    startTime: '09:00',
+    endTime: '10:15',
+    location: 'Science Center S202',
+    scheduledDay: 'Fri',
+    scheduledStartTime: '09:00',
+    scheduledEndTime: '10:15',
+  },
+  {
+    id: '2',
+    courseId: '2',
+    day: 'Mon',
+    startTime: '13:00',
+    endTime: '14:15',
+    location: 'Arts Hall 104',
+    scheduledDay: 'Mon',
+    scheduledStartTime: '13:00',
+    scheduledEndTime: '14:15',
+  },
 ];
 
 export const events: CalendarEvent[] = [

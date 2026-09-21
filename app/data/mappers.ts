@@ -3,6 +3,7 @@ import type {
   AssignmentStatus,
   AppUser,
   CalendarEvent,
+  ClassDay,
   ClassSession,
   Course,
   CourseLink,
@@ -10,6 +11,7 @@ import type {
   NotificationInstance,
 } from '@/app/data/types';
 import { DEFAULT_DUE_TIME_ZONE, normalizeDateString, normalizeTimeString } from '@/app/data/assignmentDates';
+import { localizeClassSession } from '@/app/data/classSchedule';
 
 interface DbCourse {
   id: number;
@@ -37,6 +39,7 @@ interface DbClassSession {
   start_time: string;
   end_time: string;
   location?: string | null;
+  timezone?: string | null;
 }
 
 interface DbEvent {
@@ -97,15 +100,21 @@ export function mapAssignment(row: DbAssignment): Assignment {
   };
 }
 
+/**
+ * Class times are stored as a weekday plus a wall clock in the zone they were
+ * scheduled in, so they are re-expressed here for whatever zone the viewer is
+ * currently in. Rows with no stored zone float and are shown as entered.
+ */
 export function mapClassSession(row: DbClassSession): ClassSession {
-  return {
+  return localizeClassSession({
     id: String(row.id),
     courseId: String(row.course_id),
-    day: row.day as ClassSession['day'],
+    day: row.day as ClassDay,
     startTime: row.start_time,
     endTime: row.end_time,
     location: row.location?.trim() || undefined,
-  };
+    timeZone: row.timezone,
+  });
 }
 
 export function mapEvent(row: DbEvent): CalendarEvent {

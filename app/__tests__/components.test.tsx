@@ -26,6 +26,7 @@ import { assignments, courses, events, sessions } from '@/app/test/fixtures';
 import { apiState, authActions } from '@/app/test/mocks';
 import { renderWithRouter } from '@/app/test/render';
 import type { CalendarItem } from '@/app/data/calendarUtils';
+import type { ClassSession } from '@/app/data/types';
 import { Route, Routes } from 'react-router-dom';
 import { submitFeedback } from '@/app/lib/email/client';
 
@@ -369,6 +370,36 @@ describe('form dialogs', () => {
     await user.type(screen.getByLabelText(/url/i), 'https://example.com/portal');
     await user.click(screen.getByRole('button', { name: /add link/i }));
     expect(onLinkSubmit).toHaveBeenCalledWith(expect.objectContaining({ label: 'Portal', url: 'https://example.com/portal' }));
+  });
+
+  it('edits a class session in the zone it is held in and saves that zone', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    // Stored as Friday 09:00 in New York, displayed to a viewer three hours west.
+    const session: ClassSession = {
+      id: '9',
+      courseId: '1',
+      day: 'Fri',
+      startTime: '06:00',
+      endTime: '07:15',
+      location: 'Science Center S202',
+      timeZone: 'America/New_York',
+      scheduledDay: 'Fri',
+      scheduledStartTime: '09:00',
+      scheduledEndTime: '10:15',
+    };
+
+    render(<ClassSessionFormDialog open onOpenChange={vi.fn()} courses={courses} session={session} onSubmit={onSubmit} />);
+
+    expect(screen.getByLabelText(/start time/i)).toHaveValue('09:00');
+    expect(screen.getByLabelText(/end time/i)).toHaveValue('10:15');
+    expect(screen.getByRole('combobox', { name: /time zone/i })).toHaveTextContent('New York');
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '9', day: 'Fri', startTime: '09:00', endTime: '10:15', timeZone: 'America/New_York' })
+    );
   });
 
   it('shows validation for invalid course links', async () => {

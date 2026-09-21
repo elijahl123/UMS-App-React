@@ -3,6 +3,7 @@ import { BellOff, BellRing, CheckCircle2, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import TimeZoneSelect from '@/app/components/TimeZoneSelect';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
 import type { NotificationPreferences } from '@/app/data/types';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
@@ -134,6 +135,11 @@ function NotificationsSection() {
     await saveNotificationPreferences({ ...notificationPreferences, [key]: value });
   };
 
+  const handleTimeZoneChange = async (timeZone: string) => {
+    if (!notificationPreferences || timeZone === notificationPreferences.timeZone) return;
+    await saveNotificationPreferences({ ...notificationPreferences, timeZone }, 'Reminder time zone saved.');
+  };
+
   const handleQuietHoursChange = async (changes: Partial<NotificationPreferences>) => {
     if (!notificationPreferences) return;
     await saveNotificationPreferences({ ...notificationPreferences, ...changes });
@@ -244,6 +250,19 @@ function NotificationsSection() {
                   <span className="text-muted-foreground">Generated from your weekly class schedule.</span>
                 </span>
               </label>
+            </div>
+
+            <div className="grid gap-2 rounded-md border p-4">
+              <span className="text-sm font-medium text-foreground">Reminder time zone</span>
+              <span className="text-sm text-muted-foreground">
+                Reminders and quiet hours follow this clock. Update it when you move.
+              </span>
+              <TimeZoneSelect
+                className="sm:max-w-sm"
+                value={notificationPreferences.timeZone}
+                disabled={notificationsSubmitting}
+                onChange={handleTimeZoneChange}
+              />
             </div>
 
             <div className="grid gap-3 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">

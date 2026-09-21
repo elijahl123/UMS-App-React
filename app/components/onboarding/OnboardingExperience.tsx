@@ -496,6 +496,7 @@ export default function OnboardingExperience() {
         day: classDay,
         startTime: classStart,
         endTime: classEnd,
+        timeZone: getBrowserTimeZone(),
         location: classLocation.trim(),
         userId: user?.id,
       });

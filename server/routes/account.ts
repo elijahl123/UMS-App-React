@@ -116,13 +116,14 @@ export async function buildAccountExport(userId: string): Promise<AccountExportR
       pool.query(`
         SELECT c.code AS course_code, c.name AS title, 'weekly_schedule'::text AS source,
                NULL::text AS event_date, s.day, s.start_time::text AS start_time,
-               s.end_time::text AS end_time, s.location
+               s.end_time::text AS end_time, s.location, s.timezone
         FROM class_sessions s JOIN courses c ON c.id = s.course_id
         WHERE c.user_id = $1
         UNION ALL
         SELECT c.code AS course_code, e.title, COALESCE(e.source_provider, 'calendar') AS source,
                e.event_date::text AS event_date, NULL::text AS day,
-               e.event_time::text AS start_time, e.end_time::text AS end_time, NULL::text AS location
+               e.event_time::text AS start_time, e.end_time::text AS end_time, NULL::text AS location,
+               e.event_timezone AS timezone
         FROM events e JOIN courses c ON c.id = e.course_id
         WHERE e.user_id = $1 AND e.academic_kind = 'class' AND NOT COALESCE(e.google_cancelled, FALSE)
         ORDER BY event_date NULLS LAST, day NULLS LAST, start_time
