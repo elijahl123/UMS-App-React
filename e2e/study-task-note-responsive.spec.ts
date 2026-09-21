@@ -44,6 +44,22 @@ const task = {
   sequence: 0,
 };
 
+/**
+ * The bug this guards against: the editor card overflowed its flex parent and
+ * painted over the footer, so the real click landed in the note body.
+ */
+async function expectClickable(page: Page, locator: Locator, label: string) {
+  await locator.scrollIntoViewIfNeeded();
+  const handle = await locator.elementHandle();
+  expect(handle, `${label} is not in the DOM`).not.toBeNull();
+  const hit = await page.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return { covered: !(top && element.contains(top)), by: top?.className ?? 'nothing' };
+  }, handle!);
+  expect(hit.covered, `${label} is covered by ${String(hit.by).slice(0, 80)}`).toBe(false);
+}
+
 async function boundingBox(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -128,8 +144,8 @@ test('keeps the study task note banner and editor actions clear from phone to wi
   const save = page.getByRole('button', { name: /save changes/i });
   const bell = page.getByRole('button', { name: /notifications/i });
 
-  for (const width of [375, 768, 1024, 1280, 1920]) {
-    await page.setViewportSize({ width, height: width < 700 ? 760 : 900 });
+  for (const [width, height] of [[375, 760], [768, 900], [1024, 640], [1280, 800], [1440, 700], [1920, 900]] as const) {
+    await page.setViewportSize({ width, height });
 
     await expect(complete, `complete button at ${width}px`).toBeVisible();
     await expect(backToPlan, `back button at ${width}px`).toBeVisible();
@@ -149,6 +165,10 @@ test('keeps the study task note banner and editor actions clear from phone to wi
       ).toBe(false);
     }
 
+    // The actions belong under the note, reachable rather than covered by it.
+    await expectClickable(page, save, `save button at ${width}x${height}`);
+    await expectClickable(page, page.getByRole('button', { name: /^cancel$/i }), `cancel at ${width}x${height}`);
+
     await expectNoHorizontalPageOverflow(page);
   }
 
@@ -159,4 +179,15 @@ test('keeps the study task note banner and editor actions clear from phone to wi
   await expect(page.getByRole('heading', { name: /final exam/i, level: 1 })).toBeVisible();
 
   expect(errors).toEqual([]);
+});
+
+test('keeps a plain note editor actions reachable on a short window', async ({ page }) => {
+  await mockAuthenticatedApp(page);
+
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await page.goto('/#/notes/1');
+  await page.getByPlaceholder('Note title').waitFor();
+
+  await expectClickable(page, page.getByRole('button', { name: /save changes/i }), 'save button on a plain note');
+  await expectClickable(page, page.getByRole('button', { name: /delete note/i }), 'delete button on a plain note');
 });

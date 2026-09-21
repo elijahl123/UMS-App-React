@@ -209,9 +209,11 @@ function NotesEditorPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    // The page scrolls as one column so the actions always sit under the
+    // editor. A fixed-height column let the editor overflow and cover them.
+    <div className="flex min-h-full flex-col gap-4 md:h-full md:overflow-y-auto md:pb-2 md:pr-1">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+      <div className="flex shrink-0 flex-col gap-4">
         {studyTask && (
           <StudyTaskNoteBanner context={studyTask} userId={user?.id} onNavigate={navigateSafely} />
         )}
@@ -254,7 +256,7 @@ function NotesEditorPage() {
       </div>
 
       {/* Editor */}
-      <div className="min-h-0 flex-1">
+      <div className="shrink-0">
         <RichTextEditor
           content={content}
           onChange={setContent}
@@ -267,7 +269,7 @@ function NotesEditorPage() {
       {/* Footer */}
       {/* The notification bell floats over the bottom-right corner from md up,
           so the actions keep clear of it rather than sitting underneath. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:pr-14">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:pr-14">
         {isEdit ? (
           <Button variant="destructive" onClick={handleDelete} className="w-full gap-2 sm:w-auto">
             <Trash2 className="h-4 w-4" />
