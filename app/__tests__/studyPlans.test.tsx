@@ -1,14 +1,15 @@
 import { Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CalendarPage from '@/app/pages/CalendarPage';
 import CoursePage from '@/app/pages/CoursePage';
 import DashboardPage from '@/app/pages/DashboardPage';
+import NotesEditorPage from '@/app/pages/NotesEditorPage';
 import StudyPlanPage from '@/app/pages/StudyPlanPage';
 import StudyPlanSetupPage from '@/app/pages/StudyPlanSetupPage';
 import type { StudyPlan, StudyRecoveryPreview } from '@/app/data/types';
-import { studyPlanActions, studyPlanState } from '@/app/test/mocks';
+import { apiState, studyPlanActions, studyPlanState } from '@/app/test/mocks';
 import { mockUser } from '@/app/test/fixtures';
 import { renderWithRouter } from '@/app/test/render';
 
@@ -378,6 +379,64 @@ describe('study plans', () => {
     await waitFor(() =>
       expect(studyPlanActions.setStudyTaskCompleted).toHaveBeenCalledWith('plan-1', 'task-1', true, mockUser.id)
     );
+  });
+
+  it('checks the task off from its note and returns to the study plan', async () => {
+    const user = userEvent.setup();
+    studyPlanState.plans = [{
+      ...plan,
+      examDate: '2099-07-31',
+      overdueTasks: 0,
+      tasks: [{ ...plan.tasks[0], scheduledDate: '2026-07-29' }],
+    }];
+    apiState.loads.loadNotes = [{
+      id: 99,
+      course_id: 1,
+      title: 'Learn & review: Graph algorithms',
+      content: '<ul><li><p></p></li></ul>',
+      created_at: '2026-07-29T10:00:00.000Z',
+      updated_at: '2026-07-29T10:00:00.000Z',
+    }];
+
+    renderWithRouter(
+      <Routes>
+        <Route path="/courses/:courseId/study-plans/:planId" element={<StudyPlanPage />} />
+        <Route path="/notes/:noteId" element={<NotesEditorPage />} />
+      </Routes>,
+      { route: '/courses/1/study-plans/plan-1' }
+    );
+
+    await user.click(screen.getByRole('button', { name: /open notes for learn & review: graph algorithms/i }));
+
+    const banner = await screen.findByRole('region', { name: /study plan task/i });
+    expect(within(banner).getByText('Learn & review: Graph algorithms')).toBeInTheDocument();
+    expect(within(banner).getByText('MATH 101')).toBeInTheDocument();
+
+    await user.click(within(banner).getByRole('button', { name: /mark learn & review: graph algorithms complete/i }));
+    await waitFor(() => expect(studyPlanActions.setStudyTaskCompleted).toHaveBeenCalledWith(
+      'plan-1', 'task-1', true, mockUser.id
+    ));
+    expect(
+      await within(banner).findByRole('button', { name: /mark learn & review: graph algorithms incomplete/i })
+    ).toBeInTheDocument();
+
+    await user.click(within(banner).getByRole('button', { name: /back to study plan/i }));
+    expect(await screen.findByRole('heading', { name: /final exam/i, level: 1 })).toBeInTheDocument();
+  });
+
+  it('leaves the note editor unchanged when it is not opened from a study plan task', () => {
+    apiState.loads.loadNotes = [{
+      id: 99,
+      course_id: 1,
+      title: 'Loose note',
+      content: '<p>Notes</p>',
+      created_at: '2026-07-29T10:00:00.000Z',
+      updated_at: '2026-07-29T10:00:00.000Z',
+    }];
+
+    renderRoute('/notes/:noteId', <NotesEditorPage />, '/notes/99');
+
+    expect(screen.queryByRole('region', { name: /study plan task/i })).not.toBeInTheDocument();
   });
 
   it('opens a shared topic note and course homepage from the Dashboard without completing the task', async () => {

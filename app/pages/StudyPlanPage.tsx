@@ -46,6 +46,7 @@ import {
   undoStudyPlanRecovery,
 } from '@/app/lib/studyPlans/client';
 import { useStudyPlanDefinition, useStudyPlanRecoveryStatus, useStudyPlanTasks } from '@/app/lib/studyPlans/useStudyPlans';
+import { studyTaskNoteState } from '@/app/lib/studyPlans/noteTaskContext';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { getCourseColor } from '@/app/data/courseColors';
 import { openExternalUrl } from '@/app/lib/externalLinks';
@@ -176,13 +177,21 @@ function StudyPlanPage() {
   };
 
   const handleOpenTaskNote = async (taskId: string) => {
-    if (!plan) return;
+    const task = tasks.find((candidate) => candidate.id === taskId);
+    if (!plan || !task) return;
     setBusyNoteTask(taskId);
     setError(null);
     try {
       const result = await openStudyTaskNote(plan.id, taskId, user?.id);
       navigate(`/notes/${result.noteId}`, {
-        state: result.created ? { focusEditor: true } : undefined,
+        state: studyTaskNoteState({
+          planId: plan.id,
+          taskId: task.id,
+          taskTitle: task.title,
+          courseCode: plan.courseCode,
+          returnPath: `/courses/${courseId}/study-plans/${plan.id}`,
+          completedAt: task.completedAt,
+        }, result.created),
       });
     } catch (err) {
       setError(studyPlanErrorMessage(err));

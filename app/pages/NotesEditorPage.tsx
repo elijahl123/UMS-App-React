@@ -9,6 +9,8 @@ import RichTextEditor from '@/app/components/widgets/RichTextEditor';
 import { mapCourse, mapNote } from '@/app/data/mappers';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { extractNoteImageIdsFromHtml } from '@/app/lib/noteImages/client';
+import { readStudyTaskNoteContext } from '@/app/lib/studyPlans/noteTaskContext';
+import { StudyTaskNoteBanner } from '@/app/components/studyPlans/StudyTaskNoteBanner';
 
 const NO_COURSE = 'none';
 const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave without saving?';
@@ -44,6 +46,11 @@ function NotesEditorPage() {
   const allowNavigationRef = useRef(false);
   const currentHashRef = useRef(window.location.hash);
   const restoringHashRef = useRef(false);
+
+  // Opening the note from a study plan turns this page into the task's own
+  // workspace: the task can be checked off here and the plan is one click away.
+  const studyTask = useMemo(() => readStudyTaskNoteContext(location.state), [location.state]);
+  const doneDestination = studyTask?.returnPath ?? '/notes';
 
   const courses = useMemo(() => (courseRows ?? []).map(mapCourse), [courseRows]);
   const notes = useMemo(() => (noteRows ?? []).map(mapNote), [noteRows]);
@@ -167,7 +174,7 @@ function NotesEditorPage() {
         });
       }
       allowNavigationRef.current = true;
-      navigate('/notes');
+      navigate(doneDestination);
     } finally {
       setIsSaving(false);
     }
@@ -177,12 +184,15 @@ function NotesEditorPage() {
     if (!note || !confirm('Are you sure you want to delete this note?')) return;
     await removeNote({ id: note.id, userId: user?.id });
     allowNavigationRef.current = true;
-    navigate('/notes');
+    navigate(doneDestination);
   };
 
   if (noteId && !note) {
     return (
       <div className="flex flex-col gap-4">
+        {studyTask && (
+          <StudyTaskNoteBanner context={studyTask} userId={user?.id} onNavigate={navigateSafely} />
+        )}
         <button
           type="button"
           onClick={() => navigateSafely('/notes')}
@@ -202,6 +212,9 @@ function NotesEditorPage() {
     <div className="flex h-full flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col gap-4">
+        {studyTask && (
+          <StudyTaskNoteBanner context={studyTask} userId={user?.id} onNavigate={navigateSafely} />
+        )}
         <button
           type="button"
           onClick={() => navigateSafely('/notes')}
@@ -262,7 +275,7 @@ function NotesEditorPage() {
           <div />
         )}
         <div className="flex gap-2 sm:gap-3">
-          <Button variant="outline" onClick={() => navigateSafely('/notes')} className="w-full sm:w-auto">
+          <Button variant="outline" onClick={() => navigateSafely(doneDestination)} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!title.trim() || isSaving || hasUnresolvedImages} className="w-full gap-2 sm:w-auto">
