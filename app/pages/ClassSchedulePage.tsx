@@ -11,7 +11,13 @@ import { mapCourse, mapClassSession, mapEvent } from '@/app/data/mappers';
 import { getCourseColor } from '@/app/data/courseColors';
 import type { ClassSession } from '@/app/data/types';
 import { useAuth } from '@/app/lib/auth/AuthContext';
-import { dayLabels, formatTimeDisplay, isImportedClassSession, parseTimeToMinutes } from '@/app/data/classSchedule';
+import {
+  dayLabels,
+  formatTimeDisplay,
+  isImportedClassSession,
+  localizeClassSession,
+  parseTimeToMinutes,
+} from '@/app/data/classSchedule';
 import { toIsoDate } from '@/app/data/calendarUtils';
 
 const days: ClassSession['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -155,14 +161,16 @@ function ClassSchedulePage() {
       const dayIndex = date.getDay();
       const [hour, minute] = (event.time ?? '09:00').split(':').map(Number);
       const fallbackEnd = `${String((hour + 1) % 24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-      return {
+      // Imported events carry the zone their times were published in.
+      return localizeClassSession({
         id: `academic-event:${event.id}`,
         courseId: event.courseId as string,
-        day: dayIndex === 0 ? 'Sun' : days[dayIndex - 1],
+        day: (dayIndex === 0 ? 'Sun' : days[dayIndex - 1]) as ClassSession['day'],
         startTime: event.time as string,
         endTime: event.endTime ?? fallbackEnd,
         location: undefined,
-      };
+        timeZone: event.timeZone,
+      });
     });
   const sessions = [...manualSessions, ...academicSessions];
   const focusedCourseId = searchParams.get('courseId');
@@ -237,6 +245,7 @@ function ClassSchedulePage() {
         day: values.day,
         startTime: values.startTime,
         endTime: values.endTime,
+        timeZone: values.timeZone ?? null,
         location: values.location?.trim() || null,
         userId: user?.id,
       });
@@ -246,6 +255,7 @@ function ClassSchedulePage() {
         day: values.day,
         startTime: values.startTime,
         endTime: values.endTime,
+        timeZone: values.timeZone ?? null,
         location: values.location?.trim() || null,
         userId: user?.id,
       });

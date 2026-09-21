@@ -7,6 +7,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import TimeZoneSelect from '@/app/components/TimeZoneSelect';
+import {
+  dayLabels,
+  formatTimeDisplay,
+  normalizeClockTime,
+  scheduledClassTime,
+  shiftWeeklyClassTime,
+} from '@/app/data/classSchedule';
+import { getBrowserTimeZone, normalizeTimeZone } from '@/lib/timeZones';
 import type { ClassSession, Course } from '@/app/data/types';
 
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -17,6 +26,7 @@ const schema = z.object({
   startTime: z.string().min(1, 'Start time is required').regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
   endTime: z.string().min(1, 'End time is required').regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
   location: z.string().max(120, 'Location must be 120 characters or fewer').optional(),
+  timeZone: z.string().min(1, 'Time zone is required'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -30,21 +40,21 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-const emptyValues: FormValues = { courseId: '', day: 'Mon', startTime: '', endTime: '', location: '' };
+function createEmptyValues(): FormValues {
+  return { courseId: '', day: 'Mon', startTime: '', endTime: '', location: '', timeZone: getBrowserTimeZone() };
+}
 
-// Normalize time to HH:MM format, handling HH:MM:SS from database
-function normalizeTime(time: string): string {
-  if (!time) return '';
-  // If it's already HH:MM, return as-is
-  if (/^\d{2}:\d{2}$/.test(time)) return time;
-  // Extract HH:MM from HH:MM:SS or other formats
-  const match = time.match(/(\d{1,2}):(\d{2})/);
-  if (match) {
-    const hour = match[1].padStart(2, '0');
-    const minute = match[2];
-    return `${hour}:${minute}`;
-  }
-  return time;
+/** How a class entered in another zone will read on the viewer's own schedule. */
+function viewerPreviewLabel(values: FormValues, viewerTimeZone: string): string | null {
+  if (!values.startTime || !values.endTime || !values.timeZone) return null;
+  if (normalizeTimeZone(values.timeZone) === normalizeTimeZone(viewerTimeZone)) return null;
+
+  const viewed = shiftWeeklyClassTime(
+    { day: values.day, startTime: values.startTime, endTime: values.endTime },
+    values.timeZone,
+    viewerTimeZone
+  );
+  return `${dayLabels[viewed.day]} ${formatTimeDisplay(viewed.startTime)} - ${formatTimeDisplay(viewed.endTime)}`;
 }
 
 function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit, onDelete }: Props) {
@@ -52,30 +62,38 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: emptyValues,
+    defaultValues: createEmptyValues(),
   });
 
   useEffect(() => {
-    if (open) {
-      form.reset(
-        session
-          ? {
-              courseId: session.courseId,
-              day: session.day,
-              startTime: normalizeTime(session.startTime),
-              endTime: normalizeTime(session.endTime),
-              location: session.location ?? '',
-            }
-          : emptyValues
-      );
+    if (!open) return;
+
+    if (!session) {
+      form.reset(createEmptyValues());
+      return;
     }
+
+    // Edit the times as they read where the class is actually held, not as
+    // they have been converted for wherever the student is sitting today.
+    const scheduled = scheduledClassTime(session);
+    form.reset({
+      courseId: session.courseId,
+      day: scheduled.day,
+      startTime: scheduled.startTime,
+      endTime: scheduled.endTime,
+      location: session.location ?? '',
+      timeZone: scheduled.timeZone ?? getBrowserTimeZone(),
+    });
   }, [open, session, form]);
+
+  // The class is entered in its own zone, so spell out what that becomes here.
+  const viewerPreview = viewerPreviewLabel(form.watch(), getBrowserTimeZone());
 
   const handleSubmit = (values: FormValues) => {
     onSubmit({
       ...values,
-      startTime: normalizeTime(values.startTime),
-      endTime: normalizeTime(values.endTime),
+      startTime: normalizeClockTime(values.startTime),
+      endTime: normalizeClockTime(values.endTime),
       location: values.location?.trim() || undefined,
       id: session?.id,
     });
@@ -156,7 +174,7 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
                       <Input
                         type="time"
                         value={field.value}
-                        onChange={(e) => field.onChange(normalizeTime(e.target.value))}
+                        onChange={(e) => field.onChange(normalizeClockTime(e.target.value))}
                         onBlur={field.onBlur}
                       />
                     </FormControl>
@@ -174,7 +192,7 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
                       <Input
                         type="time"
                         value={field.value}
-                        onChange={(e) => field.onChange(normalizeTime(e.target.value))}
+                        onChange={(e) => field.onChange(normalizeClockTime(e.target.value))}
                         onBlur={field.onBlur}
                       />
                     </FormControl>
@@ -183,6 +201,22 @@ function ClassSessionFormDialog({ open, onOpenChange, courses, session, onSubmit
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="timeZone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Time Zone</FormLabel>
+                  <FormControl>
+                    <TimeZoneSelect value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  {viewerPreview && (
+                    <p className="text-xs text-muted-foreground">Shows on your schedule as {viewerPreview}.</p>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="location"

@@ -126,6 +126,7 @@ function MobileBottomNavigation() {
       day: values.day,
       startTime: values.startTime,
       endTime: values.endTime,
+      timeZone: values.timeZone ?? null,
       location: values.location?.trim() || null,
       userId: user?.id,
     });

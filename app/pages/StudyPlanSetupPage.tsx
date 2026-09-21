@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import TimeZoneSelect from '@/app/components/TimeZoneSelect';
 import { useLoadAction } from '@/app/lib/api/hooks';
 import { getCourseColor } from '@/app/data/courseColors';
 import { mapCourse } from '@/app/data/mappers';
@@ -23,6 +24,7 @@ import { saveStudyPlan, studyPlanErrorMessage } from '@/app/lib/studyPlans/clien
 import { useStudyPlanDefinition } from '@/app/lib/studyPlans/useStudyPlans';
 import { useAuth } from '@/app/lib/auth/AuthContext';
 import { trackProductEvent } from '@/app/lib/launch/client';
+import { getBrowserTimeZone } from '@/lib/timeZones';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -122,7 +124,7 @@ function StudyPlanSetupPage() {
   const courses = (courseRows ?? []).map(mapCourse);
   const course = courses.find((item) => item.id === courseId);
   const [existing, planLoading] = useStudyPlanDefinition(planId, user?.id);
-  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const browserTimeZone = getBrowserTimeZone();
   const today = todayForTimeZone(browserTimeZone);
 
   const [examType, setExamType] = useState<ExamType>('final');
@@ -384,7 +386,7 @@ function StudyPlanSetupPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="timezone" className="text-xs font-bold text-[var(--secondary-accent)]">Timezone</Label>
-                <Input className="h-12 rounded-lg bg-card" id="timezone" value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+                <TimeZoneSelect id="timezone" className="[&>button]:h-12 [&>button]:rounded-lg [&>button]:bg-card" value={timeZone} onChange={setTimeZone} />
               </div>
             </div>
           </section>

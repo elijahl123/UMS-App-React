@@ -1,10 +1,9 @@
+import { DEFAULT_TIME_ZONE, getBrowserTimeZone } from '@/lib/timeZones';
 import type { Assignment } from '@/app/data/types';
 
-export const DEFAULT_DUE_TIME_ZONE = 'UTC';
+export const DEFAULT_DUE_TIME_ZONE = DEFAULT_TIME_ZONE;
 
-export function getBrowserTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_DUE_TIME_ZONE;
-}
+export { getBrowserTimeZone };
 
 export function normalizeDateString(value: string): string {
   return value.split('T')[0];

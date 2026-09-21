@@ -4,6 +4,14 @@ import { pool, type QueryConfig } from './db';
 import { ApiError } from './errors';
 import { expandRecurringEventRows, type RecurringEventRow } from './googleCalendarRecurrence';
 import { requireContentReadAccess, requireFullWriteAccess } from './access';
+import {
+  isoDateInTimeZone,
+  normalizeTimeZone,
+  partsInTimeZone,
+  zonedDateTimeToUtc,
+} from '../lib/timeZones';
+
+export { zonedDateTimeToUtc };
 
 export type NotificationSourceType = 'assignment' | 'event' | 'class_session';
 
@@ -38,59 +46,6 @@ const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 function normalizeTime(value?: string | null): string | null {
   if (!value) return null;
   return value.slice(0, 5);
-}
-
-function assertTimeZone(timeZone: string): string {
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date());
-    return timeZone;
-  } catch {
-    return 'UTC';
-  }
-}
-
-function partsInTimeZone(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
-
-  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value ?? 0);
-  return {
-    year: value('year'),
-    month: value('month'),
-    day: value('day'),
-    hour: value('hour'),
-    minute: value('minute'),
-    second: value('second'),
-  };
-}
-
-export function zonedDateTimeToUtc(isoDate: string, time: string, timeZone: string): Date {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  const [hour, minute] = time.split(':').map(Number);
-  const targetUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
-  let utc = targetUtc;
-  const normalizedTimeZone = assertTimeZone(timeZone);
-
-  for (let i = 0; i < 3; i += 1) {
-    const parts = partsInTimeZone(new Date(utc), normalizedTimeZone);
-    const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-    utc -= asUtc - targetUtc;
-  }
-
-  return new Date(utc);
-}
-
-function formatLocalDate(date: Date, timeZone: string): string {
-  const parts = partsInTimeZone(date, timeZone);
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 }
 
 function localMinutes(date: Date, timeZone: string): number {
@@ -140,7 +95,7 @@ function mapPreferences(row: Record<string, unknown>): NotificationPreferences {
     quietHoursEnabled: Boolean(row.quiet_hours_enabled),
     quietHoursStart: row.quiet_hours_start ? normalizeTime(String(row.quiet_hours_start)) : null,
     quietHoursEnd: row.quiet_hours_end ? normalizeTime(String(row.quiet_hours_end)) : null,
-    timeZone: assertTimeZone(String(row.time_zone || 'UTC')),
+    timeZone: normalizeTimeZone(String(row.time_zone || 'UTC')),
   };
 }
 
@@ -318,7 +273,7 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
     ),
     pool.query(
       `
-        SELECT s.id::text, s.day, s.start_time::text AS start_time, c.code
+        SELECT s.id::text, s.day, s.start_time::text AS start_time, s.timezone, c.code
         FROM class_sessions s
         JOIN courses c ON c.id = s.course_id
         WHERE c.user_id = $1;
@@ -340,7 +295,7 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
   for (const assignment of assignmentResult.rows) {
     const time = normalizeTime(assignment.due_time);
     if (!time) continue;
-    const timeZone = assertTimeZone(assignment.due_timezone || preferences.timeZone);
+    const timeZone = normalizeTimeZone(assignment.due_timezone || preferences.timeZone);
     const targetAt = zonedDateTimeToUtc(String(assignment.due_date), time, timeZone);
     const offsets = [
       preferences.assignment24hEnabled ? 24 * 60 : null,
@@ -364,13 +319,13 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
   if (preferences.event10mEnabled) {
     const expandedEvents = expandRecurringEventRows(
       eventResult.rows,
-      formatLocalDate(now, preferences.timeZone),
-      formatLocalDate(new Date(windowEnd.getTime() + DAY_MS), preferences.timeZone)
+      isoDateInTimeZone(now, preferences.timeZone),
+      isoDateInTimeZone(new Date(windowEnd.getTime() + DAY_MS), preferences.timeZone)
     );
     for (const event of expandedEvents) {
       const time = normalizeTime(event.event_time);
       if (!time) continue;
-      const timeZone = assertTimeZone(event.event_timezone || preferences.timeZone);
+      const timeZone = normalizeTimeZone(event.event_timezone || preferences.timeZone);
       const targetAt = zonedDateTimeToUtc(String(event.event_date), time, timeZone);
       add({
         sourceType: 'event',
@@ -389,8 +344,11 @@ async function buildNotificationInstances(userId: string, preferences: Notificat
     for (const session of classResult.rows) {
       const time = normalizeTime(session.start_time);
       if (!time) continue;
-      for (const occurrenceDate of nextOccurrenceDates(String(session.day), preferences.timeZone, now, windowEnd)) {
-        const targetAt = zonedDateTimeToUtc(occurrenceDate, time, preferences.timeZone);
+      // A session without a stored zone is a floating wall-clock time, so it
+      // still follows wherever the student says they are.
+      const timeZone = normalizeTimeZone(session.timezone || preferences.timeZone);
+      for (const occurrenceDate of nextOccurrenceDates(String(session.day), timeZone, now, windowEnd)) {
+        const targetAt = zonedDateTimeToUtc(occurrenceDate, time, timeZone);
         add({
           sourceType: 'class_session',
           sourceId: session.id,
@@ -413,12 +371,12 @@ function nextOccurrenceDates(day: string, timeZone: string, now: Date, windowEnd
   if (targetDay < 0) return [];
 
   const dates: string[] = [];
-  const localToday = formatLocalDate(now, timeZone);
-  const localWindowEnd = formatLocalDate(windowEnd, timeZone);
+  const localToday = isoDateInTimeZone(now, timeZone);
+  const localWindowEnd = isoDateInTimeZone(windowEnd, timeZone);
   const cursor = zonedDateTimeToUtc(localToday, '12:00', timeZone);
 
-  while (formatLocalDate(cursor, timeZone) <= localWindowEnd) {
-    const localDate = formatLocalDate(cursor, timeZone);
+  while (isoDateInTimeZone(cursor, timeZone) <= localWindowEnd) {
+    const localDate = isoDateInTimeZone(cursor, timeZone);
     const localNoon = zonedDateTimeToUtc(localDate, '12:00', timeZone);
     const weekday = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(localNoon);
     if (weekday === day) {
@@ -454,7 +412,7 @@ notificationsRouter.put('/preferences', async (req, res) => {
   try {
     const userId = await currentUserId(req);
     const body = req.body ?? {};
-    const timeZone = assertTimeZone(String(body.timeZone || 'UTC'));
+    const timeZone = normalizeTimeZone(String(body.timeZone || 'UTC'));
     const result = await pool.query(
       `
         INSERT INTO notification_preferences (

@@ -27,13 +27,24 @@ export interface Assignment {
   description?: string;
 }
 
+export type ClassDay = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+
 export interface ClassSession {
   id: string;
   courseId: string;
-  day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
-  startTime: string; // HH:MM format (24-hour)
-  endTime: string; // HH:MM format (24-hour)
+  day: ClassDay; // In the viewer's current time zone
+  startTime: string; // HH:MM format (24-hour), in the viewer's current time zone
+  endTime: string; // HH:MM format (24-hour), in the viewer's current time zone
   location?: string;
+  /**
+   * IANA zone the session is scheduled in. Sessions saved before zones were
+   * recorded leave this unset and float with whatever clock the viewer is on.
+   */
+  timeZone?: string;
+  /** Day and times exactly as stored, i.e. as they read in `timeZone`. */
+  scheduledDay?: ClassDay;
+  scheduledStartTime?: string;
+  scheduledEndTime?: string;
 }
 
 export interface Note {
