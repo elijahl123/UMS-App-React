@@ -38,7 +38,7 @@ export function StudyTaskNoteBanner({ context, userId, onNavigate }: Props) {
   return (
     <section
       aria-label="Study plan task"
-      className="flex flex-col gap-3 rounded-lg border border-[var(--border-light)] bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 rounded-lg border border-[var(--border-light)] bg-card p-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4"
     >
       <div className="flex min-w-0 items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_srgb,var(--main-color)_18%,var(--surface))] text-[var(--main-accent)]">
@@ -60,7 +60,7 @@ export function StudyTaskNoteBanner({ context, userId, onNavigate }: Props) {
           {error && <p className="mt-1 text-xs font-semibold text-destructive">{error}</p>}
         </div>
       </div>
-      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:shrink-0">
         <Button
           type="button"
           variant={completed ? 'success' : 'default'}
@@ -68,7 +68,7 @@ export function StudyTaskNoteBanner({ context, userId, onNavigate }: Props) {
           aria-label={completed ? `Mark ${context.taskTitle} incomplete` : `Mark ${context.taskTitle} complete`}
           disabled={busy}
           onClick={() => void toggleCompleted()}
-          className="w-full gap-2 sm:w-auto"
+          className="w-full gap-2 sm:flex-1 lg:w-auto lg:flex-none"
         >
           {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           {completed ? 'Completed' : 'Mark complete'}
@@ -77,7 +77,7 @@ export function StudyTaskNoteBanner({ context, userId, onNavigate }: Props) {
           type="button"
           variant="outline"
           onClick={() => onNavigate(context.returnPath)}
-          className="w-full gap-2 sm:w-auto"
+          className="w-full gap-2 sm:flex-1 lg:w-auto lg:flex-none"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to study plan

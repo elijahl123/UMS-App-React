@@ -265,7 +265,9 @@ function NotesEditorPage() {
       </div>
 
       {/* Footer */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* The notification bell floats over the bottom-right corner from md up,
+          so the actions keep clear of it rather than sitting underneath. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:pr-14">
         {isEdit ? (
           <Button variant="destructive" onClick={handleDelete} className="w-full gap-2 sm:w-auto">
             <Trash2 className="h-4 w-4" />
