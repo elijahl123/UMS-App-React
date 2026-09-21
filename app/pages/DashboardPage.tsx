@@ -26,6 +26,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatStudyDate, formatStudyMinutes, studyPlanProgress, targetTypeLabel } from '@/app/data/studyPlans';
 import { openStudyTaskNote, setStudyTaskCompleted } from '@/app/lib/studyPlans/client';
+import { studyTaskNoteState } from '@/app/lib/studyPlans/noteTaskContext';
 import { useStudyPlanDashboard } from '@/app/lib/studyPlans/useStudyPlans';
 import { openExternalUrl } from '@/app/lib/externalLinks';
 import { getAccessStatus, recordOnboardingMilestone } from '@/app/lib/access/client';
@@ -148,12 +149,21 @@ function DashboardPage() {
     }
   };
 
-  const openTopicNote = async (planId: string, taskId: string) => {
-    setBusyStudyNote(taskId);
+  const openTopicNote = async (task: StudyDashboardTask) => {
+    setBusyStudyNote(task.id);
     setStudyError(null);
     try {
-      const result = await openStudyTaskNote(planId, taskId, user?.id);
-      navigate(`/notes/${result.noteId}`, { state: result.created ? { focusEditor: true } : undefined });
+      const result = await openStudyTaskNote(task.planId, task.id, user?.id);
+      navigate(`/notes/${result.noteId}`, {
+        state: studyTaskNoteState({
+          planId: task.planId,
+          taskId: task.id,
+          taskTitle: task.title,
+          courseCode: task.courseCode,
+          returnPath: `/courses/${task.courseId}/study-plans/${task.planId}`,
+          completedAt: task.completedAt,
+        }, result.created),
+      });
     } catch (error) {
       setStudyError(error instanceof Error ? error.message : 'Could not open the topic note.');
     } finally {
@@ -366,7 +376,7 @@ function DashboardPage() {
                                     title={`Open notes for ${task.title}`}
                                     aria-label={`Open notes for ${task.title}`}
                                     disabled={busyStudyNote === task.id}
-                                    onClick={() => void openTopicNote(task.planId, task.id)}
+                                    onClick={() => void openTopicNote(task)}
                                     className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-light)] bg-card text-[var(--focus-course-text)] transition-colors hover:border-[var(--focus-course-border)] hover:bg-[var(--focus-course-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--main-color)] disabled:opacity-60 md:h-9 md:w-9"
                                   >
                                     <StickyNote className="h-4 w-4" />
