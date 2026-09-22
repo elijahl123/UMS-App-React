@@ -14,7 +14,13 @@ straight to `main`.
    change.
 
 Never retarget a feature PR at `main` to skip the promotion step, and never push
-directly to `staging` or `main`.
+directly to `main`: production only ever changes through the release PR.
+
+Pushing directly to `staging` is allowed. The review PR above stays the default
+for anything worth reviewing, but a direct push is fine for mechanical work — a
+back-merge from `main`, a docs tweak, a fix you want on staging right away. Two
+things to keep in mind when you do: the push deploys staging, and it lands in the
+open release PR, restarting its checks.
 
 CI already assumes this shape:
 
