@@ -3,7 +3,14 @@ import { CalendarDays, Clock, ExternalLink, MapPin, Pencil, Trash2 } from 'lucid
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getCourseColor } from '@/app/data/courseColors';
-import { dayLabels, formatTimeDisplay, isImportedClassSession, parseTimeToMinutes } from '@/app/data/classSchedule';
+import {
+  dayLabels,
+  formatTimeDisplay,
+  isClassSessionRezoned,
+  isImportedClassSession,
+  parseTimeToMinutes,
+  scheduledClassTimeLabel,
+} from '@/app/data/classSchedule';
 import type { ClassSession, Course } from '@/app/data/types';
 
 interface Props {
@@ -39,6 +46,7 @@ function ClassSessionDetailsDialog({ open, onOpenChange, session, course, date, 
   const imported = isImportedClassSession(session);
   const duration = formatDuration(session);
   const timeRange = `${formatTimeDisplay(session.startTime)} - ${formatTimeDisplay(session.endTime)}`;
+  const scheduledLabel = isClassSessionRezoned(session) ? scheduledClassTimeLabel(session) : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,6 +77,11 @@ function ClassSessionDetailsDialog({ open, onOpenChange, session, course, date, 
             <dd className="min-w-0 font-medium">
               {timeRange}
               {duration && <span className="ml-2 text-xs font-normal text-muted-foreground">({duration})</span>}
+              {scheduledLabel && (
+                <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                  Scheduled for {scheduledLabel}
+                </span>
+              )}
             </dd>
           </div>
           <div className="flex items-start gap-3">

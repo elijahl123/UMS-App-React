@@ -138,6 +138,7 @@ function buildClassSession(params: Params, existing?: Row): Row {
     start_time: text(params.startTime),
     end_time: text(params.endTime),
     location: nullableText(params.location),
+    timezone: nullableText(params.timeZone),
   };
 }
 
