@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import TimeZoneSelect from '@/app/components/TimeZoneSelect';
 import { getBrowserTimeZone } from '@/app/data/assignmentDates';
+import { describeTimeZone } from '@/lib/timeZones';
 import type { NotificationPreferences } from '@/app/data/types';
 import { getNotificationPreferences, updateNotificationPreferences } from '@/app/lib/notifications/client';
 import {
@@ -28,6 +29,7 @@ function notificationPreferencePayload(preferences: NotificationPreferences): Om
     quietHoursStart: preferences.quietHoursStart,
     quietHoursEnd: preferences.quietHoursEnd,
     timeZone: preferences.timeZone,
+    timeZoneFollowsDevice: preferences.timeZoneFollowsDevice,
   };
 }
 
@@ -50,10 +52,13 @@ function NotificationsSection() {
       ]);
 
       if (preferencesResult.status === 'fulfilled') {
-        const browserTimeZone = getBrowserTimeZone();
         setNotificationPreferences({
           ...preferencesResult.value,
-          timeZone: preferencesResult.value.timeZone === 'UTC' ? browserTimeZone : preferencesResult.value.timeZone,
+          // While following, the next sync will store this anyway — show it now
+          // rather than the zone the account was last synced from.
+          timeZone: preferencesResult.value.timeZoneFollowsDevice
+            ? getBrowserTimeZone()
+            : preferencesResult.value.timeZone,
         });
         setNotificationsError(
           permissionResult.status === 'rejected'
@@ -136,8 +141,23 @@ function NotificationsSection() {
   };
 
   const handleTimeZoneChange = async (timeZone: string) => {
-    if (!notificationPreferences || timeZone === notificationPreferences.timeZone) return;
-    await saveNotificationPreferences({ ...notificationPreferences, timeZone }, 'Reminder time zone saved.');
+    if (!notificationPreferences) return;
+    if (timeZone === notificationPreferences.timeZone && !notificationPreferences.timeZoneFollowsDevice) return;
+
+    // Choosing a zone by hand pins it, so it survives syncing from a device
+    // that is somewhere else.
+    await saveNotificationPreferences(
+      { ...notificationPreferences, timeZone, timeZoneFollowsDevice: false },
+      'Reminder time zone saved.'
+    );
+  };
+
+  const handleFollowDevice = async () => {
+    if (!notificationPreferences) return;
+    await saveNotificationPreferences(
+      { ...notificationPreferences, timeZone: getBrowserTimeZone(), timeZoneFollowsDevice: true },
+      'Reminders now follow this device.'
+    );
   };
 
   const handleQuietHoursChange = async (changes: Partial<NotificationPreferences>) => {
@@ -255,14 +275,28 @@ function NotificationsSection() {
             <div className="grid gap-2 rounded-md border p-4">
               <span className="text-sm font-medium text-foreground">Reminder time zone</span>
               <span className="text-sm text-muted-foreground">
-                Reminders and quiet hours follow this clock. Update it when you move.
+                {notificationPreferences.timeZoneFollowsDevice
+                  ? 'Reminders and quiet hours follow this device, so they move with you.'
+                  : 'Reminders and quiet hours stay on this clock wherever you are.'}
               </span>
               <TimeZoneSelect
                 className="sm:max-w-sm"
                 value={notificationPreferences.timeZone}
                 disabled={notificationsSubmitting}
                 onChange={handleTimeZoneChange}
+                hideDeviceShortcut
               />
+              {!notificationPreferences.timeZoneFollowsDevice && (
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto justify-self-start p-0 text-xs font-normal"
+                  disabled={notificationsSubmitting}
+                  onClick={handleFollowDevice}
+                >
+                  Follow this device instead ({describeTimeZone(getBrowserTimeZone()).city})
+                </Button>
+              )}
             </div>
 
             <div className="grid gap-3 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto] sm:items-end">

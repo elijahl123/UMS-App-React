@@ -291,6 +291,8 @@ export interface NotificationPreferences {
   quietHoursStart: string | null;
   quietHoursEnd: string | null;
   timeZone: string;
+  /** While true, `timeZone` tracks the device that last synced. */
+  timeZoneFollowsDevice: boolean;
 }
 
 export interface NotificationInstance {

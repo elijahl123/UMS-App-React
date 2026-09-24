@@ -26,6 +26,8 @@ export interface NotificationPreferences {
   quietHoursStart: string | null;
   quietHoursEnd: string | null;
   timeZone: string;
+  /** While true, `timeZone` is kept in step with whatever device last synced. */
+  timeZoneFollowsDevice: boolean;
 }
 
 interface NotificationInstanceInput {
@@ -96,6 +98,7 @@ function mapPreferences(row: Record<string, unknown>): NotificationPreferences {
     quietHoursStart: row.quiet_hours_start ? normalizeTime(String(row.quiet_hours_start)) : null,
     quietHoursEnd: row.quiet_hours_end ? normalizeTime(String(row.quiet_hours_end)) : null,
     timeZone: normalizeTimeZone(String(row.time_zone || 'UTC')),
+    timeZoneFollowsDevice: row.time_zone_follows_device !== false,
   };
 }
 
@@ -181,8 +184,30 @@ async function getNotificationPreferences(userId: string): Promise<NotificationP
   return mapPreferences(result.rows[0]);
 }
 
-export async function syncNotificationInstancesForUser(userId: string) {
-  const preferences = await getNotificationPreferences(userId);
+/**
+ * Pulls the stored reminder zone into step with the device that is syncing.
+ * A zone the student picked by hand is left alone.
+ */
+async function adoptDeviceTimeZone(userId: string, deviceTimeZone: string | undefined, preferences: NotificationPreferences) {
+  if (!deviceTimeZone || !preferences.timeZoneFollowsDevice) return preferences;
+
+  const normalized = normalizeTimeZone(deviceTimeZone, preferences.timeZone);
+  if (normalized === preferences.timeZone) return preferences;
+
+  await pool.query(
+    `
+      UPDATE notification_preferences
+      SET time_zone = $2, updated_at = NOW()
+      WHERE user_id = $1 AND time_zone_follows_device;
+    `,
+    [userId, normalized]
+  );
+
+  return { ...preferences, timeZone: normalized };
+}
+
+export async function syncNotificationInstancesForUser(userId: string, deviceTimeZone?: string) {
+  const preferences = await adoptDeviceTimeZone(userId, deviceTimeZone, await getNotificationPreferences(userId));
 
   await pool.query(
     `
@@ -425,9 +450,10 @@ notificationsRouter.put('/preferences', async (req, res) => {
           quiet_hours_enabled,
           quiet_hours_start,
           quiet_hours_end,
-          time_zone
+          time_zone,
+          time_zone_follows_device
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::time, NULLIF($9, '')::time, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::time, NULLIF($9, '')::time, $10, $11)
         ON CONFLICT (user_id)
         DO UPDATE SET
           enabled = EXCLUDED.enabled,
@@ -439,6 +465,7 @@ notificationsRouter.put('/preferences', async (req, res) => {
           quiet_hours_start = EXCLUDED.quiet_hours_start,
           quiet_hours_end = EXCLUDED.quiet_hours_end,
           time_zone = EXCLUDED.time_zone,
+          time_zone_follows_device = EXCLUDED.time_zone_follows_device,
           updated_at = NOW()
         RETURNING *;
       `,
@@ -453,6 +480,8 @@ notificationsRouter.put('/preferences', async (req, res) => {
         body.quietHoursStart ?? null,
         body.quietHoursEnd ?? null,
         timeZone,
+        // Saving a zone by hand pins it; only an explicit opt-in resumes following.
+        body.timeZoneFollowsDevice === true,
       ]
     );
     await syncNotificationInstancesForUser(userId);
@@ -465,7 +494,8 @@ notificationsRouter.put('/preferences', async (req, res) => {
 notificationsRouter.post('/sync', requireFullWriteAccess, async (req, res) => {
   try {
     const userId = await currentUserId(req);
-    const instances = await syncNotificationInstancesForUser(userId);
+    const deviceTimeZone = typeof req.body?.timeZone === 'string' ? req.body.timeZone : undefined;
+    const instances = await syncNotificationInstancesForUser(userId, deviceTimeZone);
     res.json({ instances });
   } catch (err) {
     sendError(res, err);

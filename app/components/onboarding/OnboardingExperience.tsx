@@ -517,7 +517,10 @@ export default function OnboardingExperience() {
       await updateNotificationPreferences({
         ...preferences,
         enabled: true,
-        timeZone: preferences.timeZone || getBrowserTimeZone(),
+        // Start on this device's clock and keep following it, so reminders
+        // stay right if they move later.
+        timeZone: getBrowserTimeZone(),
+        timeZoneFollowsDevice: true,
       });
       await syncAndScheduleNotifications();
       setRemindersEnabled(true);

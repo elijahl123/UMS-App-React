@@ -213,11 +213,20 @@ async function scheduleNative(instances: NotificationInstance[]) {
     return true;
   }
 
-  const previousIds = getStoredScheduledIds();
-  if (previousIds.length > 0) {
+  // Cancel by what the OS actually holds, not just by the ids this install
+  // happens to remember. Anything scheduled before the ids were lost (cleared
+  // site data, a reinstall, an older build) would otherwise sit in the queue
+  // and keep firing on whatever clock it was scheduled with.
+  const pendingIds = await nativeNotificationCall(
+    'pending lookup',
+    async () => (await native.plugin.getPending()).notifications.map((notification) => notification.id),
+    null
+  );
+  const staleIds = [...new Set([...getStoredScheduledIds(), ...(pendingIds ?? [])])];
+  if (staleIds.length > 0) {
     await nativeNotificationCall(
       'cancel',
-      () => native.plugin.cancel({ notifications: previousIds.map((id) => ({ id })) }),
+      () => native.plugin.cancel({ notifications: staleIds.map((id) => ({ id })) }),
       undefined
     );
   }

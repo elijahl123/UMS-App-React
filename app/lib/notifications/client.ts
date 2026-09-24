@@ -1,5 +1,6 @@
 import { apiFetch, getApiAuthHeaders } from '@/app/lib/api/client';
 import { mapNotificationInstance } from '@/app/data/mappers';
+import { getBrowserTimeZone } from '@/lib/timeZones';
 import type { NotificationInstance, NotificationPreferences } from '@/app/data/types';
 
 async function notificationRequest<TResult>(path: string, options?: RequestInit): Promise<TResult> {
@@ -32,7 +33,13 @@ export function updateNotificationPreferences(preferences: Omit<NotificationPref
 }
 
 export async function syncNotificationInstances() {
-  const result = await notificationRequest<{ instances: unknown[] }>('/sync', { method: 'POST' });
+  // Reminder times are computed server-side, so every sync reports the clock
+  // this device is actually on. Without it a student who moved keeps getting
+  // reminders on the zone they first signed up in.
+  const result = await notificationRequest<{ instances: unknown[] }>('/sync', {
+    method: 'POST',
+    body: JSON.stringify({ timeZone: getBrowserTimeZone() }),
+  });
   return result.instances.map((row) => mapNotificationInstance(row as never));
 }
 

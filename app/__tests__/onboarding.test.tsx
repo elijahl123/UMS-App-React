@@ -90,6 +90,7 @@ describe('guided onboarding', () => {
       quietHoursEnabled: false,
       quietHoursStart: null,
       quietHoursEnd: null,
+      timeZoneFollowsDevice: true,
       timeZone: 'America/Los_Angeles',
     });
 
